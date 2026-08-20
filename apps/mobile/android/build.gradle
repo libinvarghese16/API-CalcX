@@ -1,0 +1,40 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
+buildscript {
+
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.13.0'
+        classpath 'com.google.gms:google-services:4.4.4'
+
+        // NOTE: Do not place your application dependencies here; they belong
+        // in the individual module build.gradle files
+    }
+}
+
+apply from: "variables.gradle"
+
+def localBuildBase = System.getenv('API_CALC_PRO_ANDROID_BUILD_ROOT')
+if (!localBuildBase) {
+    def localAppData = System.getenv('LOCALAPPDATA')
+    localBuildBase = localAppData ? new File(localAppData, 'ApiCalcPro/gradle-build').absolutePath : new File(System.getProperty('java.io.tmpdir'), 'ApiCalcPro/gradle-build').absolutePath
+}
+
+rootProject.buildDir = new File(localBuildBase, 'root')
+subprojects {
+    buildDir = new File(localBuildBase, project.name)
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+task clean(type: Delete) {
+    delete localBuildBase
+}

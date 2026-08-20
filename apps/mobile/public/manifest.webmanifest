@@ -1,0 +1,21 @@
+{
+  "name": "API Calc Pro",
+  "short_name": "API Calc Pro",
+  "description": "Local-first engineering calculation workspace for API 510, API 570, API 653, and original API 571 reference guidance.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f3f7f6",
+  "theme_color": "#0b5b57",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/brand/api-calc-mark.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

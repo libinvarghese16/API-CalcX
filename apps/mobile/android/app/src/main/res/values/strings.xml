@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">API Calc Pro</string>
+    <string name="title_activity_main">API Calc Pro</string>
+    <string name="package_name">com.libinvarghese.apicalcpro</string>
+    <string name="custom_url_scheme">com.libinvarghese.apicalcpro</string>
+</resources>

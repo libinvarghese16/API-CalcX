@@ -1,0 +1,22 @@
+{
+  "name": "api-calc-pro-platform",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/mobile",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @api-calc-pro/mobile",
+    "build": "npm run build --workspace @api-calc-pro/mobile",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "refresh:materials": "node tools/build-pv-material-catalog.mjs",
+    "verify:materials": "node tools/build-pv-material-catalog.mjs --check",
+    "verify:baseline": "node tools/verify-source-baseline.mjs",
+    "check": "npm run verify:baseline && npm run verify:materials && npm run test && npm run typecheck && npm run build"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
