@@ -147,6 +147,7 @@ export function calculateApi570Piping(input: Api570PipingInputSI): Api570PipingR
   addNonNegativeIssue(issues, "yearsSincePreviousInspection", input.yearsSincePreviousInspection, "Years since previous inspection");
   addNonNegativeIssue(issues, "allowanceMm", finiteOrZero(input.allowanceMm), "Allowance");
   if (input.structuralMinimumThicknessMm !== undefined) addNonNegativeIssue(issues, "structuralMinimumThicknessMm", input.structuralMinimumThicknessMm, "Structural minimum thickness");
+  if ((input.structuralMinimumThicknessMm ?? 0) > 0) issues.push({ code: "structural-minimum-applicability-review", field: "structuralMinimumThicknessMm", severity: "warning", message: "The entered API 574 structural minimum requires confirmation of NPS, span, supports, vibration, external loading, pressure class, and table applicability." });
   if (input.minimumThicknessMm !== undefined) addNonNegativeIssue(issues, "minimumThicknessMm", input.minimumThicknessMm, "Minimum thickness");
 
   if (!definition.calculationMode) {
@@ -213,10 +214,12 @@ export function calculateApi570Piping(input: Api570PipingInputSI): Api570PipingR
   const corrosionAllowanceMm = actualThicknessMm > 0 && minimumThicknessUsedMm > 0 ? Math.max(actualThicknessMm - minimumThicknessUsedMm, 0) : 0;
   const remainingLifeYears = governingCorrosionRateMmPerYear > 0 ? corrosionAllowanceMm / governingCorrosionRateMmPerYear : 0;
   const projectedThicknessMm = actualThicknessMm > 0 ? Math.max(actualThicknessMm - (governingCorrosionRateMmPerYear * intervalYears), 0) : 0;
-  const futureMawpThicknessMm = actualThicknessMm > 0 ? Math.max(actualThicknessMm - (2 * governingCorrosionRateMmPerYear * intervalYears), 0) : 0;
+  const futureMawpThicknessMm = projectedThicknessMm;
   const mawpValues = { D, S, E, W, Y, F, T, Mf, Hf };
   const governingMawpMpa = pressureBasisValid ? mawpFromThickness(definition.calculationMode, actualThicknessMm, definition.usesAllowance, allowance, mawpValues) : 0;
   const futureMawpMpa = pressureBasisValid ? mawpFromThickness(definition.calculationMode, futureMawpThicknessMm, definition.usesAllowance, allowance, mawpValues) : 0;
+
+  issues.push({ code: "test-pressure-planning-only", field: "calculation", severity: "warning", message: "Displayed hydrostatic and pneumatic pressures are planning multipliers only; use the dedicated code-specific test route and confirm the controlled code edition, stress ratios, component limits, and approved procedure." });
 
   return {
     engineId: ENGINE_ID, engineVersion: ENGINE_VERSION, ok: !issues.some((issue) => issue.severity === "error"), issues,

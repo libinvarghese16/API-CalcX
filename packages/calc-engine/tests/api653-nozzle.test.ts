@@ -21,6 +21,7 @@ const goldenInput: Api653NozzleAssessmentInputSI = {
     nominalPipeSizeIn: "4",
     minimumThicknessMode: "auto",
     manualMinimumThicknessMm: 2.41,
+    pressureMinimumThicknessMm: 2,
     originalThicknessMm: 10,
     previousThicknessMm: 9.5,
     actualThicknessMm: 9,
@@ -38,6 +39,9 @@ test("matches the protected Nozzle golden case", () => {
   assert.equal(nozzle.minimumSelection.tableId, "API 574 Table D.2b");
   assert.equal(nozzle.minimumSelection.lookupSizeIn, "4");
   assert.equal(nozzle.automaticMinimumThicknessMm, 2.41);
+  assert.equal(nozzle.structuralMinimumThicknessMmUsed, 2.41);
+  assert.equal(nozzle.pressureMinimumThicknessMmUsed, 2);
+  assert.equal(nozzle.governingMinimumBasis, "structural");
   approximately(nozzle.corrosionAllowanceMm, 6.59);
   approximately(nozzle.longTermCorrosionRateMmPerYear, 0.05);
   approximately(nozzle.shortTermCorrosionRateMmPerYear, 0.1);
@@ -102,6 +106,29 @@ test("supports a highlighted manual minimum while preserving the automatic recom
   approximately(nozzle.remainingLifeYears, 50);
 });
 
+test("uses the larger pressure-design minimum as the governing nozzle thickness", () => {
+  const result = calculateApi653NozzleAssessment({
+    ...goldenInput,
+    nozzles: [{ ...goldenInput.nozzles[0]!, pressureMinimumThicknessMm: 4 }],
+  });
+  const nozzle = result.nozzles[0];
+  assert.ok(nozzle);
+
+  assert.equal(nozzle.governingMinimumBasis, "pressure");
+  assert.equal(nozzle.minimumThicknessMmUsed, 4);
+  approximately(nozzle.remainingLifeYears, 50);
+});
+
+test("blocks a nozzle assessment without a pressure-design minimum", () => {
+  const result = calculateApi653NozzleAssessment({
+    ...goldenInput,
+    nozzles: [{ ...goldenInput.nozzles[0]!, pressureMinimumThicknessMm: 0 }],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.issues.some((issue) => issue.code === "pressure-minimum-required"));
+});
+
 test("summarizes multiple nozzles using protected min-life and maximum-rate rules", () => {
   const result = calculateApi653NozzleAssessment({
     ...goldenInput,
@@ -143,6 +170,7 @@ test("reproduces the golden result from equivalent Fahrenheit and inch entries",
       originalThicknessMm: convertUnitToSI(10 / 25.4, "length", "in"),
       previousThicknessMm: convertUnitToSI(9.5 / 25.4, "length", "in"),
       actualThicknessMm: convertUnitToSI(9 / 25.4, "length", "in"),
+      pressureMinimumThicknessMm: convertUnitToSI(2 / 25.4, "length", "in"),
     }],
   };
   const result = calculateApi653NozzleAssessment(inputFromSite);

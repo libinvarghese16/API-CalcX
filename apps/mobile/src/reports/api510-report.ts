@@ -140,6 +140,7 @@ export function createApi510ReportModel(context: Api510ReportContext): Api510Rep
     inputs.inspectionYearsMode === "manual" ? "Years since previous inspection" : null,
   ].filter((value): value is string => Boolean(value));
   const issues = result.issues.map((issue) => ({ severity: issue.severity, message: issue.message }));
+  const hasWarnings = issues.some((issue) => issue.severity === "warning");
   const workflow = context.workflow;
   const preparedBy = workflow?.preparedBy || context.preparedBy;
   const statusLabels: Record<CalculationWorkflowStatus, string> = {
@@ -199,11 +200,9 @@ export function createApi510ReportModel(context: Api510ReportContext): Api510Rep
       { label: "Pneumatic planning pressure", value: `${formatDisplayNumber(convertFromSI(result.pneumaticTestPressureMpa, "pressure", inputs.unitSystem))} ${pressureUnit}` },
     ],
     traceRows: [
-      { label: "Engine", value: result.engineId },
-      { label: "Engine version", value: result.engineVersion },
-      { label: "Calculation status", value: result.ok ? "Completed without engine errors" : "Input review required" },
-      { label: "Source verification", value: "Protected original-site parity gate completed" },
-      { label: "Report source", value: "Same structured result snapshot shown in the application" },
+      { label: "Calculation status", value: result.ok ? "Completed without calculation errors" : "Input review required" },
+      { label: "Input source", value: "Visible project, design, and inspection values" },
+      { label: "Report source", value: "Same calculated result snapshot shown in the application" },
     ],
     workflowRows: [
       { label: "Workflow status", value: context.status.toUpperCase(), emphasis: context.status === "draft" ? "warning" : "primary" },
@@ -232,7 +231,9 @@ export function createApi510ReportModel(context: Api510ReportContext): Api510Rep
       ? "The result contains validation errors and is not ready for engineering review. Correct the listed inputs and regenerate this preview."
       : overrides.length > 0
         ? `The calculation completed with ${overrides.length} manual override${overrides.length === 1 ? "" : "s"}. Verify each highlighted value against the controlled engineering basis before approval or issue.`
-        : "The calculation completed against the protected legacy parity baseline. A qualified engineer must still confirm applicability, the controlled code edition, inspection data, and final disposition before issue.",
+        : hasWarnings
+          ? "The arithmetic completed without input errors, but engineering scope warnings remain. A qualified engineer must confirm equation applicability, geometry, the controlled code edition, material data, test-pressure basis, and final disposition before issue."
+          : "The calculation completed successfully. A qualified engineer must still confirm applicability, the controlled code edition, inspection data, and final disposition before issue.",
   };
 }
 

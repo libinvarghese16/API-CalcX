@@ -23,6 +23,7 @@ const calculationPages = new Set([
   "api653-nozzles",
   "api653-roof",
   "api653-other-4-3-2",
+  "api571-damage-mechanisms",
 ]);
 
 export function resolveNativeBackAction(page: string, mobileMenuOpen: boolean): NativeBackAction {

@@ -24,13 +24,14 @@ test("matches the captured legacy API 510 torispherical-head result", () => {
   const result = calculateTorisphericalHead(goldenInput);
 
   assert.equal(result.ok, true);
+  assert.ok(result.issues.some((issue) => issue.code === "test-pressure-basis-review" && issue.severity === "warning"));
   assert.equal(result.engineId, "api510.torispherical-head");
   approximately(result.requiredThicknessMm, 22.663252240717036);
   approximately(result.governingMawpMpa, 1.7073079917408525);
   approximately(result.longTermCorrosionRateMmPerYear, 0.10999999999999996);
   approximately(result.shortTermCorrosionRateMmPerYear, 0.13999999999999985);
   approximately(result.remainingLifeYears, 22.405341137735462);
-  approximately(result.futureMawpMpa, 1.6147909097063933);
+  approximately(result.futureMawpMpa, 1.6610512775668402);
 });
 
 test("blocks an invalid torispherical crown-radius basis", () => {

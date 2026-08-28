@@ -36,6 +36,7 @@ export function Api510ReportPreview({ model, onClose, onOpenCalculation, onAppro
   const [approvalNotes, setApprovalNotes] = useState(model.approvalNotes);
   const [approvalConfirmed, setApprovalConfirmed] = useState(false);
   const [submittingApproval, setSubmittingApproval] = useState(false);
+  const hasWarnings = model.issues.some((issue) => issue.severity === "warning");
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
@@ -77,7 +78,7 @@ export function Api510ReportPreview({ model, onClose, onOpenCalculation, onAppro
               <div className="report-meta-strip"><span><small>Prepared by</small><strong>{model.preparedBy}</strong></span><span><small>Generated / updated</small><strong>{model.preparedAt}</strong></span><span><small>Document type</small><strong>Local working preview</strong></span></div>
             </header>
 
-            <section className="report-callout"><div>{model.resultOk ? <CircleCheck size={22} /> : <TriangleAlert size={22} />}</div><span><strong>{model.resultOk ? "Calculation engine completed" : "Calculation requires input review"}</strong><p>{model.conclusion}</p></span></section>
+            <section className="report-callout"><div>{model.resultOk && !hasWarnings ? <CircleCheck size={22} /> : <TriangleAlert size={22} />}</div><span><strong>{!model.resultOk ? "Calculation requires input review" : hasWarnings ? "Engineering scope review required" : "Calculation completed"}</strong><p>{model.conclusion}</p></span></section>
 
             <div className="report-section-grid two-column">
               <section className="report-section"><div className="report-section-title"><span>01</span><div><p>Identification</p><h2>Project and equipment</h2></div></div><ReportRows rows={model.projectRows} /></section>
@@ -86,13 +87,13 @@ export function Api510ReportPreview({ model, onClose, onOpenCalculation, onAppro
 
             <section className="report-section"><div className="report-section-title"><span>03</span><div><p>Field history</p><h2>Inspection and thickness inputs</h2></div></div><ReportRows rows={model.inspectionRows} /></section>
 
-            <section className="report-section result-report-section"><div className="report-section-title"><span>04</span><div><p>Structured engine output</p><h2>Calculated results</h2></div></div><ReportRows rows={model.resultRows} /></section>
+            <section className="report-section result-report-section"><div className="report-section-title"><span>04</span><div><p>Calculation output</p><h2>Calculated results</h2></div></div><ReportRows rows={model.resultRows} /></section>
 
             <section className="report-section"><div className="report-section-title"><span>05</span><div><p>Future condition</p><h2>Inspection planning values</h2></div></div><ReportRows rows={model.planningRows} /></section>
 
             <div className="report-section-grid two-column lower-report-grid">
               <section className="report-section"><div className="report-section-title"><span>06</span><div><p>Audit information</p><h2>Calculation traceability</h2></div></div><ReportRows rows={model.traceRows} /></section>
-              <section className="report-section"><div className="report-section-title"><span>07</span><div><p>Engineering review</p><h2>Issues and overrides</h2></div></div><div className="report-review-list"><div className={model.overrides.length ? "is-warning" : "is-clear"}>{model.overrides.length ? <TriangleAlert size={17} /> : <Check size={17} />}<span><strong>Manual overrides</strong><small>{model.overrides.length ? model.overrides.join(" · ") : "None"}</small></span></div><div className={model.issues.length ? "is-warning" : "is-clear"}>{model.issues.length ? <TriangleAlert size={17} /> : <Check size={17} />}<span><strong>Engine issues</strong><small>{model.issues.length ? model.issues.map((issue) => issue.message).join(" · ") : "None"}</small></span></div><div className={model.workflowStatus !== "draft" ? "is-clear" : "is-warning"}>{model.workflowStatus !== "draft" ? <Check size={17} /> : <ShieldCheck size={17} />}<span><strong>Workflow review</strong><small>{model.workflowStatus !== "draft" ? `Reviewed by ${model.reviewerName}` : "Review confirmation is pending"}</small></span></div></div></section>
+              <section className="report-section"><div className="report-section-title"><span>07</span><div><p>Engineering review</p><h2>Issues and overrides</h2></div></div><div className="report-review-list"><div className={model.overrides.length ? "is-warning" : "is-clear"}>{model.overrides.length ? <TriangleAlert size={17} /> : <Check size={17} />}<span><strong>Manual overrides</strong><small>{model.overrides.length ? model.overrides.join(" · ") : "None"}</small></span></div><div className={model.issues.length ? "is-warning" : "is-clear"}>{model.issues.length ? <TriangleAlert size={17} /> : <Check size={17} />}<span><strong>Calculation issues</strong><small>{model.issues.length ? model.issues.map((issue) => issue.message).join(" · ") : "None"}</small></span></div><div className={model.workflowStatus !== "draft" ? "is-clear" : "is-warning"}>{model.workflowStatus !== "draft" ? <Check size={17} /> : <ShieldCheck size={17} />}<span><strong>Workflow review</strong><small>{model.workflowStatus !== "draft" ? `Reviewed by ${model.reviewerName}` : "Review confirmation is pending"}</small></span></div></div></section>
             </div>
 
             <section className="report-section workflow-report-section"><div className="report-section-title"><span>08</span><div><p>Document control</p><h2>Workflow and revision history</h2></div></div><ReportRows rows={model.workflowRows} />{model.reviewNotes || model.approvalNotes ? <div className="report-note-grid"><div><span>Reviewer notes</span><p>{model.reviewNotes || "None"}</p></div><div><span>Approval notes</span><p>{model.approvalNotes || "None"}</p></div></div> : null}<div className="revision-history">{model.revisionHistory.length ? model.revisionHistory.map((entry, index) => <div key={`${entry.event}-${entry.timestamp}-${index}`}><b>{entry.event}</b><span><strong>{entry.actor}</strong><small>{entry.timestamp}</small></span><p>{entry.note}</p></div>) : <p>No persisted workflow events for this live preview.</p>}</div></section>

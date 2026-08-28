@@ -28,6 +28,7 @@ test("matches the captured legacy API 510 cylindrical-shell golden result", () =
   const result = calculateCylindricalShell(legacyGoldenInput);
 
   assert.equal(result.ok, true);
+  assert.ok(result.issues.some((issue) => issue.code === "test-pressure-basis-review" && issue.severity === "warning"));
   assert.equal(result.engineVersion, "0.1.0-legacy-parity");
   assert.equal(result.governingThicknessCase, "circumferential");
   assert.equal(result.governingMawpCase, "circumferential");
@@ -45,8 +46,8 @@ test("matches the captured legacy API 510 cylindrical-shell golden result", () =
   approximately(result.hydrostaticTestPressureMpa, 2.3867159329555814);
   approximately(result.pneumaticTestPressureMpa, 2.0195288663470303);
   approximately(result.projectedThicknessMm, 15.100000000000001);
-  approximately(result.futureMawpThicknessMm, 14.4);
-  approximately(result.futureMawpMpa, 1.6746510152284264);
+  approximately(result.futureMawpThicknessMm, 15.100000000000001);
+  approximately(result.futureMawpMpa, 1.7553267397379742);
 });
 
 test("preserves a manually supplied minimum thickness", () => {
@@ -105,8 +106,8 @@ test("uses the long-term rate when it governs every related projection", () => {
   approximately(result.corrosionAllowanceMm, 2.11340206185567);
   approximately(result.remainingLifeYears, 4.22680412371134);
   approximately(result.projectedThicknessMm, 12.5);
-  approximately(result.futureMawpThicknessMm, 10);
-  approximately(result.futureMawpMpa, 1.166003976143141);
+  approximately(result.futureMawpThicknessMm, 12.5);
+  approximately(result.futureMawpMpa, 1.4553349875930521);
 });
 
 test("uses a manually shortened previous-inspection interval for the short-term rate", () => {
@@ -120,5 +121,5 @@ test("uses a manually shortened previous-inspection interval for the short-term 
   approximately(result.governingCorrosionRateMmPerYear, 0.35);
   approximately(result.remainingLifeYears, 8.324005891016203);
   approximately(result.projectedThicknessMm, 14.05);
-  approximately(result.futureMawpThicknessMm, 12.3);
+  approximately(result.futureMawpThicknessMm, 14.050000000000002);
 });

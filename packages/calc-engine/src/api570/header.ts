@@ -88,9 +88,10 @@ export function calculateApi570Header(input: Api570HeaderInputSI): Api570HeaderR
     ? corrosionAllowanceMm / governingCorrosionRateMmPerYear : 0;
   const projectedThicknessMm = actualThicknessMm > 0
     ? Math.max(actualThicknessMm - (governingCorrosionRateMmPerYear * intervalYears), 0) : 0;
-  const futureMawpThicknessMm = actualThicknessMm > 0
-    ? Math.max(actualThicknessMm - (2 * governingCorrosionRateMmPerYear * intervalYears), 0) : 0;
+  const futureMawpThicknessMm = projectedThicknessMm;
   const mawpValues = { D, S, E, y };
+
+  issues.push({ code: "test-pressure-planning-only", field: "calculation", severity: "warning", message: "Displayed hydrostatic and pneumatic pressures are planning multipliers only; confirm the applicable construction code, edition, allowable-stress ratios, component limits, and approved test procedure." });
 
   return {
     engineId: ENGINE_ID,

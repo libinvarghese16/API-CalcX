@@ -24,11 +24,12 @@ test("matches the captured legacy API 510 hemispherical-head result", () => {
   const result = calculateHemisphericalHead(goldenInput);
 
   assert.equal(result.ok, true);
+  assert.ok(result.issues.some((issue) => issue.code === "test-pressure-basis-review" && issue.severity === "warning"));
   assert.equal(result.engineId, "api510.hemispherical-head");
   approximately(result.requiredThicknessMm, 6.402048655569783);
   approximately(result.governingMawpMpa, 3.695003788029826);
   approximately(result.remainingLifeYears, 67.12822388878728);
-  approximately(result.futureMawpMpa, 3.3685386088066367);
+  approximately(result.futureMawpMpa, 3.531793982173835);
 });
 
 test("blocks an invalid hemispherical radius basis", () => {

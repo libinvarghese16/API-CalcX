@@ -177,12 +177,13 @@ export function calculateApi653ShellAssessment(input: Api653ShellAssessmentInput
       : 0;
     const minimumThicknessMm = baseReady && productStressMpaUsed > 0 ? Math.max(calculatedMinimumThicknessMm, 2.5) : 0;
     const minimumThicknessFloorApplied = calculatedMinimumThicknessMm > 0 && calculatedMinimumThicknessMm < 2.5;
-    const commonDenominator = 4.9 * diameterMUsed * specificGravityUsed;
-    const hydrostaticTestHeightM = baseReady && hydroStressMpaUsed > 0 && actualThicknessMmUsed > 0 && commonDenominator > 0
-      ? ((hydroStressMpaUsed * jointEfficiencyUsed * actualThicknessMmUsed) / commonDenominator) + 0.3
+    const operatingDenominator = 4.9 * diameterMUsed * specificGravityUsed;
+    const hydrostaticDenominator = 4.9 * diameterMUsed;
+    const hydrostaticTestHeightM = baseReady && hydroStressMpaUsed > 0 && actualThicknessMmUsed > 0 && hydrostaticDenominator > 0
+      ? ((hydroStressMpaUsed * jointEfficiencyUsed * actualThicknessMmUsed) / hydrostaticDenominator) + 0.3
       : 0;
-    const operatingFillHeightM = baseReady && productStressMpaUsed > 0 && actualThicknessMmUsed > 0 && commonDenominator > 0
-      ? ((productStressMpaUsed * jointEfficiencyUsed * actualThicknessMmUsed) / commonDenominator) + 0.3
+    const operatingFillHeightM = baseReady && productStressMpaUsed > 0 && actualThicknessMmUsed > 0 && operatingDenominator > 0
+      ? ((productStressMpaUsed * jointEfficiencyUsed * actualThicknessMmUsed) / operatingDenominator) + 0.3
       : 0;
     const corrosionAllowanceMm = actualThicknessMmUsed > 0 && minimumThicknessMm > 0 ? actualThicknessMmUsed - minimumThicknessMm : 0;
     const longTermCorrosionRateMmPerYear = yearsInServiceUsed > 0 && asBuiltThicknessMmUsed > 0 && actualThicknessMmUsed > 0

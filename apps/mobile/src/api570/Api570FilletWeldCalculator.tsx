@@ -152,7 +152,7 @@ export function Api570FilletWeldCalculator({ onBack, onNeedProject, notify, proj
           <div>
             <p className="eyebrow">API 570 · Other Piping Calculation 6 of 8</p>
             <h1>Fillet Weld Sizing</h1>
-            <p>Four focused geometry checks for fillet leg, throat, slip-on flange, and branch weld sizing.</p>
+            <p>Geometry-only checks for fillet leg, throat, slip-on flange, and branch weld dimensions.</p>
           </div>
           <div className="calculator-actions">
             <span className="save-state-badge"><CircleCheck size={14} /> Original-web parity</span>
@@ -229,29 +229,27 @@ export function Api570FilletWeldCalculator({ onBack, onNeedProject, notify, proj
 
         <aside className="result-column">
           <section className="result-card">
-            <div className="result-card-top"><Gauge size={17} /> Live engine <small>{result.ok ? "Parity passed" : "Input review"}</small></div>
-            <p>Slip-on flange Xmin</p>
-            <div className="result-value"><strong>{formatLength(result.slipOnFlangeXminMm, unitSystem)}</strong><span>{lengthUnit}</span></div>
+            <div className="result-card-top"><Gauge size={17} /> Calculation results <small>{result.ok ? "Calculated" : "Check inputs"}</small></div>
+            <div className="result-primary-grid"><div className="result-primary"><p>Slip-on flange Xmin</p><div className="result-primary-value"><strong>{formatLength(result.slipOnFlangeXminMm, unitSystem)}</strong><span>{lengthUnit}</span></div></div><div className="result-primary"><p>Branch throat tc</p><div className="result-primary-value"><strong>{formatLength(result.branchThroatTcMm, unitSystem)}</strong><span>{lengthUnit}</span></div></div></div>
             <div className="result-comparison">
               <span>Leg from throat<strong>{formatLength(result.legFromThroatMm, unitSystem)} {lengthUnit}</strong></span>
               <span>Throat from leg<strong>{formatLength(result.throatFromLegMm, unitSystem)} {lengthUnit}</strong></span>
             </div>
             <div className="result-comparison">
-              <span>Branch throat tc<strong>{formatLength(result.branchThroatTcMm, unitSystem)} {lengthUnit}</strong></span>
+              <span>Branch-throat limit<strong>{result.branchThroatCappedAt6Mm ? "6 mm cap applied" : "Calculated value"}</strong></span>
               <span>Xmin basis<strong>{xminSourceLabel(result.slipOnFlangeXminSource)}</strong></span>
             </div>
-            <div className={`result-status ${result.ok ? "is-valid" : ""}`}>
-              {result.ok ? <CircleCheck size={18} /> : <TriangleAlert size={18} />}
+            <div className={`result-status ${result.ok ? "is-manual" : ""}`}>
+              <TriangleAlert size={18} />
               <div>
-                <strong>{error ? "Resolve input issues" : "Calculation completed"}</strong>
-                <span>{error?.message ?? (result.branchThroatCappedAt6Mm ? "The protected 6 mm branch-throat cap governs tc." : "All four protected geometry dependencies are active.")}</span>
+                <strong>{error ? "Resolve input issues" : "Geometry result only"}</strong>
+                <span>{error?.message ?? "These dimensions do not establish branch reinforcement, pressure integrity, weld adequacy, or fabrication acceptance."}</span>
               </div>
             </div>
           </section>
           <section className="trace-card">
-            <p className="eyebrow">Result trace</p>
-            <h3>Visible calculation context</h3>
-            <div><span>Engine ID</span><strong>{result.engineId}</strong></div>
+            <p className="eyebrow">Supporting results</p>
+            <h3>Calculation details</h3>
             <div><span>Leg equation</span><strong>1.414 × throat = {formatDisplayNumber(result.legFromThroatMm)} mm</strong></div>
             <div><span>Throat equation</span><strong>0.707 × leg = {formatDisplayNumber(result.throatFromLegMm)} mm</strong></div>
             <div><span>1.4T candidate</span><strong>{formatDisplayNumber(result.pipeThicknessCandidateMm)} mm</strong></div>

@@ -7,7 +7,6 @@ import type {
   CalculationIssue,
 } from "../contracts.ts";
 import { convertSIToUnit, convertUnitToSI } from "../units/unit-conversion.ts";
-import { calculateApi653BottomPlate } from "./bottom-plate.ts";
 
 const ENGINE_ID = "api653.annular-plate" as const;
 
@@ -160,7 +159,7 @@ export function selectApi653AnnularMinimumThickness(input: Pick<Api653AnnularPla
   };
 }
 
-/** Complete protected Annular chain: shell stress → automatic/editable Tmin → plate remaining life. */
+/** Annular structural chain: shell stress -> controlled Tmin basis -> annular metal-loss remaining life. */
 export function calculateApi653AnnularPlate(input: Api653AnnularPlateInputSI): Api653AnnularPlateResultSI {
   const stress = calculateApi653AnnularStress(input);
   const manualStressIssue = input.calculatedStressMode === "manual"
@@ -184,15 +183,25 @@ export function calculateApi653AnnularPlate(input: Api653AnnularPlateInputSI): A
   const minimumThicknessMm = input.minimumThicknessMode === "auto"
     ? selection.valueMm ?? 0
     : Number.isFinite(input.manualMinimumThicknessMm) ? Math.max(input.manualMinimumThicknessMm, 0) : 0;
-  const plate = calculateApi653BottomPlate({
-    originalThicknessMm: input.originalThicknessMm,
-    previousThicknessMm: input.previousThicknessMm,
-    actualThicknessMm: input.actualThicknessMm,
-    minimumThicknessMm,
-    pittingDepthMm: input.pittingDepthMm,
-    yearsInService: input.yearsInService,
-    yearsSincePreviousInspection: input.yearsSincePreviousInspection,
-  });
+  const plateIssues = collectIssues(
+    positiveIssue("originalThicknessMm", input.originalThicknessMm, "Original annular thickness"),
+    positiveIssue("previousThicknessMm", input.previousThicknessMm, "Previous annular thickness"),
+    positiveIssue("actualThicknessMm", input.actualThicknessMm, "Current annular thickness"),
+    positiveIssue("yearsInService", input.yearsInService, "Years in service"),
+    positiveIssue("yearsSincePreviousInspection", input.yearsSincePreviousInspection, "Years since previous inspection"),
+  );
+  const originalThicknessMmUsed = Number.isFinite(input.originalThicknessMm) ? Math.max(input.originalThicknessMm, 0) : 0;
+  const previousThicknessMmUsed = Number.isFinite(input.previousThicknessMm) ? Math.max(input.previousThicknessMm, 0) : 0;
+  const actualThicknessMmUsed = Number.isFinite(input.actualThicknessMm) ? Math.max(input.actualThicknessMm, 0) : 0;
+  const yearsInServiceUsed = Number.isFinite(input.yearsInService) ? Math.max(input.yearsInService, 0) : 0;
+  const yearsSincePreviousInspectionUsed = Number.isFinite(input.yearsSincePreviousInspection) ? Math.max(input.yearsSincePreviousInspection, 0) : 0;
+  const metalLossLongMm = Math.max(originalThicknessMmUsed - actualThicknessMmUsed, 0);
+  const metalLossShortMm = Math.max(previousThicknessMmUsed - actualThicknessMmUsed, 0);
+  const longTermCorrosionRateMmPerYear = yearsInServiceUsed > 0 ? metalLossLongMm / yearsInServiceUsed : 0;
+  const shortTermCorrosionRateMmPerYear = yearsSincePreviousInspectionUsed > 0 ? metalLossShortMm / yearsSincePreviousInspectionUsed : 0;
+  const governingCorrosionRateMmPerYear = Math.max(longTermCorrosionRateMmPerYear, shortTermCorrosionRateMmPerYear);
+  const availableThicknessMm = Math.max(actualThicknessMmUsed - minimumThicknessMm, 0);
+  const remainingLifeYears = governingCorrosionRateMmPerYear > 0 ? availableThicknessMm / governingCorrosionRateMmPerYear : 0;
   const selectionIssues = input.minimumThicknessMode === "auto"
     ? selection.issues
     : selection.issues.map((issue) => ({ ...issue, severity: "warning" as const }));
@@ -200,18 +209,37 @@ export function calculateApi653AnnularPlate(input: Api653AnnularPlateInputSI): A
     ? stress.issues
     : stress.issues.map((issue) => ({ ...issue, severity: "warning" as const }));
   const issues = [
-    ...plate.issues,
+    ...plateIssues,
     ...stressIssues,
     ...selectionIssues,
     ...(manualStressIssue ? [manualStressIssue] : []),
     ...(manualMinimumIssue ? [manualMinimumIssue] : []),
   ];
+  if (input.specificGravity >= 1 && input.minimumThicknessMode === "auto" && !input.highSpecificGravityBasisConfirmed) {
+    issues.push({ code: "high-specific-gravity-basis-not-confirmed", field: "highSpecificGravityBasisConfirmed", severity: "error", message: "For specific gravity 1.0 or greater, confirm the controlled API 650 table/elastic-analysis basis before using the automatic annular minimum." });
+  }
 
   return {
-    ...plate,
     engineId: ENGINE_ID,
+    engineVersion: "0.1.0-original-web-parity",
     ok: !issues.some((issue) => issue.severity === "error"),
     issues,
+    originalThicknessMmUsed,
+    previousThicknessMmUsed,
+    actualThicknessMmUsed,
+    minimumThicknessMmUsed: minimumThicknessMm,
+    yearsInServiceUsed,
+    yearsSincePreviousInspectionUsed,
+    metalLossLongMm,
+    metalLossShortMm,
+    longTermCorrosionRateMmPerYear,
+    shortTermCorrosionRateMmPerYear,
+    maximumCorrosionRateLongMmPerYear: longTermCorrosionRateMmPerYear,
+    maximumCorrosionRateShortMmPerYear: shortTermCorrosionRateMmPerYear,
+    governingCorrosionRateMmPerYear,
+    governingThicknessMm: actualThicknessMmUsed,
+    availableThicknessMm,
+    remainingLifeYears,
     diameterMUsed: stress.diameterMUsed,
     liquidHeightMUsed: stress.liquidHeightMUsed,
     firstShellThicknessMmUsed: stress.firstShellThicknessMmUsed,

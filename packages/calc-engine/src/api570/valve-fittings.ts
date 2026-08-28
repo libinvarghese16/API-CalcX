@@ -27,8 +27,10 @@ function addPositiveIssue(
 export function calculateApi570ValveFittings(input: Api570ValveFittingsInputSI): Api570ValveFittingsResultSI {
   const issues: CalculationIssue[] = [];
   addPositiveIssue(issues, "designPressureMpa", input.designPressureMpa, "Design pressure");
-  addPositiveIssue(issues, "outsideDiameterMm", input.outsideDiameterMm, "Outside diameter");
-  addPositiveIssue(issues, "allowableStressMpa", input.allowableStressMpa, "Allowable stress");
+  if (input.assessmentBasis === "screening-only") {
+    addPositiveIssue(issues, "outsideDiameterMm", input.outsideDiameterMm, "Outside diameter");
+    addPositiveIssue(issues, "allowableStressMpa", input.allowableStressMpa, "Allowable stress");
+  }
 
   const rawQualityFactor = finiteOrZero(input.qualityFactor);
   const qualityFactorUsed = rawQualityFactor > 0 ? rawQualityFactor : 1;
@@ -71,19 +73,45 @@ export function calculateApi570ValveFittings(input: Api570ValveFittingsInputSI):
     ? 1.5 * ((P * D) / (2 * S * qualityFactorUsed))
     : 0;
   const netAvailableThicknessMm = Math.max(availableWallThicknessMm - allowanceUsedMm, 0);
+  const componentRatedPressureMpaUsed = Math.max(finiteOrZero(input.componentRatedPressureMpa), 0);
+  const codeRequiredThicknessMmUsed = Math.max(finiteOrZero(input.codeRequiredThicknessMm), 0);
+  let minimumRequiredThicknessMm = 0;
+  let allowableWorkingPressureMpa = 0;
+  let componentAdequate: boolean | null = null;
+  let assessmentStatus: "complete" | "screening" = "complete";
+  if (input.assessmentBasis === "listed-rating") {
+    addPositiveIssue(issues, "componentRatedPressureMpa", componentRatedPressureMpaUsed, "Listed component pressure rating");
+    allowableWorkingPressureMpa = componentRatedPressureMpaUsed;
+    componentAdequate = componentRatedPressureMpaUsed > 0 ? componentRatedPressureMpaUsed >= P : null;
+  } else if (input.assessmentBasis === "code-derived-thickness") {
+    addPositiveIssue(issues, "codeRequiredThicknessMm", codeRequiredThicknessMmUsed, "Code-derived minimum thickness");
+    minimumRequiredThicknessMm = codeRequiredThicknessMmUsed;
+    componentAdequate = codeRequiredThicknessMmUsed > 0 ? availableWallThicknessMm >= codeRequiredThicknessMmUsed : null;
+  } else if (input.assessmentBasis === "screening-only") {
+    assessmentStatus = "screening";
+    minimumRequiredThicknessMm = pressureDesignThicknessMm > 0 ? pressureDesignThicknessMm + allowanceUsedMm : 0;
+    allowableWorkingPressureMpa = inverseBasisValid && availableWallThicknessMm > allowanceUsedMm
+      ? (2 * S * qualityFactorUsed * netAvailableThicknessMm) / (1.5 * D)
+      : 0;
+    componentAdequate = null;
+    issues.push({ code: "screening-only-basis", field: "assessmentBasis", severity: "warning", message: "The 1.5 x Barlow route is a screening calculation only and is not a universal final code minimum for valves or flanged fittings." });
+  } else issues.push({ code: "assessment-basis-required", field: "assessmentBasis", severity: "error", message: "Select a listed-rating, code-derived thickness, or screening-only assessment basis." });
 
   return {
     engineId: ENGINE_ID,
     engineVersion: ENGINE_VERSION,
     ok: !issues.some((issue) => issue.severity === "error"),
     issues,
+    assessmentBasis: input.assessmentBasis,
+    assessmentStatus,
+    componentRatedPressureMpaUsed,
+    codeRequiredThicknessMmUsed,
+    componentAdequate,
     qualityFactorUsed,
     allowanceUsedMm,
     netAvailableThicknessMm,
     pressureDesignThicknessMm,
-    minimumRequiredThicknessMm: pressureDesignThicknessMm > 0 ? pressureDesignThicknessMm + allowanceUsedMm : 0,
-    allowableWorkingPressureMpa: inverseBasisValid && availableWallThicknessMm > allowanceUsedMm
-      ? (2 * S * qualityFactorUsed * netAvailableThicknessMm) / (1.5 * D)
-      : 0,
+    minimumRequiredThicknessMm,
+    allowableWorkingPressureMpa,
   };
 }

@@ -31,6 +31,7 @@ function addPositiveIssue(
 /** Pure SI extraction of the protected API 574 11.1.2 Barlow Other Piping Calculation. */
 export function calculateApi570PressureDesign(input: Api570PressureDesignInputSI): Api570PressureDesignResultSI {
   const issues: CalculationIssue[] = [];
+  issues.push({ code: "barlow-screening-only", field: "calculation", severity: "warning", message: "Barlow thickness is a hoop-stress utility only; it is not a complete API 570 or construction-code minimum-thickness assessment." });
   addPositiveIssue(issues, "designPressureMpa", input.designPressureMpa, "Design pressure");
   addPositiveIssue(issues, "outsideDiameterMm", input.outsideDiameterMm, "Outside diameter");
   addPositiveIssue(issues, "allowableStressMpa", input.allowableStressMpa, "Allowable stress");

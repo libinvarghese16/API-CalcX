@@ -1,15 +1,19 @@
 import { useMemo, useState } from "react";
 import {
+  DEFAULT_API570_MATERIAL_GRADE,
+  DEFAULT_API570_MATERIAL_SPEC,
   calculateApi570PressureDesign,
   convertBetweenUnits,
   convertFromSI,
   convertUnitToSI,
   defaultUnitForSystem,
   listEngineeringUnitOptions,
+  resolveApi570PipingAllowableStress,
   unitSymbol,
 } from "@api-calc-pro/calc-engine";
 import type {
   Api570PressureDesignInputSI,
+  AutomaticValueMode,
   EngineeringQuantity,
   EngineeringUnit,
   EngineeringUnitOption,
@@ -18,24 +22,28 @@ import type {
 import { ArrowLeft, CircleCheck, Gauge, Info, RotateCcw, ShieldCheck, TriangleAlert, Wrench } from "lucide-react";
 import { formatDisplayNumber } from "../display-precision.ts";
 import { Api570RecordWorkflow } from "./Api570PipingRecordWorkflow.tsx";
+import { Api570MaterialStressFields } from "./Api570MaterialStressFields.tsx";
 import type { Api570CalculatorWorkflowProps, Api570WorkflowReportDefinition } from "./Api570PipingRecordWorkflow.tsx";
 import type { Api570PressureDesignInputSnapshot, Api570UnitFieldSnapshot } from "../local-data/models.ts";
 
-type UnitFieldId = "designPressure" | "outsideDiameter" | "allowableStress" | "availableThickness";
+type UnitFieldId = "designPressure" | "outsideDiameter" | "designTemperature" | "allowableStress" | "availableThickness";
 type UnitFieldState = Api570UnitFieldSnapshot;
 type UnitFieldMap = Record<UnitFieldId, UnitFieldState>;
 
 const pressureUnits = listEngineeringUnitOptions("pressure");
 const lengthUnits = listEngineeringUnitOptions("length");
+const temperatureUnits = listEngineeringUnitOptions("temperature");
 
 function initialUnitFields(snapshot?: Api570PressureDesignInputSnapshot): UnitFieldMap {
-  if (snapshot) return Object.fromEntries(Object.entries(snapshot.fields).map(([fieldId, field]) => [fieldId, { ...field }])) as UnitFieldMap;
-  return {
+  const defaults: UnitFieldMap = {
     designPressure: { value: "2.5", unit: "MPa", quantity: "pressure" },
     outsideDiameter: { value: "219.1", unit: "mm", quantity: "length" },
+    designTemperature: { value: "150", unit: "C", quantity: "temperature" },
     allowableStress: { value: "138", unit: "MPa", quantity: "pressure" },
     availableThickness: { value: "8.8", unit: "mm", quantity: "length" },
   };
+  if (!snapshot) return defaults;
+  return { ...defaults, ...Object.fromEntries(Object.entries(snapshot.fields).map(([fieldId, field]) => [fieldId, { ...field }])) } as UnitFieldMap;
 }
 
 function numberFrom(value: string, fallback = 0): number {
@@ -90,6 +98,9 @@ export function Api570PressureDesignCalculator({ onBack, onNeedProject, notify, 
   const initialInputs = initialCalculation?.inputs.calculatorId === "pressure-design" ? initialCalculation.inputs : undefined;
   const [unitSystem, setUnitSystem] = useState<UnitSystem>(initialInputs?.unitSystem ?? "metric");
   const [fields, setFields] = useState<UnitFieldMap>(() => initialUnitFields(initialInputs));
+  const [materialSpec, setMaterialSpec] = useState(initialInputs?.materialSpec ?? DEFAULT_API570_MATERIAL_SPEC);
+  const [gradeKey, setGradeKey] = useState(initialInputs?.gradeKey ?? DEFAULT_API570_MATERIAL_GRADE);
+  const [stressMode, setStressMode] = useState<AutomaticValueMode>(initialInputs?.stressMode ?? "auto");
   const [qualityFactor, setQualityFactor] = useState(initialInputs?.qualityFactor ?? "0.85");
 
   const updateFieldValue = (fieldId: UnitFieldId, value: string) => {
@@ -117,15 +128,24 @@ export function Api570PressureDesignCalculator({ onBack, onNeedProject, notify, 
     })) as UnitFieldMap);
   };
 
+  const designTemperatureC = unitValue(fields.designTemperature);
+  const stressResolution = useMemo(
+    () => resolveApi570PipingAllowableStress(materialSpec, gradeKey, designTemperatureC),
+    [designTemperatureC, gradeKey, materialSpec],
+  );
+  const resolvedStressMpa = stressMode === "auto"
+    ? stressResolution.allowableStressMpa ?? 0
+    : unitValue(fields.allowableStress);
+
   const input = useMemo<Api570PressureDesignInputSI>(() => ({
     designPressureMpa: unitValue(fields.designPressure),
     outsideDiameterMm: unitValue(fields.outsideDiameter),
-    allowableStressMpa: unitValue(fields.allowableStress),
+    allowableStressMpa: resolvedStressMpa,
     qualityFactor: numberFrom(qualityFactor, 1),
     availableCorrodedThicknessMm: unitValue(fields.availableThickness),
-  }), [fields, qualityFactor]);
+  }), [fields, qualityFactor, resolvedStressMpa]);
   const result = useMemo(() => calculateApi570PressureDesign(input), [input]);
-  const inputSnapshot = useMemo<Api570PressureDesignInputSnapshot>(() => ({ calculatorId: "pressure-design", unitSystem, fields: Object.fromEntries(Object.entries(fields).map(([fieldId, field]) => [fieldId, { ...field }])) as UnitFieldMap, qualityFactor, engineInput: input }), [fields, input, qualityFactor, unitSystem]);
+  const inputSnapshot = useMemo<Api570PressureDesignInputSnapshot>(() => ({ calculatorId: "pressure-design", unitSystem, fields: Object.fromEntries(Object.entries(fields).map(([fieldId, field]) => [fieldId, { ...field }])) as UnitFieldMap, qualityFactor, materialSpec, gradeKey, stressMode, engineInput: input }), [fields, gradeKey, input, materialSpec, qualityFactor, stressMode, unitSystem]);
   const reportDefinition: Api570WorkflowReportDefinition = { reportKind: "Pressure design calculation report", basisTitle: "Barlow design inputs", inspectionTitle: "Available wall basis", summaryLines: [`Required thickness: ${formatDisplayNumber(result.requiredThicknessMm)} mm`, `Allowable working pressure: ${formatDisplayNumber(result.allowableWorkingPressureMpa)} MPa`], basisRows: [{ label: "Formula basis", value: "API 574 11.1.2 · t = PD / 2SE" }, { label: "Design pressure", value: `${formatDisplayNumber(input.designPressureMpa)} MPa` }, { label: "Outside diameter", value: `${formatDisplayNumber(input.outsideDiameterMm)} mm` }, { label: "Allowable stress", value: `${formatDisplayNumber(input.allowableStressMpa)} MPa` }, { label: "Quality factor E", value: formatDisplayNumber(result.qualityFactorUsed) }], inspectionRows: [{ label: "Available corroded thickness", value: `${formatDisplayNumber(input.availableCorrodedThicknessMm)} mm` }, { label: "Inverse equation", value: "P = 2SEt / D" }], resultRows: [{ label: "Required thickness", value: `${formatDisplayNumber(result.requiredThicknessMm)} mm`, primary: true }, { label: "Allowable working pressure", value: `${formatDisplayNumber(result.allowableWorkingPressureMpa)} MPa`, primary: true }] };
   const warning = result.issues.find((issue) => issue.severity === "warning");
   const error = result.issues.find((issue) => issue.severity === "error");
@@ -133,7 +153,15 @@ export function Api570PressureDesignCalculator({ onBack, onNeedProject, notify, 
   const reset = () => {
     setUnitSystem("metric");
     setFields(initialUnitFields());
+    setMaterialSpec(DEFAULT_API570_MATERIAL_SPEC);
+    setGradeKey(DEFAULT_API570_MATERIAL_GRADE);
+    setStressMode("auto");
     setQualityFactor("0.85");
+  };
+
+  const changeStressMode = (mode: AutomaticValueMode) => {
+    if (mode === "manual" && stressResolution.allowableStressMpa !== null) updateFieldValue("allowableStress", formatInput(convertBetweenUnits(stressResolution.allowableStressMpa, "pressure", "MPa", fields.allowableStress.unit)));
+    setStressMode(mode);
   };
 
   const pressureUnit = unitSymbol(defaultUnitForSystem("pressure", unitSystem));
@@ -198,7 +226,7 @@ export function Api570PressureDesignCalculator({ onBack, onNeedProject, notify, 
             <div className="form-grid">
               <UnitInput label="Design pressure" field={fields.designPressure} options={pressureUnits} help="Positive design pressure P for the thickness calculation." onValueChange={(value) => updateFieldValue("designPressure", value)} onUnitChange={(unit) => updateFieldUnit("designPressure", unit)} />
               <UnitInput label="Outside diameter" field={fields.outsideDiameter} options={lengthUnits} help="Outside diameter D of the piping component." onValueChange={(value) => updateFieldValue("outsideDiameter", value)} onUnitChange={(unit) => updateFieldUnit("outsideDiameter", unit)} />
-              <UnitInput label="Allowable stress" field={fields.allowableStress} options={pressureUnits} help="Manual controlled-source allowable stress S; no copyrighted stress table is bundled." onValueChange={(value) => updateFieldValue("allowableStress", value)} onUnitChange={(unit) => updateFieldUnit("allowableStress", unit)} />
+              <Api570MaterialStressFields materialSpec={materialSpec} gradeKey={gradeKey} temperatureField={fields.designTemperature} stressField={fields.allowableStress} stressMode={stressMode} stressResolution={stressResolution} temperatureUnits={temperatureUnits} pressureUnits={pressureUnits} onMaterialChange={(nextSpec, firstGradeKey) => { setMaterialSpec(nextSpec); setGradeKey(firstGradeKey); }} onGradeChange={setGradeKey} onTemperatureValueChange={(value) => updateFieldValue("designTemperature", value)} onTemperatureUnitChange={(unit) => updateFieldUnit("designTemperature", unit)} onStressValueChange={(value) => updateFieldValue("allowableStress", value)} onStressUnitChange={(unit) => updateFieldUnit("allowableStress", unit)} onStressModeChange={changeStressMode} />
               <label className="field">
                 <span>Longitudinal quality factor E<button type="button" title="Blank or non-positive values use E = 1.00, matching the protected calculator." aria-label="Longitudinal quality factor E help">?</button></span>
                 <input aria-label="Longitudinal quality factor E" type="number" inputMode="decimal" value={qualityFactor} onChange={(event) => setQualityFactor(event.target.value)} />
@@ -228,25 +256,23 @@ export function Api570PressureDesignCalculator({ onBack, onNeedProject, notify, 
 
         <aside className="result-column">
           <section className="result-card">
-            <div className="result-card-top"><Gauge size={17} /> Live engine <small>{result.ok ? "Parity passed" : "Input review"}</small></div>
-            <p>Pressure design thickness</p>
-            <div className="result-value"><strong>{formatOutput(result.requiredThicknessMm, "length", unitSystem)}</strong><span>{lengthUnit}</span></div>
+            <div className="result-card-top"><Gauge size={17} /> Calculation results <small>{result.ok ? "Calculated" : "Check inputs"}</small></div>
+            <div className="result-primary-grid"><div className="result-primary"><p>Required thickness</p><div className="result-primary-value"><strong>{formatOutput(result.requiredThicknessMm, "length", unitSystem)}</strong><span>{lengthUnit}</span></div></div><div className="result-primary"><p>Allowable pressure</p><div className="result-primary-value"><strong>{formatOutput(result.allowableWorkingPressureMpa, "pressure", unitSystem)}</strong><span>{pressureUnit}</span></div></div></div>
             <div className="result-comparison">
-              <span>Allowable pressure<strong>{formatOutput(result.allowableWorkingPressureMpa, "pressure", unitSystem)} {pressureUnit}</strong></span>
+              <span>Design pressure<strong>{formatOutput(unitValue(fields.designPressure), "pressure", unitSystem)} {pressureUnit}</strong></span>
               <span>Available thickness<strong>{formatOutput(unitValue(fields.availableThickness), "length", unitSystem)} {lengthUnit}</strong></span>
             </div>
             <div className={`result-status ${result.ok ? "is-valid" : ""}`}>
               {result.ok && !warning ? <CircleCheck size={18} /> : <TriangleAlert size={18} />}
               <div>
                 <strong>{error ? "Resolve input issues" : warning ? "Calculation completed with default" : "Calculation completed"}</strong>
-                <span>{error?.message ?? warning?.message ?? "Protected Barlow equations and SI result object are active."}</span>
+                <span>{error?.message ?? warning?.message ?? "Review required thickness, allowable pressure, and available wall before use."}</span>
               </div>
             </div>
           </section>
           <section className="trace-card">
-            <p className="eyebrow">Result trace</p>
-            <h3>Visible calculation context</h3>
-            <div><span>Engine ID</span><strong>{result.engineId}</strong></div>
+            <p className="eyebrow">Supporting results</p>
+            <h3>Calculation details</h3>
             <div><span>Formula</span><strong>t = PD / 2SE</strong></div>
             <div><span>Inverse formula</span><strong>P = 2SEt / D</strong></div>
             <div><span>Quality factor E used</span><strong>{formatDisplayNumber(result.qualityFactorUsed)}</strong></div>

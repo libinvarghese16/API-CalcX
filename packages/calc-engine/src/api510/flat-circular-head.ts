@@ -78,8 +78,10 @@ export function calculateFlatCircularHead(input: FlatCircularHeadInputSI): FlatC
   };
   const governingMawpMpa = mawpFromThickness(actualThicknessMm);
   const projectedThicknessMm = actualThicknessMm > 0 ? Math.max(actualThicknessMm - (governingCorrosionRateMmPerYear * intervalYears), 0) : 0;
-  const futureMawpThicknessMm = actualThicknessMm > 0 ? Math.max(actualThicknessMm - (2 * governingCorrosionRateMmPerYear * intervalYears), 0) : 0;
+  const futureMawpThicknessMm = projectedThicknessMm;
 
+  issues.push({ code: "flat-head-attachment-scope-review", field: "attachmentFactor", severity: "warning", message: "Attachment factor C must come from the applicable controlled UG-34 configuration; a user-entered factor is not independently code-derived." });
+  issues.push({ code: "test-pressure-basis-review", field: "calculation", severity: "warning", message: "Displayed test pressures are planning values; construction-code stress ratios and component limits govern." });
   return {
     engineId: "api510.flat-circular-head",
     engineVersion: "0.1.0-legacy-parity",

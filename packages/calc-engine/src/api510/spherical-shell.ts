@@ -43,7 +43,7 @@ export function calculateSphericalShell(input: CylindricalShellInputSI): Spheric
   const radiusMm = Number.isFinite(input.insideDiameterMm) ? input.insideDiameterMm / 2 : 0;
   let requiredThicknessMm = 0;
   if (pressureBasisValid) {
-    const denominator = (input.allowableStressMpa * input.jointEfficiency) - (0.6 * input.designPressureMpa);
+    const denominator = (2 * input.allowableStressMpa * input.jointEfficiency) - (0.2 * input.designPressureMpa);
     if (denominator > 0) requiredThicknessMm = (input.designPressureMpa * radiusMm) / denominator;
     else issues.push({ code: "spherical-denominator-not-positive", field: "calculation", severity: "error", message: "The spherical-shell required-thickness denominator must be greater than zero." });
   }
@@ -62,14 +62,16 @@ export function calculateSphericalShell(input: CylindricalShellInputSI): Spheric
 
   const mawpFromThickness = (thicknessMm: number): number => {
     if (!(pressureBasisValid && thicknessMm > 0 && radiusMm > 0)) return 0;
-    const denominator = radiusMm + (0.6 * thicknessMm);
-    const pressure = denominator > 0 ? (input.allowableStressMpa * input.jointEfficiency * thicknessMm) / denominator : 0;
+    const denominator = radiusMm + (0.2 * thicknessMm);
+    const pressure = denominator > 0 ? (2 * input.allowableStressMpa * input.jointEfficiency * thicknessMm) / denominator : 0;
     return Number.isFinite(pressure) && pressure > 0 ? pressure : 0;
   };
   const governingMawpMpa = mawpFromThickness(actualThicknessMm);
   const projectedThicknessMm = actualThicknessMm > 0 ? Math.max(actualThicknessMm - (governingCorrosionRateMmPerYear * intervalYears), 0) : 0;
-  const futureMawpThicknessMm = actualThicknessMm > 0 ? Math.max(actualThicknessMm - (2 * governingCorrosionRateMmPerYear * intervalYears), 0) : 0;
+  const futureMawpThicknessMm = projectedThicknessMm;
 
+  issues.push({ code: "thin-sphere-scope-review", field: "calculation", severity: "warning", message: "The corrected thin spherical-shell equation is active; confirm its applicability or use the controlled alternate analysis route." });
+  issues.push({ code: "test-pressure-basis-review", field: "calculation", severity: "warning", message: "Displayed hydrostatic and pneumatic pressures are planning values; the construction code, edition, stress ratio, and component limits govern the test." });
   return {
     engineId: "api510.spherical-shell",
     engineVersion: "0.1.0-legacy-parity",

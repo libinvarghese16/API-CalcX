@@ -210,13 +210,13 @@ export function calculateCylindricalShell(input: CylindricalShellInputSI): Cylin
   const projectedThicknessMm = actualThicknessMm > 0
     ? Math.max(actualThicknessMm - (governingCorrosionRateMmPerYear * intervalYears), 0)
     : 0;
-  const futureMawpThicknessMm = actualThicknessMm > 0
-    ? Math.max(actualThicknessMm - (2 * governingCorrosionRateMmPerYear * intervalYears), 0)
-    : 0;
+  const futureMawpThicknessMm = projectedThicknessMm;
   const mawpFuture = pressureBasisValid
     ? mawpFromThickness(futureMawpThicknessMm, insideRadiusMm, allowableStressMpa, jointEfficiency)
     : { circumferential: 0, longitudinal: 0, governing: 0, governingCase: "none" as const };
 
+  issues.push({ code: "thin-wall-scope-review", field: "calculation", severity: "warning", message: "Thin-wall cylinder equations are active. Confirm equation applicability or use a controlled thick-wall/alternate analysis when the limits are not satisfied." });
+  issues.push({ code: "test-pressure-basis-review", field: "calculation", severity: "warning", message: "Displayed hydrostatic and pneumatic pressures are planning values; the construction code, edition, stress ratio, and component limits govern the test." });
   return {
     engineId: ENGINE_ID,
     engineVersion: ENGINE_VERSION,

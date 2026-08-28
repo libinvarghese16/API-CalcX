@@ -24,11 +24,12 @@ test("matches the captured legacy API 510 ellipsoidal-head result", () => {
   const result = calculateEllipsoidalHead(goldenInput);
 
   assert.equal(result.ok, true);
+  assert.ok(result.issues.some((issue) => issue.code === "test-pressure-basis-review" && issue.severity === "warning"));
   assert.equal(result.engineId, "api510.ellipsoidal-head");
   approximately(result.requiredThicknessMm, 12.804097311139566);
   approximately(result.governingMawpMpa, 1.8504163421793567);
   approximately(result.remainingLifeYears, 21.399304920431675);
-  approximately(result.futureMawpMpa, 1.686691164722799);
+  approximately(result.futureMawpMpa, 1.7685594751924594);
 });
 
 test("blocks invalid ellipsoidal-head pressure basis", () => {

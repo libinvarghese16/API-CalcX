@@ -15,7 +15,7 @@ Local-first development workspace for the new API Calc Pro mobile application.
 - All 11 individual API 570 project workflows connected end to end: exact UI and normalized engine snapshots, local save/update/reopen, fingerprinted Draft/Reviewed/Approved revision control, correctly labelled project history, and original text-only report previews sourced from each displayed structured result
 - API 653 controlled migration is complete across Bottom, corrected Annular, Shell Course, Nozzle Assessment, Roof Plate, and Other 4.3.2 Calculations; every workspace has protected-source parity, mixed units, editable automatic dependencies, and no displayed standards table or PDF
 - Shared calculation presentation policy: all standard API 510/API 570/API 653 engineering values use two decimal places and corrosion rates use three, while engine values, saved snapshots, and live unit-conversion inputs retain full calculation precision
-- Projects, reports, account, authentication, and lifetime-access UI previews
+- Projects, reports, account, and lifetime-access UI, with provider-ready Firebase Google/Apple authentication, restored sessions, profile state, and sign-out
 - Original reference-writing pattern with no bundled standards PDFs
 - Source-baseline verification for the existing application
 - Typed shared calculation-engine package
@@ -32,7 +32,7 @@ Local-first development workspace for the new API Calc Pro mobile application.
 - Isolated Capacitor 8.5 Android source wrapper under `apps/mobile/android`, with the API Calc Pro application identity, native hardware-back policy, Android automatic backup disabled, and byte-for-byte production-asset verification after every native sync
 - Compiled Android debug APK with approved launcher/splash branding, repeatable local build and verification scripts, and API 36 phone/tablet emulator validation
 
-Authentication, billing, synchronization, encrypted SQLite, and the iOS wrapper are intentionally not connected yet. The Android debug package is compiled and emulator-validated, but it is not release-signed, Play-ready, or physically device-validated. The browser-local repository is a development adapter, not production encrypted storage. The shared API 510/API 570/API 653 engines match the protected legacy routes; the applicable controlled code edition still requires engineering confirmation before report issue.
+Google authentication and the registered Firebase Web app are connected to the account interface. Apple remains dependent on the owner's Apple Developer registration and private provider credentials described in [docs/architecture/google-apple-authentication.md](docs/architecture/google-apple-authentication.md). Billing, synchronization, encrypted SQLite, and the iOS wrapper are intentionally not connected yet. The Android debug package is compiled and emulator-validated, but it is not release-signed, Play-ready, or physically device-validated. The browser-local repository is a development adapter, not production encrypted storage. The shared API 510/API 570/API 653 engines match the protected legacy routes; the applicable controlled code edition still requires engineering confirmation before report issue.
 
 ## Run locally
 

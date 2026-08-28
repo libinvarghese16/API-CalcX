@@ -27,6 +27,7 @@ function addPositiveIssue(
 /** Pure SI extraction of the protected B31.3 345.4.2 Hydro Test Pressure Other Piping Calculation. */
 export function calculateApi570HydroTest(input: Api570HydroTestInputSI): Api570HydroTestResultSI {
   const issues: CalculationIssue[] = [];
+  issues.push({ code: "b31.3-hydro-route-only", field: "calculation", severity: "warning", message: "This calculator implements the selected B31.3 hydrostatic-test route only; do not apply it as a universal B31.1 or other-code test rule." });
   addPositiveIssue(issues, "designPressureMpa", input.designPressureMpa, "Design pressure");
 
   const P = finiteOrZero(input.designPressureMpa);

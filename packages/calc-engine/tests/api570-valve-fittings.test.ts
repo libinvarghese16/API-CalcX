@@ -5,6 +5,7 @@ import { calculateApi570ValveFittings, convertUnitToSI } from "../src/index.ts";
 import type { Api570ValveFittingsInputSI } from "../src/index.ts";
 
 const originalWebGoldenInput: Api570ValveFittingsInputSI = {
+  assessmentBasis: "screening-only",
   designPressureMpa: 2.5,
   outsideDiameterMm: 219.1,
   allowableStressMpa: 138,
@@ -17,18 +18,39 @@ function approximately(actual: number, expected: number, tolerance = 1e-12): voi
   assert.ok(Math.abs(actual - expected) <= tolerance, `expected ${actual} to be within ${tolerance} of ${expected}`);
 }
 
-test("matches the protected valve and flanged-fittings result", () => {
+test("retains the legacy valve/fittings arithmetic as an explicit screening result", () => {
   const result = calculateApi570ValveFittings(originalWebGoldenInput);
 
   assert.equal(result.ok, true);
   assert.equal(result.engineId, "api570.support.valve-flanged-fittings");
   assert.equal(result.engineVersion, "0.1.0-original-web-parity");
+  assert.equal(result.assessmentStatus, "screening");
+  assert.ok(result.issues.some((issue) => issue.code === "screening-only-basis" && issue.severity === "warning"));
   assert.equal(result.qualityFactorUsed, 0.85);
   assert.equal(result.allowanceUsedMm, 1.2);
   approximately(result.netAvailableThicknessMm, 7.6000000000000005);
   approximately(result.pressureDesignThicknessMm, 3.5022378516624047);
   approximately(result.minimumRequiredThicknessMm, 4.702237851662405);
   approximately(result.allowableWorkingPressureMpa, 5.425102692834322);
+});
+
+test("supports a listed component pressure-rating assessment", () => {
+  const result = calculateApi570ValveFittings({ ...originalWebGoldenInput, assessmentBasis: "listed-rating", componentRatedPressureMpa: 3 });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.assessmentStatus, "complete");
+  assert.equal(result.componentAdequate, true);
+  assert.equal(result.allowableWorkingPressureMpa, 3);
+  assert.equal(result.minimumRequiredThicknessMm, 0);
+});
+
+test("supports a controlled code-derived minimum thickness", () => {
+  const result = calculateApi570ValveFittings({ ...originalWebGoldenInput, assessmentBasis: "code-derived-thickness", codeRequiredThicknessMm: 5 });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.componentAdequate, true);
+  assert.equal(result.minimumRequiredThicknessMm, 5);
+  assert.equal(result.allowableWorkingPressureMpa, 0);
 });
 
 test("produces the same SI valve/fittings result from equivalent U.S. inputs", () => {

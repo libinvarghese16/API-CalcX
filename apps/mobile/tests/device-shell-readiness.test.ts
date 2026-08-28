@@ -48,7 +48,7 @@ test("retains phone safe-area spacing, dynamic viewport height, and larger touch
   assert.match(styles, /\.module-grid\.compact \.module-card \{[^}]*padding: 15px 15px 39px;/);
 });
 
-test("uses stable regression wording instead of a stale hard-coded test count", () => {
-  assert.match(appSource, /Regression suite/);
+test("omits internal regression wording and stale hard-coded test counts", () => {
+  assert.doesNotMatch(appSource, /Regression suite/);
   assert.doesNotMatch(appSource, /45 passing/);
 });

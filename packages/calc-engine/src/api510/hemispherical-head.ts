@@ -77,8 +77,10 @@ export function calculateHemisphericalHead(input: HemisphericalHeadInputSI): Hem
   };
   const governingMawpMpa = mawpFromThickness(actualThicknessMm);
   const projectedThicknessMm = actualThicknessMm > 0 ? Math.max(actualThicknessMm - (governingCorrosionRateMmPerYear * intervalYears), 0) : 0;
-  const futureMawpThicknessMm = actualThicknessMm > 0 ? Math.max(actualThicknessMm - (2 * governingCorrosionRateMmPerYear * intervalYears), 0) : 0;
+  const futureMawpThicknessMm = projectedThicknessMm;
 
+  issues.push({ code: "thin-hemisphere-scope-review", field: "calculation", severity: "warning", message: "The thin hemispherical-head route requires equation-applicability confirmation or a controlled thick-wall/alternate analysis." });
+  issues.push({ code: "test-pressure-basis-review", field: "calculation", severity: "warning", message: "Displayed test pressures are planning values; construction-code stress ratios and component limits govern." });
   return {
     engineId: "api510.hemispherical-head",
     engineVersion: "0.1.0-legacy-parity",

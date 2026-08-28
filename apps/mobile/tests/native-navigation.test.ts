@@ -13,6 +13,7 @@ test("native back returns every calculator workspace to the calculator library",
     "api570-support",
     "api653-bottom",
     "api653-other-4-3-2",
+    "api571-damage-mechanisms",
   ];
 
   for (const page of calculatorPages) {

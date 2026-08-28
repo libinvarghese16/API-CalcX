@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 import {
+  DEFAULT_API570_MATERIAL_GRADE,
+  DEFAULT_API570_MATERIAL_SPEC,
   calculateApi570Header,
   convertBetweenUnits,
   convertFromSI,
@@ -8,6 +10,7 @@ import {
   deriveYearsInService,
   deriveYearsSincePreviousInspection,
   listEngineeringUnitOptions,
+  resolveApi570PipingAllowableStress,
   unitSymbol,
 } from "@api-calc-pro/calc-engine";
 import type {
@@ -21,6 +24,7 @@ import type {
 import { ArrowLeft, CircleCheck, Gauge, Info, RotateCcw, ShieldCheck, TriangleAlert, Wrench } from "lucide-react";
 import { formatDisplayNumber } from "../display-precision.ts";
 import { Api570RecordWorkflow } from "./Api570PipingRecordWorkflow.tsx";
+import { Api570MaterialStressFields } from "./Api570MaterialStressFields.tsx";
 import type { Api570WorkflowReportDefinition } from "./Api570PipingRecordWorkflow.tsx";
 import type { ApproveApi570CalculationInput, Api570HeaderInputSnapshot, Api570UnitFieldSnapshot, LocalProject, ReviewApi570CalculationInput, SaveApi570CalculationInput, SavedApi570Calculation } from "../local-data/models.ts";
 
@@ -92,6 +96,9 @@ export function Api570HeaderCalculator({ onBack, onNeedProject, notify, projects
   const currentYear = new Date().getFullYear();
   const [unitSystem, setUnitSystem] = useState<UnitSystem>(initialInputs?.unitSystem ?? "metric");
   const [fields, setFields] = useState<UnitFieldMap>(() => initialUnitFields(initialInputs));
+  const [materialSpec, setMaterialSpec] = useState(initialInputs?.materialSpec ?? DEFAULT_API570_MATERIAL_SPEC);
+  const [gradeKey, setGradeKey] = useState(initialInputs?.gradeKey ?? DEFAULT_API570_MATERIAL_GRADE);
+  const [stressMode, setStressMode] = useState<AutomaticValueMode>(initialInputs?.stressMode ?? "auto");
   const [jointEfficiency, setJointEfficiency] = useState(initialInputs?.jointEfficiency ?? "0.85");
   const [yCoefficient, setYCoefficient] = useState(initialInputs?.yCoefficient ?? "0.4");
   const [buildYear, setBuildYear] = useState(initialInputs?.buildYear ?? "2006");
@@ -126,10 +133,19 @@ export function Api570HeaderCalculator({ onBack, onNeedProject, notify, projects
     })) as UnitFieldMap);
   };
 
+  const designTemperatureC = unitValue(fields.designTemperature);
+  const stressResolution = useMemo(
+    () => resolveApi570PipingAllowableStress(materialSpec, gradeKey, designTemperatureC),
+    [designTemperatureC, gradeKey, materialSpec],
+  );
+  const resolvedStressMpa = stressMode === "auto"
+    ? stressResolution.allowableStressMpa ?? 0
+    : unitValue(fields.allowableStress);
+
   const baseInput = useMemo<Api570HeaderInputSI>(() => ({
     outsideDiameterMm: unitValue(fields.outsideDiameter),
     designPressureMpa: unitValue(fields.designPressure),
-    allowableStressMpa: unitValue(fields.allowableStress),
+    allowableStressMpa: resolvedStressMpa,
     jointEfficiency: numberFrom(jointEfficiency, 1),
     yCoefficient: numberFrom(yCoefficient),
     originalThicknessMm: unitValue(fields.originalThickness),
@@ -138,20 +154,26 @@ export function Api570HeaderCalculator({ onBack, onNeedProject, notify, projects
     yearsInService,
     yearsSincePreviousInspection: yearsSinceInspection,
     nextInspectionYears: numberFrom(intervalYears, 5),
-  }), [fields, intervalYears, jointEfficiency, yCoefficient, yearsInService, yearsSinceInspection]);
+  }), [fields, intervalYears, jointEfficiency, resolvedStressMpa, yCoefficient, yearsInService, yearsSinceInspection]);
   const automaticResult = useMemo(() => calculateApi570Header(baseInput), [baseInput]);
   const engineInput = useMemo<Api570HeaderInputSI>(() => minimumMode === "manual" ? { ...baseInput, minimumThicknessMm: unitValue(fields.manualMinimum) } : baseInput, [baseInput, fields.manualMinimum, minimumMode]);
   const result = useMemo(() => calculateApi570Header(engineInput), [engineInput]);
-  const inputSnapshot = useMemo<Api570HeaderInputSnapshot>(() => ({ calculatorId: "header", unitSystem, fields: Object.fromEntries(Object.entries(fields).map(([fieldId, field]) => [fieldId, { ...field }])) as UnitFieldMap, jointEfficiency, yCoefficient, buildYear, previousInspectionYear, serviceYearsMode, inspectionYearsMode, manualServiceYears, manualInspectionYears, minimumMode, intervalYears, engineInput }), [buildYear, engineInput, fields, inspectionYearsMode, intervalYears, jointEfficiency, manualInspectionYears, manualServiceYears, minimumMode, previousInspectionYear, serviceYearsMode, unitSystem, yCoefficient]);
+  const error = result.issues.find((issue) => issue.severity === "error");
+  const warning = result.issues.find((issue) => issue.severity === "warning");
+  const inputSnapshot = useMemo<Api570HeaderInputSnapshot>(() => ({ calculatorId: "header", unitSystem, fields: Object.fromEntries(Object.entries(fields).map(([fieldId, field]) => [fieldId, { ...field }])) as UnitFieldMap, jointEfficiency, yCoefficient, buildYear, previousInspectionYear, serviceYearsMode, inspectionYearsMode, manualServiceYears, manualInspectionYears, minimumMode, intervalYears, materialSpec, gradeKey, stressMode, engineInput }), [buildYear, engineInput, fields, gradeKey, inspectionYearsMode, intervalYears, jointEfficiency, manualInspectionYears, manualServiceYears, materialSpec, minimumMode, previousInspectionYear, serviceYearsMode, stressMode, unitSystem, yCoefficient]);
   const reportDefinition: Api570WorkflowReportDefinition = { reportKind: "Header calculation report", basisTitle: "Header design inputs", inspectionTitle: "Header-wall history and service basis", summaryLines: [`Required thickness: ${formatDisplayNumber(result.requiredThicknessMm)} mm`, `Governing MAWP: ${formatDisplayNumber(result.governingMawpMpa)} MPa`, `Governing corrosion rate: ${formatDisplayNumber(result.governingCorrosionRateMmPerYear, "corrosion-rate")} mm/yr`, `Remaining life: ${formatDisplayNumber(result.remainingLifeYears)} yr`], basisRows: [{ label: "Formula basis", value: "ASME Section I PG-27.2.2" }, { label: "Design pressure", value: `${formatDisplayNumber(engineInput.designPressureMpa)} MPa` }, { label: "Outside diameter", value: `${formatDisplayNumber(engineInput.outsideDiameterMm)} mm` }, { label: "Allowable stress", value: `${formatDisplayNumber(engineInput.allowableStressMpa)} MPa` }, { label: "Joint efficiency E", value: formatDisplayNumber(result.jointEfficiencyUsed) }, { label: "Coefficient y", value: formatDisplayNumber(result.yCoefficientUsed) }], inspectionRows: [{ label: "Original thickness", value: `${formatDisplayNumber(engineInput.originalThicknessMm)} mm` }, { label: "Previous thickness", value: `${formatDisplayNumber(engineInput.previousThicknessMm)} mm` }, { label: "Current thickness", value: `${formatDisplayNumber(engineInput.actualThicknessMm)} mm` }, { label: "Years in service", value: `${engineInput.yearsInService} yr` }, { label: "Years since previous inspection", value: `${engineInput.yearsSincePreviousInspection} yr` }], resultRows: [{ label: "Required thickness", value: `${formatDisplayNumber(result.requiredThicknessMm)} mm`, primary: true }, { label: "Minimum thickness used", value: `${formatDisplayNumber(result.minimumThicknessUsedMm)} mm` }, { label: "Governing corrosion rate", value: `${formatDisplayNumber(result.governingCorrosionRateMmPerYear, "corrosion-rate")} mm/yr` }, { label: "Remaining life", value: `${formatDisplayNumber(result.remainingLifeYears)} yr` }, { label: "Governing MAWP", value: `${formatDisplayNumber(result.governingMawpMpa)} MPa`, primary: true }, { label: "Future MAWP", value: `${formatDisplayNumber(result.futureMawpMpa)} MPa` }] };
 
   const changeMinimumMode = (mode: AutomaticValueMode) => {
     if (mode === "manual" && !fields.manualMinimum.value.trim()) updateFieldValue("manualMinimum", formatInput(convertBetweenUnits(automaticResult.automaticMinimumThicknessMm, "length", "mm", fields.manualMinimum.unit), "length"));
     setMinimumMode(mode);
   };
+  const changeStressMode = (mode: AutomaticValueMode) => {
+    if (mode === "manual" && stressResolution.allowableStressMpa !== null) updateFieldValue("allowableStress", formatInput(convertBetweenUnits(stressResolution.allowableStressMpa, "pressure", "MPa", fields.allowableStress.unit), "pressure"));
+    setStressMode(mode);
+  };
   const changeServiceMode = (mode: AutomaticValueMode) => { if (mode === "manual" && serviceYears.yearsInService !== null) setManualServiceYears(String(serviceYears.yearsInService)); setServiceYearsMode(mode); };
   const changeInspectionMode = (mode: AutomaticValueMode) => { if (mode === "manual" && inspectionYears.yearsSincePreviousInspection !== null) setManualInspectionYears(String(inspectionYears.yearsSincePreviousInspection)); setInspectionYearsMode(mode); };
-  const reset = () => { setUnitSystem("metric"); setFields(initialUnitFields()); setJointEfficiency("0.85"); setYCoefficient("0.4"); setBuildYear("2006"); setPreviousInspectionYear("2021"); setServiceYearsMode("auto"); setInspectionYearsMode("auto"); setManualServiceYears("20"); setManualInspectionYears("5"); setMinimumMode("auto"); setIntervalYears("5"); };
+  const reset = () => { setUnitSystem("metric"); setFields(initialUnitFields()); setMaterialSpec(DEFAULT_API570_MATERIAL_SPEC); setGradeKey(DEFAULT_API570_MATERIAL_GRADE); setStressMode("auto"); setJointEfficiency("0.85"); setYCoefficient("0.4"); setBuildYear("2006"); setPreviousInspectionYear("2021"); setServiceYearsMode("auto"); setInspectionYearsMode("auto"); setManualServiceYears("20"); setManualInspectionYears("5"); setMinimumMode("auto"); setIntervalYears("5"); };
 
   const pressureUnit = unitSymbol(defaultUnitForSystem("pressure", unitSystem));
   const lengthUnit = unitSymbol(defaultUnitForSystem("length", unitSystem));
@@ -170,8 +192,7 @@ export function Api570HeaderCalculator({ onBack, onNeedProject, notify, projects
             <UnitInput label="Header outside diameter" field={fields.outsideDiameter} options={lengthUnits} help="Outside diameter of the cylindrical Header." onValueChange={(value) => updateFieldValue("outsideDiameter", value)} onUnitChange={(unit) => updateFieldUnit("outsideDiameter", unit)} />
             <PlainInput label="Joint or ligament efficiency E" value={jointEfficiency} help="Enter the applicable efficiency. Blank uses the protected default E = 1.00." onChange={setJointEfficiency} />
             <PlainInput label="Coefficient y" value={yCoefficient} help="Enter the verified material and temperature coefficient. The protected field default is 0.40; blank uses zero." onChange={setYCoefficient} />
-            <UnitInput label="Design temperature" field={fields.designTemperature} options={temperatureUnits} help="Recorded condition used to select allowable stress and y from a controlled source." onValueChange={(value) => updateFieldValue("designTemperature", value)} onUnitChange={(unit) => updateFieldUnit("designTemperature", unit)} />
-            <UnitInput label="Allowable stress" field={fields.allowableStress} options={pressureUnits} help="Manual controlled-source value. Copyrighted stress tables are not bundled." onValueChange={(value) => updateFieldValue("allowableStress", value)} onUnitChange={(unit) => updateFieldUnit("allowableStress", unit)} />
+            <Api570MaterialStressFields materialSpec={materialSpec} gradeKey={gradeKey} temperatureField={fields.designTemperature} stressField={fields.allowableStress} stressMode={stressMode} stressResolution={stressResolution} temperatureUnits={temperatureUnits} pressureUnits={pressureUnits} onMaterialChange={(nextSpec, firstGradeKey) => { setMaterialSpec(nextSpec); setGradeKey(firstGradeKey); }} onGradeChange={setGradeKey} onTemperatureValueChange={(value) => updateFieldValue("designTemperature", value)} onTemperatureUnitChange={(unit) => updateFieldUnit("designTemperature", unit)} onStressValueChange={(value) => updateFieldValue("allowableStress", value)} onStressUnitChange={(unit) => updateFieldUnit("allowableStress", unit)} onStressModeChange={changeStressMode} />
           </div><div className="form-note is-valid"><ShieldCheck size={17} /><p><strong>Protected Header route connected.</strong> The typed engine preserves the original PG-27.2.2 thickness and inverse MAWP equations.</p></div></section>
 
           <section className="form-card"><div className="form-card-heading"><div><span>02</span><div><h2>Design and inspection data</h2><p>Automatic years and minimum thickness remain highlighted and editable.</p></div></div><Gauge size={19} /></div><div className="form-grid">
@@ -189,8 +210,8 @@ export function Api570HeaderCalculator({ onBack, onNeedProject, notify, projects
           <section className="reference-card"><div className="reference-heading"><div><ShieldCheck size={18} /><div><span>Original explanatory reference</span><h3>Before using the Header result</h3></div></div><span>No standards PDF</span></div><p>Confirm the Header outside diameter, allowable stress, joint or ligament efficiency, y coefficient and inspection measurements against controlled project records. This calculator does not bundle copied standards tables and does not replace responsible engineering review.</p><div className="reference-points"><span><b>01</b>Confirm the pressure-temperature basis.</span><span><b>02</b>Verify S, E and y from controlled records.</span><span><b>03</b>Review corrosion rate and future MAWP.</span></div></section>
         </div>
 
-        <aside className="result-column"><section className="result-card"><div className="result-card-top"><Gauge size={17} /> Live engine <small>{result.ok ? "Parity passed" : "Input review"}</small></div><p>Required Header thickness</p><div className="result-value"><strong>{formatOutput(result.requiredThicknessMm, "length", unitSystem)}</strong><span>{lengthUnit}</span></div><div className="result-comparison"><span>Minimum used<strong>{formatOutput(result.minimumThicknessUsedMm, "length", unitSystem)} {lengthUnit}</strong></span><span>Current thickness<strong>{formatOutput(unitValue(fields.actualThickness), "length", unitSystem)} {lengthUnit}</strong></span></div><div className="result-comparison"><span>Current MAWP<strong>{formatOutput(result.governingMawpMpa, "pressure", unitSystem)} {pressureUnit}</strong></span><span>Remaining life<strong>{formatDisplayNumber(result.remainingLifeYears)} yr</strong></span></div><div className={`result-status ${result.ok ? "is-valid" : ""}`}>{result.ok ? <CircleCheck size={18} /> : <TriangleAlert size={18} />}<div><strong>{result.ok ? "Calculation completed" : "Resolve input issues"}</strong><span>{result.ok ? "Protected original-web Header equation and SI result object are active." : result.issues.find((issue) => issue.severity === "error")?.message}</span></div></div></section>
-          <section className="trace-card"><p className="eyebrow">Result trace</p><h3>Visible calculation context</h3><div><span>Engine ID</span><strong>{result.engineId}</strong></div><div><span>Joint efficiency E</span><strong>{formatDisplayNumber(result.jointEfficiencyUsed)}</strong></div><div><span>Coefficient y</span><strong>{formatDisplayNumber(result.yCoefficientUsed)}</strong></div><div><span>Long-term corrosion rate</span><strong>{formatOutput(result.longTermCorrosionRateMmPerYear, "rate", unitSystem)} {rateUnit}</strong></div><div><span>Short-term corrosion rate</span><strong>{formatOutput(result.shortTermCorrosionRateMmPerYear, "rate", unitSystem)} {rateUnit}</strong></div><div><span>Governing corrosion rate</span><strong>{formatOutput(result.governingCorrosionRateMmPerYear, "rate", unitSystem)} {rateUnit}</strong></div><div><span>Corrosion allowance</span><strong>{formatOutput(result.corrosionAllowanceMm, "length", unitSystem)} {lengthUnit}</strong></div><div><span>Projected thickness ({result.intervalYears} yr)</span><strong>{formatOutput(result.projectedThicknessMm, "length", unitSystem)} {lengthUnit}</strong></div><div><span>Future MAWP thickness</span><strong>{formatOutput(result.futureMawpThicknessMm, "length", unitSystem)} {lengthUnit}</strong></div><div><span>Future MAWP</span><strong>{formatOutput(result.futureMawpMpa, "pressure", unitSystem)} {pressureUnit}</strong></div><div><span>Hydrostatic pressure</span><strong>{formatOutput(result.hydrostaticTestPressureMpa, "pressure", unitSystem)} {pressureUnit}</strong></div><div><span>Pneumatic pressure</span><strong>{formatOutput(result.pneumaticTestPressureMpa, "pressure", unitSystem)} {pressureUnit}</strong></div></section>
+        <aside className="result-column"><section className="result-card"><div className="result-card-top"><Gauge size={17} /> Calculation results <small>{result.ok ? "Calculated" : "Check inputs"}</small></div><div className="result-primary-grid"><div className="result-primary"><p>Remaining life</p><div className="result-primary-value"><strong>{formatDisplayNumber(result.remainingLifeYears)}</strong><span>yr</span></div></div><div className="result-primary"><p>Required thickness</p><div className="result-primary-value"><strong>{formatOutput(result.requiredThicknessMm, "length", unitSystem)}</strong><span>{lengthUnit}</span></div></div></div><div className="result-comparison"><span>Minimum used<strong>{formatOutput(result.minimumThicknessUsedMm, "length", unitSystem)} {lengthUnit}</strong></span><span>Current thickness<strong>{formatOutput(unitValue(fields.actualThickness), "length", unitSystem)} {lengthUnit}</strong></span></div><div className="result-comparison"><span>Current MAWP<strong>{formatOutput(result.governingMawpMpa, "pressure", unitSystem)} {pressureUnit}</strong></span><span>Governing corrosion rate<strong>{formatOutput(result.governingCorrosionRateMmPerYear, "rate", unitSystem)} {rateUnit}</strong></span></div><div className={`result-status ${result.ok ? warning ? "is-manual" : "is-valid" : ""}`}>{result.ok && !warning ? <CircleCheck size={18} /> : <TriangleAlert size={18} />}<div><strong>{error ? "Resolve input issues" : warning ? "Engineering scope review required" : "Calculation completed"}</strong><span>{error?.message ?? warning?.message ?? "Review the required thickness, remaining life, and corrosion-rate results before use."}</span></div></div></section>
+          <section className="trace-card"><p className="eyebrow">Supporting results</p><h3>Calculation details</h3><div><span>Joint efficiency E</span><strong>{formatDisplayNumber(result.jointEfficiencyUsed)}</strong></div><div><span>Coefficient y</span><strong>{formatDisplayNumber(result.yCoefficientUsed)}</strong></div><div><span>Long-term corrosion rate</span><strong>{formatOutput(result.longTermCorrosionRateMmPerYear, "rate", unitSystem)} {rateUnit}</strong></div><div><span>Short-term corrosion rate</span><strong>{formatOutput(result.shortTermCorrosionRateMmPerYear, "rate", unitSystem)} {rateUnit}</strong></div><div><span>Governing corrosion rate</span><strong>{formatOutput(result.governingCorrosionRateMmPerYear, "rate", unitSystem)} {rateUnit}</strong></div><div><span>Corrosion allowance</span><strong>{formatOutput(result.corrosionAllowanceMm, "length", unitSystem)} {lengthUnit}</strong></div><div><span>Projected thickness ({result.intervalYears} yr)</span><strong>{formatOutput(result.projectedThicknessMm, "length", unitSystem)} {lengthUnit}</strong></div><div><span>Future MAWP thickness</span><strong>{formatOutput(result.futureMawpThicknessMm, "length", unitSystem)} {lengthUnit}</strong></div><div><span>Future MAWP</span><strong>{formatOutput(result.futureMawpMpa, "pressure", unitSystem)} {pressureUnit}</strong></div><div><span>Hydrostatic pressure</span><strong>{formatOutput(result.hydrostaticTestPressureMpa, "pressure", unitSystem)} {pressureUnit}</strong></div><div><span>Pneumatic pressure</span><strong>{formatOutput(result.pneumaticTestPressureMpa, "pressure", unitSystem)} {pressureUnit}</strong></div></section>
         </aside>
       </div>
     </div>

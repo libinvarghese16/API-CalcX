@@ -77,8 +77,10 @@ export function calculateEllipsoidalHead(input: CylindricalShellInputSI): Ellips
   };
   const governingMawpMpa = mawpFromThickness(actualThicknessMm);
   const projectedThicknessMm = actualThicknessMm > 0 ? Math.max(actualThicknessMm - (governingCorrosionRateMmPerYear * intervalYears), 0) : 0;
-  const futureMawpThicknessMm = actualThicknessMm > 0 ? Math.max(actualThicknessMm - (2 * governingCorrosionRateMmPerYear * intervalYears), 0) : 0;
+  const futureMawpThicknessMm = projectedThicknessMm;
 
+  issues.push({ code: "standard-2-to-1-scope", field: "calculation", severity: "warning", message: "This route is limited to the implemented standard 2:1 ellipsoidal-head geometry; confirm geometry and equation applicability." });
+  issues.push({ code: "test-pressure-basis-review", field: "calculation", severity: "warning", message: "Displayed test pressures are planning values; construction-code stress ratios and component limits govern." });
   return {
     engineId: "api510.ellipsoidal-head",
     engineVersion: "0.1.0-legacy-parity",

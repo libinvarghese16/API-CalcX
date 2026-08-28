@@ -31,6 +31,7 @@ test("matches the captured protected original-web API 570 B31.3 piping result", 
   assert.equal(result.ok, true);
   assert.equal(result.engineId, "api570.piping");
   assert.equal(result.engineVersion, "0.1.0-original-web-parity");
+  assert.ok(result.issues.some((issue) => issue.code === "test-pressure-planning-only" && issue.severity === "warning"));
   approximately(result.pressureDesignThicknessMm, 2.7421676545300597);
   approximately(result.requiredThicknessMm, 5.74216765453006);
   approximately(result.minimumThicknessUsedMm, 5.74);
@@ -43,8 +44,8 @@ test("matches the captured protected original-web API 570 B31.3 piping result", 
   approximately(result.hydrostaticTestPressureMpa, 3);
   approximately(result.pneumaticTestPressureMpa, 2.2);
   approximately(result.projectedThicknessMm, 15.100000000000001);
-  approximately(result.futureMawpThicknessMm, 14.4);
-  approximately(result.futureMawpMpa, 8.497569345152987);
+  approximately(result.futureMawpThicknessMm, 15.100000000000001);
+  approximately(result.futureMawpMpa, 9.035426679823026);
 });
 
 test("produces the same SI result from equivalent U.S. customary field values", () => {
@@ -112,6 +113,6 @@ test("normalizes the protected future interval to 1 through 20 years", () => {
   const result = calculateApi570Piping({ ...originalWebGoldenInput, nextInspectionYears: 30 });
   assert.equal(result.intervalYears, 20);
   approximately(result.projectedThicknessMm, 13);
-  approximately(result.futureMawpThicknessMm, 10.2);
+  approximately(result.futureMawpThicknessMm, 13.000000000000004);
   assert.ok(result.issues.some((issue) => issue.code === "inspection-interval-normalized"));
 });

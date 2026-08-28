@@ -14,21 +14,25 @@ function addPositiveIssue(issues: CalculationIssue[], field: Api570SoilResistivi
   }
 }
 
-/** Pure extraction of the protected API 574 four-pin Soil Resistivity Other Piping Calculation. */
+/** Wenner four-electrode calculation in coherent SI units: rho (ohm-m) = 2 pi a (m) R (ohm). */
 export function calculateApi570SoilResistivity(input: Api570SoilResistivityInputSI): Api570SoilResistivityResultSI {
   const issues: CalculationIssue[] = [];
-  addPositiveIssue(issues, "pinSpacingFt", input.pinSpacingFt, "Pin spacing");
+  addPositiveIssue(issues, "pinSpacingM", input.pinSpacingM, "Pin spacing");
   addPositiveIssue(issues, "resistanceOhm", input.resistanceOhm, "Resistance");
-  const pinSpacingFtUsed = Number.isFinite(input.pinSpacingFt) ? Math.max(input.pinSpacingFt, 0) : 0;
+  const pinSpacingMUsed = Number.isFinite(input.pinSpacingM) ? Math.max(input.pinSpacingM, 0) : 0;
   const resistanceOhmUsed = Number.isFinite(input.resistanceOhm) ? Math.max(input.resistanceOhm, 0) : 0;
+  const soilResistivityOhmM = pinSpacingMUsed > 0 && resistanceOhmUsed > 0
+    ? 2 * Math.PI * pinSpacingMUsed * resistanceOhmUsed
+    : 0;
 
   return {
     engineId: ENGINE_ID,
     engineVersion: ENGINE_VERSION,
     ok: !issues.some((issue) => issue.severity === "error"),
     issues,
-    pinSpacingFtUsed,
+    pinSpacingMUsed,
     resistanceOhmUsed,
-    soilResistivityOhmCm: pinSpacingFtUsed > 0 && resistanceOhmUsed > 0 ? 191.5 * pinSpacingFtUsed * resistanceOhmUsed : 0,
+    soilResistivityOhmM,
+    soilResistivityOhmCm: soilResistivityOhmM * 100,
   };
 }

@@ -38,9 +38,9 @@ test("matches the protected three-course Shell golden case", () => {
   approximately(course1.minimumThicknessMm, 19.5765389876881);
   approximately(course2.minimumThicknessMm, 16.258481532147744);
   approximately(course3.minimumThicknessMm, 11.776470588235295);
-  approximately(course1.hydrostaticTestHeightM, 21.163636363636364);
-  approximately(course2.hydrostaticTestHeightM, 20.17012987012987);
-  approximately(course3.hydrostaticTestHeightM, 18.34081632653061);
+  approximately(course1.hydrostaticTestHeightM, 23.25);
+  approximately(course2.hydrostaticTestHeightM, 22.15714285714286);
+  approximately(course3.hydrostaticTestHeightM, 20.144897959183673);
   approximately(course1.operatingFillHeightM, 19.287012987012986);
   approximately(course2.operatingFillHeightM, 18.382869511440937);
   approximately(course3.operatingFillHeightM, 16.69285714285714);
@@ -74,6 +74,14 @@ test("preserves lower-two-course and upper-course automatic material stress rout
   assert.ok(listApi653ShellMaterials().some((material) => material.id === "A36"));
 });
 
+test("keeps hydrotest height independent of product specific gravity", () => {
+  const highGravity = calculateApi653ShellAssessment(goldenInput);
+  const waterGravity = calculateApi653ShellAssessment({ ...goldenInput, specificGravity: 1 });
+
+  approximately(highGravity.courses[0]?.hydrostaticTestHeightM ?? 0, waterGravity.courses[0]?.hydrostaticTestHeightM ?? 0);
+  assert.notEqual(highGravity.courses[0]?.operatingFillHeightM, waterGravity.courses[0]?.operatingFillHeightM);
+});
+
 test("applies the protected 2.50 mm floor for an upper course", () => {
   const result = calculateApi653ShellAssessment({ ...goldenInput, totalHeightM: 6.5 });
   const course3 = result.courses[2];
@@ -104,7 +112,7 @@ test("supports the protected Known-material manual S and St route", () => {
   assert.equal(course.automaticProductStressMpa, null);
   assert.equal(course.automaticHydroStressMpa, null);
   approximately(course.minimumThicknessMm, 21.044779411764708);
-  approximately(course.hydrostaticTestHeightM, 20.17012987012987);
+  approximately(course.hydrostaticTestHeightM, 22.15714285714286);
   approximately(course.operatingFillHeightM, 17.96233766233766);
 });
 

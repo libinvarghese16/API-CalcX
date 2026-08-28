@@ -221,12 +221,11 @@ export function Api570TensionTestCalculator({ onBack, onNeedProject, notify, pro
 
         <aside className="result-column">
           <section className="result-card">
-            <div className="result-card-top"><Gauge size={17} /> Live engine <small>{result.ok ? "Parity passed" : "Input review"}</small></div>
-            <p>Tensile strength</p>
-            <div className="result-value"><strong>{formatOutput(result.tensileStrengthMpa, "pressure", unitSystem)}</strong><span>{strengthUnit}</span></div>
+            <div className="result-card-top"><Gauge size={17} /> Calculation results <small>{result.ok ? "Calculated" : "Check inputs"}</small></div>
+            <div className="result-primary-grid"><div className="result-primary"><p>Tensile strength</p><div className="result-primary-value"><strong>{formatOutput(result.tensileStrengthMpa, "pressure", unitSystem)}</strong><span>{strengthUnit}</span></div></div><div className="result-primary"><p>Required load</p><div className="result-primary-value"><strong>{formatOutput(result.requiredLoadKn, "force", unitSystem)}</strong><span>{forceUnit}</span></div></div></div>
             <div className="result-comparison">
               <span>Selected area<strong>{formatOutput(result.selectedAreaMm2, "area", unitSystem)} {areaUnit}</strong></span>
-              <span>Required load<strong>{formatOutput(result.requiredLoadKn, "force", unitSystem)} {forceUnit}</strong></span>
+              <span>Area source<strong>{areaSourceLabel(result.resolvedAreaSource)}</strong></span>
             </div>
             <div className="result-comparison">
               <span>Turned area TSA<strong>{formatOutput(result.turnedSpecimenAreaMm2, "area", unitSystem)} {areaUnit}</strong></span>
@@ -238,8 +237,7 @@ export function Api570TensionTestCalculator({ onBack, onNeedProject, notify, pro
             </div>
           </section>
           <section className="trace-card">
-            <p className="eyebrow">Result trace</p><h3>Visible calculation context</h3>
-            <div><span>Engine ID</span><strong>{result.engineId}</strong></div>
+            <p className="eyebrow">Supporting results</p><h3>Calculation details</h3>
             <div><span>Turned radius used</span><strong>{formatDisplayNumber(result.effectiveTurnedRadiusMm)} mm · {result.effectiveTurnedRadiusSource}</strong></div>
             <div><span>TSA = πR²</span><strong>{formatDisplayNumber(result.turnedSpecimenAreaMm2)} mm²</strong></div>
             <div><span>RSA = width × thickness</span><strong>{formatDisplayNumber(result.reducedSpecimenAreaMm2)} mm²</strong></div>

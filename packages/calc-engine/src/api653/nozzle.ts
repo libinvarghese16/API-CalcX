@@ -161,13 +161,17 @@ export function calculateApi653NozzleAssessment(input: Api653NozzleAssessmentInp
 
   const nozzles: Api653NozzleResultSI[] = (Array.isArray(input.nozzles) ? input.nozzles : []).map((nozzle, position) => {
     const index = Number.isFinite(nozzle.nozzleIndex) ? nozzle.nozzleIndex : position + 1;
-    const active = Boolean(nozzle.nominalPipeSizeIn.trim()) || nozzle.originalThicknessMm > 0 || nozzle.previousThicknessMm > 0 || nozzle.actualThicknessMm > 0 || nozzle.manualMinimumThicknessMm > 0;
+    const active = Boolean(nozzle.nominalPipeSizeIn.trim()) || nozzle.originalThicknessMm > 0 || nozzle.previousThicknessMm > 0 || nozzle.actualThicknessMm > 0 || nozzle.manualMinimumThicknessMm > 0 || nozzle.pressureMinimumThicknessMm > 0;
     const selection = selectApi653NozzleMinimumThickness({ ...input, nominalPipeSizeIn: nozzle.nominalPipeSizeIn });
     const automaticMinimumThicknessMm = selection.valueMm;
-    const minimumThicknessMmUsed = nozzle.minimumThicknessMode === "manual" ? nozzle.manualMinimumThicknessMm : automaticMinimumThicknessMm ?? 0;
+    const structuralMinimumThicknessMmUsed = nozzle.minimumThicknessMode === "manual" ? nozzle.manualMinimumThicknessMm : automaticMinimumThicknessMm ?? 0;
+    const pressureMinimumThicknessMmUsed = Number.isFinite(nozzle.pressureMinimumThicknessMm) ? Math.max(nozzle.pressureMinimumThicknessMm, 0) : 0;
+    const minimumThicknessMmUsed = Math.max(structuralMinimumThicknessMmUsed, pressureMinimumThicknessMmUsed);
+    const governingMinimumBasis = pressureMinimumThicknessMmUsed > structuralMinimumThicknessMmUsed ? "pressure" as const : "structural" as const;
     if (active && !nozzle.nominalPipeSizeIn.trim()) issues.push(issue("nominalPipeSizeIn", "missing-size", `Nozzle ${index}: select a nominal pipe size.`));
     if (active && nozzle.minimumThicknessMode === "auto" && !selection.available) issues.push(issue("calculation", "minimum-unavailable", `Nozzle ${index}: ${selection.message}`));
     if (active && nozzle.minimumThicknessMode === "manual" && !(nozzle.manualMinimumThicknessMm > 0)) issues.push(issue("manualMinimumThicknessMm", "invalid-manual-minimum", `Nozzle ${index}: manual minimum thickness must be greater than zero.`));
+    if (active && !(nozzle.pressureMinimumThicknessMm > 0)) issues.push(issue("pressureMinimumThicknessMm", "pressure-minimum-required", `Nozzle ${index}: enter the pressure-design minimum thickness from the controlled nozzle design calculation.`));
     if (active && !(nozzle.originalThicknessMm > 0)) issues.push(issue("originalThicknessMm", "invalid-original-thickness", `Nozzle ${index}: original thickness must be greater than zero.`));
     if (active && !(nozzle.actualThicknessMm > 0)) issues.push(issue("actualThicknessMm", "invalid-actual-thickness", `Nozzle ${index}: actual thickness must be greater than zero.`));
     const longTerm = nozzle.originalThicknessMm > 0 && nozzle.actualThicknessMm > 0 && input.yearsInService > 0 ? Math.max((nozzle.originalThicknessMm - nozzle.actualThicknessMm) / input.yearsInService, 0) : 0;
@@ -178,7 +182,8 @@ export function calculateApi653NozzleAssessment(input: Api653NozzleAssessmentInp
       ? null : corrosionAllowance <= 0 ? 0 : governing > 0 ? corrosionAllowance / governing : Number.POSITIVE_INFINITY;
     return {
       nozzleIndex: index, detail: nozzle.detail, active, nominalPipeSizeIn: nozzle.nominalPipeSizeIn,
-      minimumThicknessMode: nozzle.minimumThicknessMode, automaticMinimumThicknessMm, minimumThicknessMmUsed,
+      minimumThicknessMode: nozzle.minimumThicknessMode, automaticMinimumThicknessMm, structuralMinimumThicknessMmUsed,
+      pressureMinimumThicknessMmUsed, governingMinimumBasis, minimumThicknessMmUsed,
       minimumSelection: selection, originalThicknessMmUsed: nozzle.originalThicknessMm,
       previousThicknessMmUsed: nozzle.previousThicknessMm, actualThicknessMmUsed: nozzle.actualThicknessMm,
       corrosionAllowanceMm: corrosionAllowance, longTermCorrosionRateMmPerYear: longTerm,

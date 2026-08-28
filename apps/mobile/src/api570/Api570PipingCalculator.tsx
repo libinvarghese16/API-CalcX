@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import {
   API570_PIPING_CODE_DEFINITIONS,
+  DEFAULT_API570_MATERIAL_GRADE,
+  DEFAULT_API570_MATERIAL_SPEC,
   api570PipingCodeDefinitionFor,
   calculateApi570Piping,
   convertBetweenUnits,
@@ -10,6 +12,7 @@ import {
   deriveYearsInService,
   deriveYearsSincePreviousInspection,
   listEngineeringUnitOptions,
+  resolveApi570PipingAllowableStress,
   unitSymbol,
 } from "@api-calc-pro/calc-engine";
 import type {
@@ -24,6 +27,7 @@ import type {
 import { ArrowLeft, CircleCheck, Gauge, Info, RotateCcw, ShieldCheck, TriangleAlert, Wrench } from "lucide-react";
 import { formatDisplayNumber } from "../display-precision.ts";
 import { Api570PipingRecordWorkflow } from "./Api570PipingRecordWorkflow.tsx";
+import { Api570MaterialStressFields } from "./Api570MaterialStressFields.tsx";
 import type {
   ApproveApi570CalculationInput,
   Api570PipingInputSnapshot,
@@ -147,6 +151,9 @@ export function Api570PipingCalculator({ onBack, onNeedProject, notify, projects
   const currentYear = new Date().getFullYear();
   const [unitSystem, setUnitSystem] = useState<UnitSystem>(initialInputs?.unitSystem ?? "metric");
   const [fields, setFields] = useState<UnitFieldMap>(() => initialUnitFields(initialInputs));
+  const [materialSpec, setMaterialSpec] = useState(initialInputs?.materialSpec ?? DEFAULT_API570_MATERIAL_SPEC);
+  const [gradeKey, setGradeKey] = useState(initialInputs?.gradeKey ?? DEFAULT_API570_MATERIAL_GRADE);
+  const [stressMode, setStressMode] = useState<AutomaticValueMode>(initialInputs?.stressMode ?? "auto");
   const [pipingCode, setPipingCode] = useState<Api570PipingCode>(initialInputs?.pipingCode ?? "b31.3");
   const [buildYear, setBuildYear] = useState(initialInputs?.buildYear ?? "2006");
   const [previousInspectionYear, setPreviousInspectionYear] = useState(initialInputs?.previousInspectionYear ?? "2021");
@@ -192,11 +199,20 @@ export function Api570PipingCalculator({ onBack, onNeedProject, notify, projects
     })) as UnitFieldMap);
   };
 
+  const designTemperatureC = unitValue(fields.designTemperature);
+  const stressResolution = useMemo(
+    () => resolveApi570PipingAllowableStress(materialSpec, gradeKey, designTemperatureC),
+    [designTemperatureC, gradeKey, materialSpec],
+  );
+  const resolvedStressMpa = stressMode === "auto"
+    ? stressResolution.allowableStressMpa ?? 0
+    : unitValue(fields.allowableStress);
+
   const baseInput = useMemo<Api570PipingInputSI>(() => ({
     pipingCode,
     outsideDiameterMm: unitValue(fields.outsideDiameter),
     designPressureMpa: unitValue(fields.designPressure),
-    allowableStressMpa: unitValue(fields.allowableStress),
+    allowableStressMpa: resolvedStressMpa,
     longitudinalQualityFactor: numberFrom(qualityFactor),
     weldStrengthReductionFactor: numberFrom(weldFactor, 1),
     yCoefficient: numberFrom(yCoefficient),
@@ -212,11 +228,13 @@ export function Api570PipingCalculator({ onBack, onNeedProject, notify, projects
     yearsInService,
     yearsSincePreviousInspection: yearsSinceInspection,
     nextInspectionYears: numberFrom(intervalYears, 5),
-  }), [designFactor, fields, hydrogenFactor, hydrogenMaterialFactor, intervalYears, pipingCode, qualityFactor, temperatureFactor, weldFactor, yCoefficient, yearsInService, yearsSinceInspection]);
+  }), [designFactor, fields, hydrogenFactor, hydrogenMaterialFactor, intervalYears, pipingCode, qualityFactor, resolvedStressMpa, temperatureFactor, weldFactor, yCoefficient, yearsInService, yearsSinceInspection]);
   const automaticResult = useMemo(() => calculateApi570Piping(baseInput), [baseInput]);
   const result = useMemo(() => calculateApi570Piping(minimumMode === "manual"
     ? { ...baseInput, minimumThicknessMm: unitValue(fields.manualMinimum) }
     : baseInput), [baseInput, fields.manualMinimum, minimumMode]);
+  const error = result.issues.find((issue) => issue.severity === "error");
+  const warning = result.issues.find((issue) => issue.severity === "warning");
   const inputSnapshot = useMemo<Api570PipingInputSnapshot>(() => ({
     calculatorId: "piping",
     unitSystem,
@@ -237,8 +255,18 @@ export function Api570PipingCalculator({ onBack, onNeedProject, notify, projects
     hydrogenMaterialFactor,
     hydrogenFactor,
     intervalYears,
+    materialSpec,
+    gradeKey,
+    stressMode,
     engineInput: minimumMode === "manual" ? { ...baseInput, minimumThicknessMm: unitValue(fields.manualMinimum) } : baseInput,
-  }), [baseInput, buildYear, designFactor, fields, hydrogenFactor, hydrogenMaterialFactor, inspectionYearsMode, intervalYears, manualInspectionYears, manualServiceYears, minimumMode, pipingCode, previousInspectionYear, qualityFactor, serviceYearsMode, temperatureFactor, unitSystem, weldFactor, yCoefficient]);
+  }), [baseInput, buildYear, designFactor, fields, gradeKey, hydrogenFactor, hydrogenMaterialFactor, inspectionYearsMode, intervalYears, manualInspectionYears, manualServiceYears, materialSpec, minimumMode, pipingCode, previousInspectionYear, qualityFactor, serviceYearsMode, stressMode, temperatureFactor, unitSystem, weldFactor, yCoefficient]);
+
+  const changeStressMode = (mode: AutomaticValueMode) => {
+    if (mode === "manual" && stressResolution.allowableStressMpa !== null) {
+      updateFieldValue("allowableStress", formatInput(convertBetweenUnits(stressResolution.allowableStressMpa, "pressure", "MPa", fields.allowableStress.unit), "pressure"));
+    }
+    setStressMode(mode);
+  };
 
   const changeMinimumMode = (mode: AutomaticValueMode) => {
     if (mode === "manual" && !fields.manualMinimum.value.trim()) {
@@ -257,6 +285,7 @@ export function Api570PipingCalculator({ onBack, onNeedProject, notify, projects
   };
   const reset = () => {
     setUnitSystem("metric"); setFields(initialUnitFields()); setPipingCode("b31.3"); setBuildYear("2006"); setPreviousInspectionYear("2021");
+    setMaterialSpec(DEFAULT_API570_MATERIAL_SPEC); setGradeKey(DEFAULT_API570_MATERIAL_GRADE); setStressMode("auto");
     setServiceYearsMode("auto"); setInspectionYearsMode("auto"); setMinimumMode("auto"); setManualServiceYears("20"); setManualInspectionYears("5");
     setQualityFactor("0.85"); setWeldFactor("1"); setYCoefficient("0.4"); setDesignFactor("1"); setTemperatureFactor("1");
     setHydrogenMaterialFactor("1"); setHydrogenFactor("1"); setIntervalYears("5");
@@ -290,8 +319,7 @@ export function Api570PipingCalculator({ onBack, onNeedProject, notify, projects
               <label className="field"><span>Unit system</span><select className="select-control native-select" value={unitSystem} onChange={(event) => changeUnitSystem(event.target.value as UnitSystem)}><option value="metric">Metric · MPa / mm / °C</option><option value="us-customary">U.S. customary · psi / in / °F</option></select><small>Results follow this selection; every dimensional input keeps its own unit selector.</small></label>
               <UnitInput label="Internal design pressure" field={fields.designPressure} options={pressureUnits} help="Positive internal design pressure at the calculation condition." onValueChange={(value) => updateFieldValue("designPressure", value)} onUnitChange={(unit) => updateFieldUnit("designPressure", unit)} />
               <UnitInput label="Effective outside diameter" field={fields.outsideDiameter} options={lengthUnits} help="Enter the actual or resolved standard outside diameter. No pipe-schedule table is bundled." onValueChange={(value) => updateFieldValue("outsideDiameter", value)} onUnitChange={(unit) => updateFieldUnit("outsideDiameter", unit)} />
-              <UnitInput label="Design temperature" field={fields.designTemperature} options={temperatureUnits} help="Recorded design condition used when selecting allowable stress and code factors from a controlled source." onValueChange={(value) => updateFieldValue("designTemperature", value)} onUnitChange={(unit) => updateFieldUnit("designTemperature", unit)} />
-              <UnitInput label="Allowable stress" field={fields.allowableStress} options={pressureUnits} help="Manual controlled-source value. Copyrighted stress tables are not bundled." onValueChange={(value) => updateFieldValue("allowableStress", value)} onUnitChange={(unit) => updateFieldUnit("allowableStress", unit)} />
+              <Api570MaterialStressFields materialSpec={materialSpec} gradeKey={gradeKey} temperatureField={fields.designTemperature} stressField={fields.allowableStress} stressMode={stressMode} stressResolution={stressResolution} temperatureUnits={temperatureUnits} pressureUnits={pressureUnits} onMaterialChange={(nextSpec, firstGradeKey) => { setMaterialSpec(nextSpec); setGradeKey(firstGradeKey); }} onGradeChange={setGradeKey} onTemperatureValueChange={(value) => updateFieldValue("designTemperature", value)} onTemperatureUnitChange={(unit) => updateFieldUnit("designTemperature", unit)} onStressValueChange={(value) => updateFieldValue("allowableStress", value)} onStressUnitChange={(unit) => updateFieldUnit("allowableStress", unit)} onStressModeChange={changeStressMode} />
               <PlainInput label="Longitudinal quality factor E" value={qualityFactor} help="Enter the applicable joint or longitudinal quality factor." onChange={setQualityFactor} />
               {showW && <PlainInput label="Weld strength reduction factor W" value={weldFactor} help="Blank behavior in the protected source is represented by the visible default of 1.00." onChange={setWeldFactor} />}
               {showY && <PlainInput label="Y coefficient" value={yCoefficient} help="Enter from the applicable controlled code table; no standards table is bundled." onChange={setYCoefficient} />}
@@ -326,13 +354,13 @@ export function Api570PipingCalculator({ onBack, onNeedProject, notify, projects
 
         <aside className="result-column">
           <section className="result-card">
-            <div className="result-card-top"><Gauge size={17} /> Live engine <small>{result.ok ? "Parity passed" : "Input review"}</small></div>
-            <p>Required pressure thickness</p><div className="result-value"><strong>{formatOutput(result.requiredThicknessMm, "length", unitSystem)}</strong><span>{lengthUnit}</span></div>
+            <div className="result-card-top"><Gauge size={17} /> Calculation results <small>{result.ok ? "Calculated" : "Check inputs"}</small></div>
+            <div className="result-primary-grid"><div className="result-primary"><p>Remaining life</p><div className="result-primary-value"><strong>{formatDisplayNumber(result.remainingLifeYears)}</strong><span>yr</span></div></div><div className="result-primary"><p>Required thickness</p><div className="result-primary-value"><strong>{formatOutput(result.requiredThicknessMm, "length", unitSystem)}</strong><span>{lengthUnit}</span></div></div></div>
             <div className="result-comparison"><span>Minimum used<strong>{formatOutput(result.minimumThicknessUsedMm, "length", unitSystem)} {lengthUnit}</strong></span><span>Current thickness<strong>{formatOutput(unitValue(fields.actualThickness), "length", unitSystem)} {lengthUnit}</strong></span></div>
-            <div className="result-comparison"><span>Current MAWP<strong>{formatOutput(result.governingMawpMpa, "pressure", unitSystem)} {pressureUnit}</strong></span><span>Remaining life<strong>{formatDisplayNumber(result.remainingLifeYears)} yr</strong></span></div>
-            <div className={`result-status ${result.ok ? "is-valid" : ""}`}>{result.ok ? <CircleCheck size={18} /> : <TriangleAlert size={18} />}<div><strong>{result.ok ? "Calculation completed" : "Resolve input issues"}</strong><span>{result.ok ? "Protected original-web equation route and SI result object are active." : result.issues.find((issue) => issue.severity === "error")?.message}</span></div></div>
+            <div className="result-comparison"><span>Current MAWP<strong>{formatOutput(result.governingMawpMpa, "pressure", unitSystem)} {pressureUnit}</strong></span><span>Governing corrosion rate<strong>{formatOutput(result.governingCorrosionRateMmPerYear, "rate", unitSystem)} {rateUnit}</strong></span></div>
+            <div className={`result-status ${result.ok ? warning ? "is-manual" : "is-valid" : ""}`}>{result.ok && !warning ? <CircleCheck size={18} /> : <TriangleAlert size={18} />}<div><strong>{error ? "Resolve input issues" : warning ? "Engineering scope review required" : "Calculation completed"}</strong><span>{error?.message ?? warning?.message ?? "Review remaining life, required thickness, MAWP, and corrosion rates before use."}</span></div></div>
           </section>
-          <section className="trace-card"><p className="eyebrow">Result trace</p><h3>Visible calculation context</h3><div><span>Engine ID</span><strong>{result.engineId}</strong></div><div><span>Code basis</span><strong>{result.pipingCode}</strong></div><div><span>Long-term corrosion rate</span><strong>{formatOutput(result.longTermCorrosionRateMmPerYear, "rate", unitSystem)} {rateUnit}</strong></div><div><span>Short-term corrosion rate</span><strong>{formatOutput(result.shortTermCorrosionRateMmPerYear, "rate", unitSystem)} {rateUnit}</strong></div><div><span>Governing corrosion rate</span><strong>{formatOutput(result.governingCorrosionRateMmPerYear, "rate", unitSystem)} {rateUnit}</strong></div><div><span>Corrosion allowance</span><strong>{formatOutput(result.corrosionAllowanceMm, "length", unitSystem)} {lengthUnit}</strong></div><div><span>Projected thickness ({result.intervalYears} yr)</span><strong>{formatOutput(result.projectedThicknessMm, "length", unitSystem)} {lengthUnit}</strong></div><div><span>Future MAWP thickness</span><strong>{formatOutput(result.futureMawpThicknessMm, "length", unitSystem)} {lengthUnit}</strong></div><div><span>Future MAWP</span><strong>{formatOutput(result.futureMawpMpa, "pressure", unitSystem)} {pressureUnit}</strong></div><div><span>Hydrostatic pressure</span><strong>{formatOutput(result.hydrostaticTestPressureMpa, "pressure", unitSystem)} {pressureUnit}</strong></div><div><span>Pneumatic pressure</span><strong>{formatOutput(result.pneumaticTestPressureMpa, "pressure", unitSystem)} {pressureUnit}</strong></div></section>
+          <section className="trace-card"><p className="eyebrow">Supporting results</p><h3>Calculation details</h3><div><span>Code basis</span><strong>{result.pipingCode}</strong></div><div><span>Long-term corrosion rate</span><strong>{formatOutput(result.longTermCorrosionRateMmPerYear, "rate", unitSystem)} {rateUnit}</strong></div><div><span>Short-term corrosion rate</span><strong>{formatOutput(result.shortTermCorrosionRateMmPerYear, "rate", unitSystem)} {rateUnit}</strong></div><div><span>Governing corrosion rate</span><strong>{formatOutput(result.governingCorrosionRateMmPerYear, "rate", unitSystem)} {rateUnit}</strong></div><div><span>Corrosion allowance</span><strong>{formatOutput(result.corrosionAllowanceMm, "length", unitSystem)} {lengthUnit}</strong></div><div><span>Projected thickness ({result.intervalYears} yr)</span><strong>{formatOutput(result.projectedThicknessMm, "length", unitSystem)} {lengthUnit}</strong></div><div><span>Future MAWP thickness</span><strong>{formatOutput(result.futureMawpThicknessMm, "length", unitSystem)} {lengthUnit}</strong></div><div><span>Future MAWP</span><strong>{formatOutput(result.futureMawpMpa, "pressure", unitSystem)} {pressureUnit}</strong></div><div><span>Hydrostatic pressure</span><strong>{formatOutput(result.hydrostaticTestPressureMpa, "pressure", unitSystem)} {pressureUnit}</strong></div><div><span>Pneumatic pressure</span><strong>{formatOutput(result.pneumaticTestPressureMpa, "pressure", unitSystem)} {pressureUnit}</strong></div></section>
         </aside>
       </div>
     </div>

@@ -8,7 +8,7 @@ import {
   listEngineeringUnitOptions,
   unitSymbol,
 } from "@api-calc-pro/calc-engine";
-import type { Api570PneumaticTestInputSI, EngineeringUnit, UnitSystem } from "@api-calc-pro/calc-engine";
+import type { Api570PneumaticTestCode, Api570PneumaticTestInputSI, EngineeringUnit, UnitSystem } from "@api-calc-pro/calc-engine";
 import { ArrowLeft, CircleCheck, Gauge, Info, RotateCcw, ShieldCheck, TriangleAlert, Wrench } from "lucide-react";
 import { formatDisplayNumber } from "../display-precision.ts";
 import { Api570RecordWorkflow } from "./Api570PipingRecordWorkflow.tsx";
@@ -35,15 +35,18 @@ function formatPressure(valueMpa: number, unitSystem: UnitSystem): string {
 export function Api570PneumaticTestCalculator({ onBack, onNeedProject, notify, projects, initialCalculation, onSave, onReview, onApprove }: Api570CalculatorWorkflowProps) {
   const initialInputs = initialCalculation?.inputs.calculatorId === "pneumatic-test" ? initialCalculation.inputs : undefined;
   const [unitSystem, setUnitSystem] = useState<UnitSystem>(initialInputs?.unitSystem ?? "metric");
+  const [pipingCode, setPipingCode] = useState<Api570PneumaticTestCode>(initialInputs?.pipingCode ?? "asme-b31.3");
+  const [testFactor, setTestFactor] = useState(initialInputs?.testFactor ?? "1.2");
   const [designPressure, setDesignPressure] = useState(initialInputs?.designPressure ?? "2.5");
   const [designPressureUnit, setDesignPressureUnit] = useState<EngineeringUnit>(initialInputs?.designPressureUnit ?? "MPa");
 
   const designPressureMpa = convertUnitToSI(numberFrom(designPressure), "pressure", designPressureUnit);
-  const input = useMemo<Api570PneumaticTestInputSI>(() => ({ designPressureMpa }), [designPressureMpa]);
+  const input = useMemo<Api570PneumaticTestInputSI>(() => ({ pipingCode, designPressureMpa, testFactor: pipingCode === "asme-b31.3" ? undefined : numberFrom(testFactor) }), [designPressureMpa, pipingCode, testFactor]);
   const result = useMemo(() => calculateApi570PneumaticTest(input), [input]);
-  const inputSnapshot = useMemo<Api570PneumaticTestInputSnapshot>(() => ({ calculatorId: "pneumatic-test", unitSystem, designPressure, designPressureUnit, engineInput: input }), [designPressure, designPressureUnit, input, unitSystem]);
-  const reportDefinition: Api570WorkflowReportDefinition = { reportKind: "Pneumatic test calculation report", basisTitle: "Pneumatic test basis", inspectionTitle: "Pressure input", summaryLines: [`Pneumatic test pressure: ${formatDisplayNumber(result.pneumaticTestPressureMpa)} MPa`], basisRows: [{ label: "Formula basis", value: "PT = 1.1 x P" }, { label: "Engine ID", value: result.engineId }], inspectionRows: [{ label: "Entered pressure", value: `${designPressure} ${unitSymbol(designPressureUnit)}` }, { label: "Design pressure used", value: `${formatDisplayNumber(result.designPressureMpaUsed)} MPa` }], resultRows: [{ label: "Pneumatic test pressure", value: `${formatDisplayNumber(result.pneumaticTestPressureMpa)} MPa`, primary: true }] };
+  const inputSnapshot = useMemo<Api570PneumaticTestInputSnapshot>(() => ({ calculatorId: "pneumatic-test", unitSystem, pipingCode, testFactor, designPressure, designPressureUnit, engineInput: input }), [designPressure, designPressureUnit, input, pipingCode, testFactor, unitSystem]);
+  const reportDefinition: Api570WorkflowReportDefinition = { reportKind: "Pneumatic test calculation report", basisTitle: "Pneumatic test basis", inspectionTitle: "Pressure input", summaryLines: [`Selected pneumatic test pressure: ${formatDisplayNumber(result.pneumaticTestPressureMpa)} MPa`], basisRows: [{ label: "Code basis", value: result.codeLabel }, { label: "Test factor used", value: `${formatDisplayNumber(result.testFactorUsed)} × P` }], inspectionRows: [{ label: "Entered pressure", value: `${designPressure} ${unitSymbol(designPressureUnit)}` }, { label: "Design pressure used", value: `${formatDisplayNumber(result.designPressureMpaUsed)} MPa` }], resultRows: [{ label: "Selected test pressure", value: `${formatDisplayNumber(result.pneumaticTestPressureMpa)} MPa`, primary: true }, { label: "Minimum test pressure", value: `${formatDisplayNumber(result.minimumPneumaticTestPressureMpa)} MPa` }, { label: "Maximum test pressure", value: `${formatDisplayNumber(result.maximumPneumaticTestPressureMpa)} MPa` }] };
   const error = result.issues.find((issue) => issue.severity === "error");
+  const warning = result.issues.find((issue) => issue.severity === "warning");
 
   const changePressureUnit = (nextUnit: EngineeringUnit) => {
     const parsed = Number(designPressure);
@@ -65,6 +68,8 @@ export function Api570PneumaticTestCalculator({ onBack, onNeedProject, notify, p
 
   const reset = () => {
     setUnitSystem("metric");
+    setPipingCode("asme-b31.3");
+    setTestFactor("1.2");
     setDesignPressure("2.5");
     setDesignPressureUnit("MPa");
   };
@@ -80,7 +85,7 @@ export function Api570PneumaticTestCalculator({ onBack, onNeedProject, notify, p
           <div>
             <p className="eyebrow">API 570 · Other Piping Calculation 5 of 8</p>
             <h1>Pneumatic Test Pressure</h1>
-            <p>Focused B31.3 pneumatic test-pressure calculation with live mixed-unit entry.</p>
+            <p>Code-routed B31.3 or B31.1 pneumatic test-pressure calculation with live mixed-unit entry.</p>
           </div>
           <div className="calculator-actions">
             <span className="save-state-badge"><CircleCheck size={14} /> Original-web parity</span>
@@ -99,15 +104,12 @@ export function Api570PneumaticTestCalculator({ onBack, onNeedProject, notify, p
         <div className="input-column">
           <section className="form-card">
             <div className="form-card-heading">
-              <div><span>01</span><div><h2>Calculation basis</h2><p>Set the protected equation and preferred result units.</p></div></div>
+              <div><span>01</span><div><h2>Calculation basis</h2><p>Select the governing piping code and preferred result units.</p></div></div>
               <Wrench size={19} />
             </div>
             <div className="form-grid">
-              <label className="field">
-                <span>Formula basis</span>
-                <div className="select-control">B31.3 345.5.4 · PT = 1.1 P</div>
-                <small>Formula identity and behavior captured from the protected original application.</small>
-              </label>
+              <label className="field"><span>Piping code basis</span><select aria-label="Piping code basis" className="select-control native-select" value={pipingCode} onChange={(event) => { const next = event.target.value as Api570PneumaticTestCode; setPipingCode(next); if (next === "asme-b31.1" && !(numberFrom(testFactor) >= 1.2 && numberFrom(testFactor) <= 1.5)) setTestFactor("1.2"); }}><option value="asme-b31.3">ASME B31.3 · 1.10 × P</option><option value="asme-b31.1">ASME B31.1 · 1.20–1.50 × P</option><option value="manual-controlled">Controlled project factor</option></select><small>The code route controls the permitted pressure factor; component limits and the approved procedure still govern.</small></label>
+              <label className="field automatic-field"><span>Selected test factor<button type="button" title="B31.3 is fixed at 1.10. B31.1 requires a selected factor from 1.20 through 1.50. Manual mode requires a controlled project value." aria-label="Selected test factor help">?</button></span><div className={`number-control is-derived ${pipingCode === "asme-b31.3" ? "" : "is-manual"}`}><input aria-label="Selected test factor" type="number" inputMode="decimal" value={pipingCode === "asme-b31.3" ? "1.1" : testFactor} readOnly={pipingCode === "asme-b31.3"} onChange={(event) => setTestFactor(event.target.value)} /><b>× P</b></div><small>{pipingCode === "asme-b31.3" ? "Automatically fixed at 1.10 for this route." : pipingCode === "asme-b31.1" ? "Enter a value from 1.20 through 1.50; verify component limits." : "Enter the factor from the controlled construction-code basis."}</small></label>
               <label className="field">
                 <span>Unit system</span>
                 <select aria-label="Unit system" className="select-control native-select" value={unitSystem} onChange={(event) => changeUnitSystem(event.target.value as UnitSystem)}>
@@ -130,7 +132,7 @@ export function Api570PneumaticTestCalculator({ onBack, onNeedProject, notify, p
             </div>
             <div className="form-grid">
               <label className="field">
-                <span>Design pressure P<button type="button" title="Positive design pressure used by PT = 1.1 P." aria-label="Design pressure P help">?</button></span>
+                <span>Design pressure P<button type="button" title="Positive design pressure multiplied by the selected code-routed factor." aria-label="Design pressure P help">?</button></span>
                 <div className="number-control">
                   <input aria-label="Design pressure P" type="number" inputMode="decimal" value={designPressure} onChange={(event) => setDesignPressure(event.target.value)} />
                   <select className="unit-picker" aria-label="Design pressure P unit" value={designPressureUnit} onChange={(event) => changePressureUnit(event.target.value as EngineeringUnit)}>
@@ -162,29 +164,30 @@ export function Api570PneumaticTestCalculator({ onBack, onNeedProject, notify, p
 
         <aside className="result-column">
           <section className="result-card">
-            <div className="result-card-top"><Gauge size={17} /> Live engine <small>{result.ok ? "Parity passed" : "Input review"}</small></div>
-            <p>Pneumatic test pressure</p>
+            <div className="result-card-top"><Gauge size={17} /> Calculation results <small>{result.ok ? "Calculated" : "Check inputs"}</small></div>
+            <p>Selected pneumatic test pressure</p>
             <div className="result-value"><strong>{resultDisplay}</strong><span>{resultUnit}</span></div>
             <div className="result-comparison">
               <span>Design pressure<strong>{formatPressure(result.designPressureMpaUsed, unitSystem)} {resultUnit}</strong></span>
-              <span>Engine SI result<strong>{formatDisplayNumber(result.pneumaticTestPressureMpa)} MPa</strong></span>
+              <span>Test factor used<strong>{formatDisplayNumber(result.testFactorUsed)} × P</strong></span>
             </div>
-            <div className={`result-status ${result.ok ? "is-valid" : ""}`}>
-              {result.ok ? <CircleCheck size={18} /> : <TriangleAlert size={18} />}
+            <div className={`result-status ${result.ok && !warning ? "is-valid" : ""}`}>
+              {result.ok && !warning ? <CircleCheck size={18} /> : <TriangleAlert size={18} />}
               <div>
-                <strong>{error ? "Resolve input issue" : "Calculation completed"}</strong>
-                <span>{error?.message ?? "PT = 1.1 × P is active with the protected positive-pressure behavior."}</span>
+                <strong>{error ? "Resolve input issue" : warning ? "Manual code basis requires review" : "Calculation completed"}</strong>
+                <span>{error?.message ?? warning?.message ?? "Review the code basis, component limits, and calculated pneumatic test pressure before use."}</span>
               </div>
             </div>
           </section>
           <section className="trace-card">
-            <p className="eyebrow">Result trace</p>
-            <h3>Visible calculation context</h3>
-            <div><span>Engine ID</span><strong>{result.engineId}</strong></div>
-            <div><span>Engine version</span><strong>{result.engineVersion}</strong></div>
-            <div><span>Formula</span><strong>PT = 1.1 × P</strong></div>
+            <p className="eyebrow">Supporting results</p>
+            <h3>Calculation details</h3>
+            <div><span>Code basis</span><strong>{result.codeLabel}</strong></div>
+            <div><span>Factor used</span><strong>{formatDisplayNumber(result.testFactorUsed)} × P</strong></div>
             <div><span>Design pressure used</span><strong>{formatDisplayNumber(result.designPressureMpaUsed)} MPa</strong></div>
-            <div><span>Pneumatic test pressure</span><strong>{formatDisplayNumber(result.pneumaticTestPressureMpa)} MPa</strong></div>
+            <div><span>Selected test pressure</span><strong>{formatDisplayNumber(result.pneumaticTestPressureMpa)} MPa</strong></div>
+            <div><span>Minimum test pressure</span><strong>{formatDisplayNumber(result.minimumPneumaticTestPressureMpa)} MPa</strong></div>
+            <div><span>Maximum test pressure</span><strong>{formatDisplayNumber(result.maximumPneumaticTestPressureMpa)} MPa</strong></div>
           </section>
         </aside>
       </div>

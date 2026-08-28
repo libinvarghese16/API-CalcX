@@ -1,15 +1,20 @@
 import { useMemo, useState } from "react";
 import {
+  DEFAULT_API570_MATERIAL_GRADE,
+  DEFAULT_API570_MATERIAL_SPEC,
   calculateApi570ValveFittings,
   convertBetweenUnits,
   convertFromSI,
   convertUnitToSI,
   defaultUnitForSystem,
   listEngineeringUnitOptions,
+  resolveApi570PipingAllowableStress,
   unitSymbol,
 } from "@api-calc-pro/calc-engine";
 import type {
+  Api570ValveFittingsAssessmentBasis,
   Api570ValveFittingsInputSI,
+  AutomaticValueMode,
   EngineeringQuantity,
   EngineeringUnit,
   EngineeringUnitOption,
@@ -18,25 +23,31 @@ import type {
 import { ArrowLeft, CircleCheck, Gauge, Info, RotateCcw, ShieldCheck, TriangleAlert, Wrench } from "lucide-react";
 import { formatDisplayNumber } from "../display-precision.ts";
 import { Api570RecordWorkflow } from "./Api570PipingRecordWorkflow.tsx";
+import { Api570MaterialStressFields } from "./Api570MaterialStressFields.tsx";
 import type { Api570CalculatorWorkflowProps, Api570WorkflowReportDefinition } from "./Api570PipingRecordWorkflow.tsx";
 import type { Api570UnitFieldSnapshot, Api570ValveFittingsInputSnapshot } from "../local-data/models.ts";
 
-type UnitFieldId = "designPressure" | "outsideDiameter" | "allowableStress" | "allowance" | "availableWall";
+type UnitFieldId = "designPressure" | "componentRatedPressure" | "codeRequiredThickness" | "outsideDiameter" | "designTemperature" | "allowableStress" | "allowance" | "availableWall";
 type UnitFieldState = Api570UnitFieldSnapshot;
 type UnitFieldMap = Record<UnitFieldId, UnitFieldState>;
 
 const pressureUnits = listEngineeringUnitOptions("pressure");
 const lengthUnits = listEngineeringUnitOptions("length");
+const temperatureUnits = listEngineeringUnitOptions("temperature");
 
 function initialUnitFields(snapshot?: Api570ValveFittingsInputSnapshot): UnitFieldMap {
-  if (snapshot) return Object.fromEntries(Object.entries(snapshot.fields).map(([fieldId, field]) => [fieldId, { ...field }])) as UnitFieldMap;
-  return {
+  const defaults: UnitFieldMap = {
     designPressure: { value: "2.5", unit: "MPa", quantity: "pressure" },
+    componentRatedPressure: { value: "3", unit: "MPa", quantity: "pressure" },
+    codeRequiredThickness: { value: "5", unit: "mm", quantity: "length" },
     outsideDiameter: { value: "219.1", unit: "mm", quantity: "length" },
+    designTemperature: { value: "150", unit: "C", quantity: "temperature" },
     allowableStress: { value: "138", unit: "MPa", quantity: "pressure" },
     allowance: { value: "1.2", unit: "mm", quantity: "length" },
     availableWall: { value: "8.8", unit: "mm", quantity: "length" },
   };
+  if (!snapshot) return defaults;
+  return { ...defaults, ...Object.fromEntries(Object.entries(snapshot.fields).map(([fieldId, field]) => [fieldId, { ...field }])) } as UnitFieldMap;
 }
 
 function numberFrom(value: string, fallback = 0): number {
@@ -91,7 +102,11 @@ export function Api570ValveFittingsCalculator({ onBack, onNeedProject, notify, p
   const initialInputs = initialCalculation?.inputs.calculatorId === "valve-fittings" ? initialCalculation.inputs : undefined;
   const [unitSystem, setUnitSystem] = useState<UnitSystem>(initialInputs?.unitSystem ?? "metric");
   const [fields, setFields] = useState<UnitFieldMap>(() => initialUnitFields(initialInputs));
+  const [materialSpec, setMaterialSpec] = useState(initialInputs?.materialSpec ?? DEFAULT_API570_MATERIAL_SPEC);
+  const [gradeKey, setGradeKey] = useState(initialInputs?.gradeKey ?? DEFAULT_API570_MATERIAL_GRADE);
+  const [stressMode, setStressMode] = useState<AutomaticValueMode>(initialInputs?.stressMode ?? "auto");
   const [qualityFactor, setQualityFactor] = useState(initialInputs?.qualityFactor ?? "0.85");
+  const [assessmentBasis, setAssessmentBasis] = useState<Api570ValveFittingsAssessmentBasis>(initialInputs?.assessmentBasis ?? "listed-rating");
 
   const updateFieldValue = (fieldId: UnitFieldId, value: string) => {
     setFields((current) => ({ ...current, [fieldId]: { ...current[fieldId], value } }));
@@ -118,24 +133,45 @@ export function Api570ValveFittingsCalculator({ onBack, onNeedProject, notify, p
     })) as UnitFieldMap);
   };
 
+  const designTemperatureC = unitValue(fields.designTemperature);
+  const stressResolution = useMemo(
+    () => resolveApi570PipingAllowableStress(materialSpec, gradeKey, designTemperatureC),
+    [designTemperatureC, gradeKey, materialSpec],
+  );
+  const resolvedStressMpa = stressMode === "auto"
+    ? stressResolution.allowableStressMpa ?? 0
+    : unitValue(fields.allowableStress);
+
   const input = useMemo<Api570ValveFittingsInputSI>(() => ({
+    assessmentBasis,
+    componentRatedPressureMpa: unitValue(fields.componentRatedPressure),
+    codeRequiredThicknessMm: unitValue(fields.codeRequiredThickness),
     designPressureMpa: unitValue(fields.designPressure),
     outsideDiameterMm: unitValue(fields.outsideDiameter),
-    allowableStressMpa: unitValue(fields.allowableStress),
+    allowableStressMpa: resolvedStressMpa,
     qualityFactor: numberFrom(qualityFactor, 1),
     allowanceMm: unitValue(fields.allowance),
     availableWallThicknessMm: unitValue(fields.availableWall),
-  }), [fields, qualityFactor]);
+  }), [assessmentBasis, fields, qualityFactor, resolvedStressMpa]);
   const result = useMemo(() => calculateApi570ValveFittings(input), [input]);
-  const inputSnapshot = useMemo<Api570ValveFittingsInputSnapshot>(() => ({ calculatorId: "valve-fittings", unitSystem, fields: Object.fromEntries(Object.entries(fields).map(([fieldId, field]) => [fieldId, { ...field }])) as UnitFieldMap, qualityFactor, engineInput: input }), [fields, input, qualityFactor, unitSystem]);
-  const reportDefinition: Api570WorkflowReportDefinition = { reportKind: "Valve and fittings calculation report", basisTitle: "Pressure and component inputs", inspectionTitle: "Allowance and available-wall basis", summaryLines: [`Minimum required thickness: ${formatDisplayNumber(result.minimumRequiredThicknessMm)} mm`, `Allowable working pressure: ${formatDisplayNumber(result.allowableWorkingPressureMpa)} MPa`], basisRows: [{ label: "Formula basis", value: "API 574 11.2 · tm = 1.5(PD/2SE) + c" }, { label: "Design pressure", value: `${formatDisplayNumber(input.designPressureMpa)} MPa` }, { label: "Outside diameter", value: `${formatDisplayNumber(input.outsideDiameterMm)} mm` }, { label: "Allowable stress", value: `${formatDisplayNumber(input.allowableStressMpa)} MPa` }, { label: "Quality factor E", value: formatDisplayNumber(result.qualityFactorUsed) }], inspectionRows: [{ label: "Allowance used", value: `${formatDisplayNumber(result.allowanceUsedMm)} mm` }, { label: "Available wall", value: `${formatDisplayNumber(input.availableWallThicknessMm)} mm` }, { label: "Net available wall", value: `${formatDisplayNumber(result.netAvailableThicknessMm)} mm` }], resultRows: [{ label: "Pressure design thickness", value: `${formatDisplayNumber(result.pressureDesignThicknessMm)} mm` }, { label: "Minimum required thickness", value: `${formatDisplayNumber(result.minimumRequiredThicknessMm)} mm`, primary: true }, { label: "Allowable working pressure", value: `${formatDisplayNumber(result.allowableWorkingPressureMpa)} MPa`, primary: true }] };
+  const inputSnapshot = useMemo<Api570ValveFittingsInputSnapshot>(() => ({ calculatorId: "valve-fittings", unitSystem, fields: Object.fromEntries(Object.entries(fields).map(([fieldId, field]) => [fieldId, { ...field }])) as UnitFieldMap, qualityFactor, assessmentBasis, componentRatedPressure: fields.componentRatedPressure.value, codeRequiredThickness: fields.codeRequiredThickness.value, materialSpec, gradeKey, stressMode, engineInput: input }), [assessmentBasis, fields, gradeKey, input, materialSpec, qualityFactor, stressMode, unitSystem]);
+  const reportDefinition: Api570WorkflowReportDefinition = { reportKind: "Valve and fittings assessment report", basisTitle: "Controlled component basis", inspectionTitle: "Available-wall basis", summaryLines: [`Assessment basis: ${assessmentBasis}`, `Component status: ${result.componentAdequate === null ? "screening only" : result.componentAdequate ? "adequate" : "not adequate"}`], basisRows: [{ label: "Assessment basis", value: assessmentBasis }, { label: "Design pressure", value: `${formatDisplayNumber(input.designPressureMpa)} MPa` }, { label: "Listed rating", value: `${formatDisplayNumber(result.componentRatedPressureMpaUsed)} MPa` }, { label: "Code-derived Tmin", value: `${formatDisplayNumber(result.codeRequiredThicknessMmUsed)} mm` }], inspectionRows: [{ label: "Available wall", value: `${formatDisplayNumber(input.availableWallThicknessMm)} mm` }, { label: "Net available wall", value: `${formatDisplayNumber(result.netAvailableThicknessMm)} mm` }], resultRows: [{ label: "Screening thickness", value: `${formatDisplayNumber(result.pressureDesignThicknessMm)} mm` }, { label: "Governing minimum thickness", value: `${formatDisplayNumber(result.minimumRequiredThicknessMm)} mm`, primary: assessmentBasis === "code-derived-thickness" }, { label: "Listed allowable pressure", value: `${formatDisplayNumber(result.allowableWorkingPressureMpa)} MPa`, primary: assessmentBasis === "listed-rating" }] };
   const warning = result.issues.find((issue) => issue.severity === "warning");
   const error = result.issues.find((issue) => issue.severity === "error");
 
   const reset = () => {
     setUnitSystem("metric");
     setFields(initialUnitFields());
+    setMaterialSpec(DEFAULT_API570_MATERIAL_SPEC);
+    setGradeKey(DEFAULT_API570_MATERIAL_GRADE);
+    setStressMode("auto");
     setQualityFactor("0.85");
+    setAssessmentBasis("listed-rating");
+  };
+
+  const changeStressMode = (mode: AutomaticValueMode) => {
+    if (mode === "manual" && stressResolution.allowableStressMpa !== null) updateFieldValue("allowableStress", formatInput(convertBetweenUnits(stressResolution.allowableStressMpa, "pressure", "MPa", fields.allowableStress.unit)));
+    setStressMode(mode);
   };
 
   const pressureUnit = unitSymbol(defaultUnitForSystem("pressure", unitSystem));
@@ -173,9 +209,9 @@ export function Api570ValveFittingsCalculator({ onBack, onNeedProject, notify, p
             </div>
             <div className="form-grid">
               <label className="field">
-                <span>Formula basis</span>
-                <div className="select-control">API 574 11.2 · tm = 1.5(PD/2SE) + c</div>
-                <small>Identity and equation recorded from the protected original application.</small>
+                <span>Assessment basis</span>
+                <select aria-label="Valve assessment basis" className="select-control native-select" value={assessmentBasis} onChange={(event) => setAssessmentBasis(event.target.value as Api570ValveFittingsAssessmentBasis)}><option value="listed-rating">Listed component pressure rating</option><option value="code-derived-thickness">Controlled code-derived Tmin</option><option value="screening-only">1.5 × Barlow screening only</option></select>
+                <small>Use a listed rating or a controlled code-derived minimum for a final component check.</small>
               </label>
               <label className="field">
                 <span>Unit system</span>
@@ -199,8 +235,10 @@ export function Api570ValveFittingsCalculator({ onBack, onNeedProject, notify, p
             </div>
             <div className="form-grid">
               <UnitInput label="Design pressure" field={fields.designPressure} options={pressureUnits} help="Positive design pressure P for the pressure-thickness result." onValueChange={(value) => updateFieldValue("designPressure", value)} onUnitChange={(unit) => updateFieldUnit("designPressure", unit)} />
+              {assessmentBasis === "listed-rating" && <UnitInput label="Listed component pressure rating" field={fields.componentRatedPressure} options={pressureUnits} help="Pressure rating from the controlled manufacturer/component rating basis at the applicable temperature." onValueChange={(value) => updateFieldValue("componentRatedPressure", value)} onUnitChange={(unit) => updateFieldUnit("componentRatedPressure", unit)} />}
+              {assessmentBasis === "code-derived-thickness" && <UnitInput label="Controlled code-derived Tmin" field={fields.codeRequiredThickness} options={lengthUnits} help="Final required wall obtained from the applicable controlled component design calculation." onValueChange={(value) => updateFieldValue("codeRequiredThickness", value)} onUnitChange={(unit) => updateFieldUnit("codeRequiredThickness", unit)} />}
               <UnitInput label="Outside diameter" field={fields.outsideDiameter} options={lengthUnits} help="Outside diameter D of the valve or flanged fitting." onValueChange={(value) => updateFieldValue("outsideDiameter", value)} onUnitChange={(unit) => updateFieldUnit("outsideDiameter", unit)} />
-              <UnitInput label="Allowable stress" field={fields.allowableStress} options={pressureUnits} help="Manual controlled-source allowable stress S; no copyrighted stress table is bundled." onValueChange={(value) => updateFieldValue("allowableStress", value)} onUnitChange={(unit) => updateFieldUnit("allowableStress", unit)} />
+              <Api570MaterialStressFields materialSpec={materialSpec} gradeKey={gradeKey} temperatureField={fields.designTemperature} stressField={fields.allowableStress} stressMode={stressMode} stressResolution={stressResolution} temperatureUnits={temperatureUnits} pressureUnits={pressureUnits} onMaterialChange={(nextSpec, firstGradeKey) => { setMaterialSpec(nextSpec); setGradeKey(firstGradeKey); }} onGradeChange={setGradeKey} onTemperatureValueChange={(value) => updateFieldValue("designTemperature", value)} onTemperatureUnitChange={(unit) => updateFieldUnit("designTemperature", unit)} onStressValueChange={(value) => updateFieldValue("allowableStress", value)} onStressUnitChange={(unit) => updateFieldUnit("allowableStress", unit)} onStressModeChange={changeStressMode} />
               <label className="field">
                 <span>Longitudinal quality factor E<button type="button" title="Blank or non-positive values use E = 1.00, matching the protected calculator." aria-label="Longitudinal quality factor E help">?</button></span>
                 <input aria-label="Longitudinal quality factor E" type="number" inputMode="decimal" value={qualityFactor} onChange={(event) => setQualityFactor(event.target.value)} />
@@ -231,27 +269,25 @@ export function Api570ValveFittingsCalculator({ onBack, onNeedProject, notify, p
 
         <aside className="result-column">
           <section className="result-card">
-            <div className="result-card-top"><Gauge size={17} /> Live engine <small>{result.ok ? "Parity passed" : "Input review"}</small></div>
-            <p>Minimum required thickness</p>
-            <div className="result-value"><strong>{formatOutput(result.minimumRequiredThicknessMm, "length", unitSystem)}</strong><span>{lengthUnit}</span></div>
+            <div className="result-card-top"><Gauge size={17} /> Calculation results <small>{result.ok ? "Calculated" : "Check inputs"}</small></div>
+            <div className="result-primary-grid"><div className="result-primary"><p>{assessmentBasis === "listed-rating" ? "Listed pressure rating" : assessmentBasis === "code-derived-thickness" ? "Code-derived Tmin" : "Screening thickness"}</p><div className="result-primary-value"><strong>{assessmentBasis === "listed-rating" ? formatOutput(result.componentRatedPressureMpaUsed, "pressure", unitSystem) : formatOutput(assessmentBasis === "code-derived-thickness" ? result.codeRequiredThicknessMmUsed : result.minimumRequiredThicknessMm, "length", unitSystem)}</strong><span>{assessmentBasis === "listed-rating" ? pressureUnit : lengthUnit}</span></div></div><div className="result-primary"><p>Assessment status</p><div className="result-primary-value"><strong>{result.componentAdequate === null ? "Screen" : result.componentAdequate ? "Pass" : "Fail"}</strong><span>{result.assessmentStatus}</span></div></div></div>
             <div className="result-comparison">
               <span>Pressure thickness<strong>{formatOutput(result.pressureDesignThicknessMm, "length", unitSystem)} {lengthUnit}</strong></span>
-              <span>Allowable pressure<strong>{formatOutput(result.allowableWorkingPressureMpa, "pressure", unitSystem)} {pressureUnit}</strong></span>
+              <span>Net available wall<strong>{formatOutput(result.netAvailableThicknessMm, "length", unitSystem)} {lengthUnit}</strong></span>
             </div>
             <div className={`result-status ${result.ok ? "is-valid" : ""}`}>
               {result.ok && !warning ? <CircleCheck size={18} /> : <TriangleAlert size={18} />}
               <div>
-                <strong>{error ? "Resolve input issues" : warning ? "Calculation completed with protected default" : "Calculation completed"}</strong>
-                <span>{error?.message ?? warning?.message ?? "Protected valve/fittings equations and SI result object are active."}</span>
+                <strong>{error ? "Resolve input issues" : warning ? "Calculation completed with default" : "Calculation completed"}</strong>
+                <span>{error?.message ?? warning?.message ?? "Review required thickness, allowable pressure, and net available wall before use."}</span>
               </div>
             </div>
           </section>
           <section className="trace-card">
-            <p className="eyebrow">Result trace</p>
-            <h3>Visible calculation context</h3>
-            <div><span>Engine ID</span><strong>{result.engineId}</strong></div>
-            <div><span>Formula</span><strong>tm = 1.5(PD/2SE) + c</strong></div>
-            <div><span>Inverse formula</span><strong>P = 2SE(t−c) / 1.5D</strong></div>
+            <p className="eyebrow">Supporting results</p>
+            <h3>Calculation details</h3>
+            <div><span>Assessment basis</span><strong>{assessmentBasis}</strong></div>
+            <div><span>Screening formula only</span><strong>tm = 1.5(PD/2SE) + c</strong></div>
             <div><span>Quality factor E used</span><strong>{formatDisplayNumber(result.qualityFactorUsed)}</strong></div>
             <div><span>Allowance used</span><strong>{formatOutput(result.allowanceUsedMm, "length", unitSystem)} {lengthUnit}</strong></div>
             <div><span>Net available wall</span><strong>{formatOutput(result.netAvailableThicknessMm, "length", unitSystem)} {lengthUnit}</strong></div>

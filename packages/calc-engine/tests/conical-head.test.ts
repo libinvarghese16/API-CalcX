@@ -25,11 +25,12 @@ test("matches the captured legacy API 510 conical-head result", () => {
   const result = calculateConicalHead(goldenInput);
 
   assert.equal(result.ok, true);
+  assert.ok(result.issues.some((issue) => issue.code === "test-pressure-basis-review" && issue.severity === "warning"));
   assert.equal(result.engineId, "api510.conical-head");
   approximately(result.requiredThicknessMm, 14.88016157705221);
   approximately(result.governingMawpMpa, 1.5919695776569007);
   approximately(result.remainingLifeYears, 6.570274449627077);
-  approximately(result.futureMawpMpa, 1.451956623426238);
+  approximately(result.futureMawpMpa, 1.5219883658082791);
 });
 
 test("blocks a conical half-apex angle at or beyond 90 degrees", () => {

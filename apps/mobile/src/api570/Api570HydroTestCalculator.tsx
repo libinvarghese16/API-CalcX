@@ -1,11 +1,14 @@
 import { useMemo, useState } from "react";
 import {
+  DEFAULT_API570_MATERIAL_GRADE,
+  DEFAULT_API570_MATERIAL_SPEC,
   calculateApi570HydroTest,
   convertBetweenUnits,
   convertFromSI,
   convertUnitToSI,
   defaultUnitForSystem,
   listEngineeringUnitOptions,
+  resolveApi570PipingAllowableStress,
   unitSymbol,
 } from "@api-calc-pro/calc-engine";
 import type {
@@ -18,22 +21,27 @@ import type {
 import { ArrowLeft, CircleCheck, Gauge, Info, RotateCcw, ShieldCheck, TriangleAlert, Wrench } from "lucide-react";
 import { formatDisplayNumber } from "../display-precision.ts";
 import { Api570RecordWorkflow } from "./Api570PipingRecordWorkflow.tsx";
+import { Api570MaterialStressFields } from "./Api570MaterialStressFields.tsx";
 import type { Api570CalculatorWorkflowProps, Api570WorkflowReportDefinition } from "./Api570PipingRecordWorkflow.tsx";
 import type { Api570HydroTestInputSnapshot, Api570UnitFieldSnapshot } from "../local-data/models.ts";
 
-type UnitFieldId = "designPressure" | "designStress" | "testStress";
+type UnitFieldId = "designPressure" | "designTemperature" | "testTemperature" | "designStress" | "testStress";
 type UnitFieldState = Api570UnitFieldSnapshot;
 type UnitFieldMap = Record<UnitFieldId, UnitFieldState>;
 
 const pressureUnits = listEngineeringUnitOptions("pressure");
+const temperatureUnits = listEngineeringUnitOptions("temperature");
 
 function initialUnitFields(snapshot?: Api570HydroTestInputSnapshot): UnitFieldMap {
-  if (snapshot) return Object.fromEntries(Object.entries(snapshot.fields).map(([fieldId, field]) => [fieldId, { ...field }])) as UnitFieldMap;
-  return {
+  const defaults: UnitFieldMap = {
     designPressure: { value: "2.5", unit: "MPa", quantity: "pressure" },
+    designTemperature: { value: "150", unit: "C", quantity: "temperature" },
+    testTemperature: { value: "38", unit: "C", quantity: "temperature" },
     designStress: { value: "138", unit: "MPa", quantity: "pressure" },
     testStress: { value: "165", unit: "MPa", quantity: "pressure" },
   };
+  if (!snapshot) return defaults;
+  return { ...defaults, ...Object.fromEntries(Object.entries(snapshot.fields).map(([fieldId, field]) => [fieldId, { ...field }])) } as UnitFieldMap;
 }
 
 function numberFrom(value: string, fallback = 0): number {
@@ -88,6 +96,10 @@ export function Api570HydroTestCalculator({ onBack, onNeedProject, notify, proje
   const initialInputs = initialCalculation?.inputs.calculatorId === "hydro-test" ? initialCalculation.inputs : undefined;
   const [unitSystem, setUnitSystem] = useState<UnitSystem>(initialInputs?.unitSystem ?? "metric");
   const [fields, setFields] = useState<UnitFieldMap>(() => initialUnitFields(initialInputs));
+  const [materialSpec, setMaterialSpec] = useState(initialInputs?.materialSpec ?? DEFAULT_API570_MATERIAL_SPEC);
+  const [gradeKey, setGradeKey] = useState(initialInputs?.gradeKey ?? DEFAULT_API570_MATERIAL_GRADE);
+  const [designStressMode, setDesignStressMode] = useState<AutomaticValueMode>(initialInputs?.designStressMode ?? "auto");
+  const [testStressMode, setTestStressMode] = useState<AutomaticValueMode>(initialInputs?.testStressMode ?? "auto");
   const [ratioMode, setRatioMode] = useState<AutomaticValueMode>(initialInputs?.ratioMode ?? "auto");
   const [manualStressRatio, setManualStressRatio] = useState(initialInputs?.manualStressRatio ?? "1.25");
 
@@ -116,17 +128,34 @@ export function Api570HydroTestCalculator({ onBack, onNeedProject, notify, proje
     })) as UnitFieldMap);
   };
 
+  const designTemperatureC = unitValue(fields.designTemperature);
+  const testTemperatureC = unitValue(fields.testTemperature);
+  const designStressResolution = useMemo(
+    () => resolveApi570PipingAllowableStress(materialSpec, gradeKey, designTemperatureC),
+    [designTemperatureC, gradeKey, materialSpec],
+  );
+  const testStressResolution = useMemo(
+    () => resolveApi570PipingAllowableStress(materialSpec, gradeKey, testTemperatureC),
+    [gradeKey, materialSpec, testTemperatureC],
+  );
+  const resolvedDesignStressMpa = designStressMode === "auto"
+    ? designStressResolution.allowableStressMpa ?? 0
+    : unitValue(fields.designStress);
+  const resolvedTestStressMpa = testStressMode === "auto"
+    ? testStressResolution.allowableStressMpa ?? 0
+    : unitValue(fields.testStress);
+
   const baseInput = useMemo<Api570HydroTestInputSI>(() => ({
     designPressureMpa: unitValue(fields.designPressure),
-    allowableStressDesignMpa: unitValue(fields.designStress),
-    allowableStressTestMpa: unitValue(fields.testStress),
-  }), [fields]);
+    allowableStressDesignMpa: resolvedDesignStressMpa,
+    allowableStressTestMpa: resolvedTestStressMpa,
+  }), [fields.designPressure, resolvedDesignStressMpa, resolvedTestStressMpa]);
   const automaticResult = useMemo(() => calculateApi570HydroTest(baseInput), [baseInput]);
   const input = useMemo<Api570HydroTestInputSI>(() => ratioMode === "manual"
     ? { ...baseInput, manualStressRatio: numberFrom(manualStressRatio) }
     : baseInput, [baseInput, manualStressRatio, ratioMode]);
   const result = useMemo(() => calculateApi570HydroTest(input), [input]);
-  const inputSnapshot = useMemo<Api570HydroTestInputSnapshot>(() => ({ calculatorId: "hydro-test", unitSystem, fields: Object.fromEntries(Object.entries(fields).map(([fieldId, field]) => [fieldId, { ...field }])) as UnitFieldMap, ratioMode, manualStressRatio, engineInput: input }), [fields, input, manualStressRatio, ratioMode, unitSystem]);
+  const inputSnapshot = useMemo<Api570HydroTestInputSnapshot>(() => ({ calculatorId: "hydro-test", unitSystem, fields: Object.fromEntries(Object.entries(fields).map(([fieldId, field]) => [fieldId, { ...field }])) as UnitFieldMap, materialSpec, gradeKey, designStressMode, testStressMode, ratioMode, manualStressRatio, engineInput: input }), [designStressMode, fields, gradeKey, input, manualStressRatio, materialSpec, ratioMode, testStressMode, unitSystem]);
   const reportDefinition: Api570WorkflowReportDefinition = { reportKind: "Hydro test calculation report", basisTitle: "Hydro-test basis", inspectionTitle: "Stress-ratio selection", summaryLines: [`Minimum hydro test pressure: ${formatDisplayNumber(result.minimumHydroTestPressureMpa)} MPa`, `Stress ratio used: ${formatDisplayNumber(result.stressRatioUsed)}`], basisRows: [{ label: "Formula basis", value: "PT = 1.5 x P x Rr" }, { label: "Design pressure", value: `${formatDisplayNumber(input.designPressureMpa)} MPa` }, { label: "Allowable stress at design temperature", value: `${formatDisplayNumber(input.allowableStressDesignMpa ?? 0)} MPa` }, { label: "Allowable stress at test temperature", value: `${formatDisplayNumber(input.allowableStressTestMpa ?? 0)} MPa` }], inspectionRows: [{ label: "Ratio mode", value: ratioMode === "manual" ? "Manual override" : "Automatic" }, { label: "Calculated ratio", value: result.calculatedStressRatio > 0 ? formatDisplayNumber(result.calculatedStressRatio) : "Unavailable" }, { label: "Ratio source", value: result.stressRatioSource }, { label: "Ratio used", value: formatDisplayNumber(result.stressRatioUsed) }], resultRows: [{ label: "Minimum hydro test pressure", value: `${formatDisplayNumber(result.minimumHydroTestPressureMpa)} MPa`, primary: true }, { label: "Stress ratio used", value: formatDisplayNumber(result.stressRatioUsed) }] };
   const warning = result.issues.find((issue) => issue.severity === "warning");
   const error = result.issues.find((issue) => issue.severity === "error");
@@ -136,9 +165,21 @@ export function Api570HydroTestCalculator({ onBack, onNeedProject, notify, proje
     if (nextMode === "manual") setManualStressRatio(formatInput(automaticResult.stressRatioUsed));
     setRatioMode(nextMode);
   };
+  const changeDesignStressMode = (nextMode: AutomaticValueMode) => {
+    if (nextMode === "manual" && designStressResolution.allowableStressMpa !== null) updateFieldValue("designStress", formatInput(convertBetweenUnits(designStressResolution.allowableStressMpa, "pressure", "MPa", fields.designStress.unit)));
+    setDesignStressMode(nextMode);
+  };
+  const changeTestStressMode = (nextMode: AutomaticValueMode) => {
+    if (nextMode === "manual" && testStressResolution.allowableStressMpa !== null) updateFieldValue("testStress", formatInput(convertBetweenUnits(testStressResolution.allowableStressMpa, "pressure", "MPa", fields.testStress.unit)));
+    setTestStressMode(nextMode);
+  };
   const reset = () => {
     setUnitSystem("metric");
     setFields(initialUnitFields());
+    setMaterialSpec(DEFAULT_API570_MATERIAL_SPEC);
+    setGradeKey(DEFAULT_API570_MATERIAL_GRADE);
+    setDesignStressMode("auto");
+    setTestStressMode("auto");
     setRatioMode("auto");
     setManualStressRatio("1.25");
   };
@@ -206,8 +247,8 @@ export function Api570HydroTestCalculator({ onBack, onNeedProject, notify, proje
             </div>
             <div className="form-grid">
               <UnitInput label="Design pressure" field={fields.designPressure} options={pressureUnits} help="Positive design pressure P used by the hydro-test equation." onValueChange={(value) => updateFieldValue("designPressure", value)} onUnitChange={(unit) => updateFieldUnit("designPressure", unit)} />
-              <UnitInput label="S at design temperature" field={fields.designStress} options={pressureUnits} help="Optional controlled-source allowable stress S at design temperature." onValueChange={(value) => updateFieldValue("designStress", value)} onUnitChange={(unit) => updateFieldUnit("designStress", unit)} />
-              <UnitInput label="ST at test temperature" field={fields.testStress} options={pressureUnits} help="Optional controlled-source allowable stress ST at test temperature." onValueChange={(value) => updateFieldValue("testStress", value)} onUnitChange={(unit) => updateFieldUnit("testStress", unit)} />
+              <Api570MaterialStressFields materialSpec={materialSpec} gradeKey={gradeKey} temperatureField={fields.designTemperature} stressField={fields.designStress} stressMode={designStressMode} stressResolution={designStressResolution} temperatureUnits={temperatureUnits} pressureUnits={pressureUnits} temperatureLabel="Design temperature" stressLabel="S at design temperature" onMaterialChange={(nextSpec, firstGradeKey) => { setMaterialSpec(nextSpec); setGradeKey(firstGradeKey); }} onGradeChange={setGradeKey} onTemperatureValueChange={(value) => updateFieldValue("designTemperature", value)} onTemperatureUnitChange={(unit) => updateFieldUnit("designTemperature", unit)} onStressValueChange={(value) => updateFieldValue("designStress", value)} onStressUnitChange={(unit) => updateFieldUnit("designStress", unit)} onStressModeChange={changeDesignStressMode} />
+              <Api570MaterialStressFields showMaterialSelectors={false} materialSpec={materialSpec} gradeKey={gradeKey} temperatureField={fields.testTemperature} stressField={fields.testStress} stressMode={testStressMode} stressResolution={testStressResolution} temperatureUnits={temperatureUnits} pressureUnits={pressureUnits} temperatureLabel="Test temperature" stressLabel="ST at test temperature" onMaterialChange={() => undefined} onGradeChange={() => undefined} onTemperatureValueChange={(value) => updateFieldValue("testTemperature", value)} onTemperatureUnitChange={(unit) => updateFieldUnit("testTemperature", unit)} onStressValueChange={(value) => updateFieldValue("testStress", value)} onStressUnitChange={(unit) => updateFieldUnit("testStress", unit)} onStressModeChange={changeTestStressMode} />
               <label className="field automatic-field">
                 <span>Stress ratio Rr<button type="button" title="Auto calculates ST / S. Manual mode uses the highlighted override." aria-label="Stress ratio Rr help">?</button><button type="button" className={`field-mode-toggle ${ratioMode}`} onClick={() => changeRatioMode(ratioMode === "auto" ? "manual" : "auto")} aria-label={`Switch Stress ratio Rr to ${ratioMode === "auto" ? "manual" : "auto"} mode`}>{ratioMode}</button></span>
                 <div className={`number-control is-derived ${hasManualOverride ? "is-manual" : ""}`}>
@@ -243,25 +284,23 @@ export function Api570HydroTestCalculator({ onBack, onNeedProject, notify, proje
 
         <aside className="result-column">
           <section className="result-card">
-            <div className="result-card-top"><Gauge size={17} /> Live engine <small>{result.ok ? "Parity passed" : "Input review"}</small></div>
-            <p>Minimum hydro test pressure</p>
-            <div className="result-value"><strong>{formatPressure(result.minimumHydroTestPressureMpa, unitSystem)}</strong><span>{pressureUnit}</span></div>
+            <div className="result-card-top"><Gauge size={17} /> Calculation results <small>{result.ok ? "Calculated" : "Check inputs"}</small></div>
+            <div className="result-primary-grid"><div className="result-primary"><p>Minimum test pressure</p><div className="result-primary-value"><strong>{formatPressure(result.minimumHydroTestPressureMpa, unitSystem)}</strong><span>{pressureUnit}</span></div></div><div className="result-primary"><p>Stress ratio Rr</p><div className="result-primary-value"><strong>{formatDisplayNumber(result.stressRatioUsed)}</strong><span>ratio</span></div></div></div>
             <div className="result-comparison">
-              <span>Rr used<strong>{formatDisplayNumber(result.stressRatioUsed)}</strong></span>
+              <span>Design pressure<strong>{formatPressure(unitValue(fields.designPressure), unitSystem)} {pressureUnit}</strong></span>
               <span>Ratio source<strong>{ratioSourceLabel}</strong></span>
             </div>
             <div className={`result-status ${result.ok ? hasManualOverride ? "is-manual" : "is-valid" : ""}`}>
               {result.ok && !warning && !hasManualOverride ? <CircleCheck size={18} /> : <TriangleAlert size={18} />}
               <div>
-                <strong>{error ? "Resolve input issues" : hasManualOverride ? "Calculation includes manual Rr" : warning ? "Calculation completed with protected fallback" : "Calculation completed"}</strong>
-                <span>{error?.message ?? warning?.message ?? (hasManualOverride ? "Verify the highlighted manual ratio before engineering approval." : "Protected Hydro Test Pressure equation and SI result object are active.")}</span>
+                <strong>{error ? "Resolve input issues" : hasManualOverride ? "Calculation includes manual Rr" : warning ? "Calculation completed with fallback" : "Calculation completed"}</strong>
+                <span>{error?.message ?? warning?.message ?? (hasManualOverride ? "Verify the highlighted manual ratio before engineering approval." : "Review minimum test pressure and the stress ratio before use.")}</span>
               </div>
             </div>
           </section>
           <section className="trace-card">
-            <p className="eyebrow">Result trace</p>
-            <h3>Visible calculation context</h3>
-            <div><span>Engine ID</span><strong>{result.engineId}</strong></div>
+            <p className="eyebrow">Supporting results</p>
+            <h3>Calculation details</h3>
             <div><span>Formula</span><strong>PT = 1.5 P Rr</strong></div>
             <div><span>Automatic ratio</span><strong>{result.calculatedStressRatio > 0 ? formatDisplayNumber(result.calculatedStressRatio) : "Unavailable"}</strong></div>
             <div><span>Ratio source</span><strong>{ratioSourceLabel}</strong></div>

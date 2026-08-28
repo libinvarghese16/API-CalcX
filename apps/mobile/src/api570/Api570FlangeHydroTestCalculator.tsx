@@ -210,25 +210,23 @@ export function Api570FlangeHydroTestCalculator({ onBack, onNeedProject, notify,
 
         <aside className="result-column">
           <section className="result-card">
-            <div className="result-card-top"><Gauge size={17} /> Live engine <small>{result.ok ? "Parity passed" : "Input review"}</small></div>
-            <p>Hydro test pressure</p>
-            <div className="result-value"><strong>{mainPressure}</strong><span>{mainPressureUnit}</span></div>
+            <div className="result-card-top"><Gauge size={17} /> Calculation results <small>{result.ok ? "Calculated" : "Check inputs"}</small></div>
+            <div className="result-primary-grid"><div className="result-primary"><p>Hydro test pressure</p><div className="result-primary-value"><strong>{mainPressure}</strong><span>{mainPressureUnit}</span></div></div><div className="result-primary"><p>Minimum duration</p><div className="result-primary-value"><strong>{formatDisplayNumber(result.minimumTestDurationSeconds)}</strong><span>sec</span></div></div></div>
             <div className="result-comparison">
               <span>Alternate route<strong>{alternatePressure}</strong></span>
-              <span>Minimum duration<strong>{formatDisplayNumber(result.minimumTestDurationSeconds)} seconds</strong></span>
+              <span>Nominal pipe size<strong>{formatDisplayNumber(result.nominalPipeSizeInUsed)} in</strong></span>
             </div>
             <div className={`result-status ${result.ok ? "is-valid" : ""}`}>
               {result.ok && !warning ? <CircleCheck size={18} /> : <TriangleAlert size={18} />}
               <div>
                 <strong>{error ? "Resolve input issues" : warning ? "Calculation completed with warning" : "Calculation completed"}</strong>
-                <span>{error?.message ?? warning?.message ?? "Protected flange hydro-test rounding and duration routes are active."}</span>
+                <span>{error?.message ?? warning?.message ?? "Review hydro-test pressure, alternate route, and minimum duration before use."}</span>
               </div>
             </div>
           </section>
           <section className="trace-card">
-            <p className="eyebrow">Result trace</p>
-            <h3>Visible calculation context</h3>
-            <div><span>Engine ID</span><strong>{result.engineId}</strong></div>
+            <p className="eyebrow">Supporting results</p>
+            <h3>Calculation details</h3>
             <div><span>Metric formula</span><strong>ceil(1.5 × rating) to 1 bar</strong></div>
             <div><span>U.S. formula</span><strong>ceil(1.5 × rating / 25) × 25 psi</strong></div>
             <div><span>38°C rating used</span><strong>{formatDisplayNumber(result.pressureRating38CBarUsed)} bar</strong></div>

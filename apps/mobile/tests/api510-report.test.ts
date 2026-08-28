@@ -90,7 +90,8 @@ test("builds a metric report from the exact input and result snapshots", () => {
   assert.equal(model.resultRows.find((row) => row.label === "Required thickness")?.value, "12.89 mm");
   assert.equal(model.resultRows.find((row) => row.label === "Short-term corrosion rate")?.value, "0.140 mm/yr");
   assert.equal(model.planningRows.find((row) => row.label === "Future MAWP")?.value, "1.68 MPa");
-  assert.equal(model.traceRows.find((row) => row.label === "Engine version")?.value, result.engineVersion);
+  assert.equal(model.traceRows.find((row) => row.label === "Calculation status")?.value, "Completed without calculation errors");
+  assert.equal(model.traceRows.find((row) => row.label === "Engine version"), undefined);
 });
 
 test("formats the same structured result snapshot in U.S. output units", () => {
@@ -103,7 +104,7 @@ test("formats the same structured result snapshot in U.S. output units", () => {
   assert.equal(model.planningRows.find((row) => row.label === "Future MAWP")?.value, "242.94 psi");
 });
 
-test("surfaces manual overrides and engine issues in review and text output", () => {
+test("surfaces manual overrides and calculation issues in review and text output", () => {
   const model = createModel(
     { stressMode: "manual", manualStress: "140" },
     { ok: false, issues: [{ code: "pressure.invalid", field: "designPressureMpa", severity: "error", message: "Pressure must be positive." }] },
@@ -113,7 +114,7 @@ test("surfaces manual overrides and engine issues in review and text output", ()
   assert.deepEqual(model.overrides, ["Allowable stress"]);
   assert.equal(model.resultOk, false);
   assert.match(text, /ERROR: Pressure must be positive\./);
-  assert.match(text, /Same structured result snapshot shown in the application/);
+  assert.match(text, /Same calculated result snapshot shown in the application/);
   assert.match(text, /not an issued engineering document/i);
 });
 

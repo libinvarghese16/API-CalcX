@@ -65,7 +65,9 @@ test("keeps both Roof inspection periods editable and mixed-unit aware", () => {
   assert.match(roofSource, /DerivedYearsInput label="Years since previous inspection"/);
   assert.match(roofSource, /Manual override is active and highlighted/);
   assert.match(roofSource, /UnitInput label="Original roof thickness"/);
-  assert.match(roofSource, /UnitInput label="Minimum required thickness"/);
+  assert.match(roofSource, /API 653 area average · 2\.2 mm/);
+  assert.match(roofSource, /250 mm × 250 mm area average/);
+  assert.match(roofSource, /UnitInput label="Controlled minimum required thickness"/);
   assert.match(roofSource, /remainingLifeOpenEnded/);
   assert.match(roofSource, /remainingLifeOver99Years/);
 });
@@ -84,4 +86,6 @@ test("keeps Nozzle Tmin automatic, manually editable, unit-aware, and traceable"
   assert.match(nozzleSource, /switchMinimumMode/);
   assert.match(nozzleSource, /options=\{lengthUnits\}/);
   assert.match(nozzleSource, /minimumSelection\.message/);
+  assert.match(nozzleSource, /Pressure-design minimum/);
+  assert.match(nozzleSource, /governingMinimumBasis/);
 });

@@ -17,6 +17,7 @@ const completeGoldenInput = {
   liquidHeightM: 18,
   firstShellThicknessMm: 20,
   specificGravity: 0.9,
+  highSpecificGravityBasisConfirmed: false,
   calculatedStressMode: "auto" as const,
   manualCalculatedStressMpa: 0,
   minimumThicknessMode: "auto" as const,
@@ -24,7 +25,6 @@ const completeGoldenInput = {
   originalThicknessMm: 10,
   previousThicknessMm: 9.3,
   actualThicknessMm: 8.8,
-  pittingDepthMm: 1,
   yearsInService: 20,
   yearsSincePreviousInspection: 5,
 };
@@ -45,16 +45,15 @@ test("matches the complete protected Annular stress, automatic Tmin, and remaini
   assert.equal(result.minimumSelectionColumnLabel, "stress < 168 MPa");
   assert.equal(result.automaticMinimumThicknessMm, 4.32);
   assert.equal(result.minimumThicknessMmUsed, 4.32);
-  approximately(result.bottomSideMetalLossMm, 1.2);
-  approximately(result.topSideThicknessRemainingMm, 9);
+  approximately(result.metalLossLongMm, 1.2);
   approximately(result.maximumCorrosionRateLongMmPerYear, 0.06);
-  approximately(result.maximumCorrosionRateShortMmPerYear, 0.2);
+  approximately(result.maximumCorrosionRateShortMmPerYear, 0.1);
   approximately(result.availableThicknessMm, 4.48);
-  approximately(result.remainingLifeYears, 22.4);
+  approximately(result.remainingLifeYears, 44.8);
 });
 
 test("matches the protected specific-gravity 1.0-and-above automatic selection route", () => {
-  const result = calculateApi653AnnularPlate({ ...completeGoldenInput, specificGravity: 1.1 });
+  const result = calculateApi653AnnularPlate({ ...completeGoldenInput, specificGravity: 1.1, highSpecificGravityBasisConfirmed: true });
 
   assert.equal(result.ok, true);
   assert.equal(result.minimumSelectionTableLabel, "API 650 Table 5.1a");
@@ -62,7 +61,14 @@ test("matches the protected specific-gravity 1.0-and-above automatic selection r
   assert.equal(result.minimumSelectionColumnLabel, "stress ≤ 190 MPa");
   assert.equal(result.automaticMinimumThicknessMm, 6);
   approximately(result.effectiveProductHeightM, 19.8);
-  approximately(result.remainingLifeYears, 14);
+  approximately(result.remainingLifeYears, 28);
+});
+
+test("requires confirmation of the controlled high-specific-gravity structural basis", () => {
+  const result = calculateApi653AnnularPlate({ ...completeGoldenInput, specificGravity: 1.1, highSpecificGravityBasisConfirmed: false });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.issues.some((issue) => issue.code === "high-specific-gravity-basis-not-confirmed"));
 });
 
 test("reproduces the stress and remaining life from equivalent U.S. customary dimensions", () => {
@@ -74,12 +80,11 @@ test("reproduces the stress and remaining life from equivalent U.S. customary di
     originalThicknessMm: convertUnitToSI(0.3937007874, "length", "in"),
     previousThicknessMm: convertUnitToSI(0.3661417323, "length", "in"),
     actualThicknessMm: convertUnitToSI(0.3464566929, "length", "in"),
-    pittingDepthMm: convertUnitToSI(0.0393700787, "length", "in"),
   });
 
   approximately(result.calculatedStressMpa, 117.081, 0.0005);
   approximately(result.minimumThicknessMmUsed, 4.32);
-  approximately(result.remainingLifeYears, 22.4, 1e-7);
+  approximately(result.remainingLifeYears, 44.8, 1e-7);
 });
 
 test("preserves the protected stress-column boundaries for both selection routes", () => {
@@ -113,7 +118,7 @@ test("allows an explicit manual minimum while disclosing the automatic recommend
   assert.equal(result.ok, true);
   assert.equal(result.automaticMinimumThicknessMm, 4.32);
   assert.equal(result.minimumThicknessMmUsed, 4.5);
-  approximately(result.remainingLifeYears, 21.5);
+  approximately(result.remainingLifeYears, 43);
 });
 
 test("allows an explicit manual shell stress and recalculates automatic Tmin and remaining life", () => {
@@ -130,7 +135,7 @@ test("allows an explicit manual shell stress and recalculates automatic Tmin and
   assert.equal(result.minimumSelectionColumnLabel, "stress < 205 MPa");
   assert.equal(result.automaticMinimumThicknessMm, 7.88);
   assert.equal(result.minimumThicknessMmUsed, 7.88);
-  approximately(result.remainingLifeYears, 4.6);
+  approximately(result.remainingLifeYears, 9.2);
 });
 
 test("rejects an invalid manual shell stress", () => {

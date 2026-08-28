@@ -83,6 +83,9 @@ export type Api570PressureDesignField =
   | "calculation";
 
 export type Api570ValveFittingsField =
+  | "assessmentBasis"
+  | "componentRatedPressureMpa"
+  | "codeRequiredThicknessMm"
   | "outsideDiameterMm"
   | "designPressureMpa"
   | "allowableStressMpa"
@@ -105,7 +108,9 @@ export type Api570FlangeHydroTestField =
   | "calculation";
 
 export type Api570PneumaticTestField =
+  | "pipingCode"
   | "designPressureMpa"
+  | "testFactor"
   | "calculation";
 
 export type Api570FilletWeldField =
@@ -128,25 +133,34 @@ export type Api570TensionTestField =
   | "calculation";
 
 export type Api570SoilResistivityField =
-  | "pinSpacingFt"
+  | "pinSpacingM"
   | "resistanceOhm"
   | "calculation";
 
 export type Api653BottomPlateField =
   | "originalThicknessMm"
   | "previousThicknessMm"
-  | "actualThicknessMm"
+  | "bottomRemainingThicknessMm"
+  | "previousInternalPittingRemainingThicknessMm"
+  | "internalPittingRemainingThicknessMm"
   | "minimumThicknessMm"
-  | "pittingDepthMm"
+  | "minimumThicknessBasis"
+  | "projectionYears"
+  | "topSideCorrosionRateMmPerYear"
+  | "undersideCorrosionRateMmPerYear"
+  | "lowerShellMinimumThicknessMm"
+  | "criticalZoneActualThicknessMm"
   | "yearsInService"
   | "yearsSincePreviousInspection"
   | "calculation";
 
 export type Api653AnnularPlateField = Api653BottomPlateField
+  | "actualThicknessMm"
   | "diameterM"
   | "liquidHeightM"
   | "firstShellThicknessMm"
   | "specificGravity"
+  | "highSpecificGravityBasisConfirmed"
   | "calculatedStressMode"
   | "manualCalculatedStressMpa"
   | "minimumThicknessMode"
@@ -179,12 +193,17 @@ export type Api653NozzleField =
   | "nominalPipeSizeIn"
   | "minimumThicknessMode"
   | "manualMinimumThicknessMm"
+  | "pressureMinimumThicknessMm"
   | "originalThicknessMm"
   | "previousThicknessMm"
   | "actualThicknessMm"
   | "calculation";
 
 export type Api653RoofPlateField =
+  | "roofType"
+  | "minimumThicknessBasis"
+  | "areaAverageConfirmed"
+  | "holesPresent"
   | "originalThicknessMm"
   | "previousThicknessMm"
   | "actualThicknessMm"
@@ -220,12 +239,25 @@ export interface CalculationIssue {
   message: string;
 }
 
+export type Api653BottomCorrosionRateMode = "auto" | "manual";
+export type Api653BottomMinimumThicknessBasis = "table-4.4-standard" | "table-4.4-reduced" | "manual-controlled";
+
 export interface Api653BottomPlateInputSI {
   originalThicknessMm: number;
   previousThicknessMm: number;
-  actualThicknessMm: number;
-  minimumThicknessMm: number;
-  pittingDepthMm: number;
+  bottomRemainingThicknessMm: number;
+  previousInternalPittingRemainingThicknessMm: number;
+  internalPittingRemainingThicknessMm: number;
+  minimumThicknessBasis: Api653BottomMinimumThicknessBasis;
+  reducedMinimumCriteriaConfirmed: boolean;
+  manualMinimumThicknessMm: number;
+  projectionYears: number;
+  undersideCorrosionRateMode: Api653BottomCorrosionRateMode;
+  manualUndersideCorrosionRateMmPerYear: number;
+  topSideCorrosionRateMode: Api653BottomCorrosionRateMode;
+  manualTopSideCorrosionRateMmPerYear: number;
+  lowerShellMinimumThicknessMm: number;
+  criticalZoneActualThicknessMm: number;
   yearsInService: number;
   yearsSincePreviousInspection: number;
 }
@@ -237,18 +269,24 @@ export interface Api653BottomPlateResultSI {
   issues: CalculationIssue[];
   originalThicknessMmUsed: number;
   previousThicknessMmUsed: number;
-  actualThicknessMmUsed: number;
+  bottomRemainingThicknessMmUsed: number;
+  previousInternalPittingRemainingThicknessMmUsed: number;
+  internalPittingRemainingThicknessMmUsed: number;
+  minimumThicknessBasis: Api653BottomMinimumThicknessBasis;
   minimumThicknessMmUsed: number;
-  pittingDepthMmUsed: number;
+  projectionYearsUsed: number;
   yearsInServiceUsed: number;
   yearsSincePreviousInspectionUsed: number;
-  bottomSideMetalLossMm: number;
-  bottomSideMetalLossShortMm: number;
-  topSideThicknessRemainingMm: number;
-  bottomSideCorrosionRateLongMmPerYear: number;
-  bottomSideCorrosionRateShortMmPerYear: number;
-  topSideCorrosionRateLongMmPerYear: number;
-  topSideCorrosionRateShortMmPerYear: number;
+  automaticUndersideCorrosionRateMmPerYear: number;
+  undersideCorrosionRateMmPerYear: number;
+  automaticTopSideCorrosionRateMmPerYear: number;
+  topSideCorrosionRateMmPerYear: number;
+  combinedCorrosionRateMmPerYear: number;
+  projectedMinimumRemainingThicknessMm: number;
+  lowerShellMinimumThicknessMmUsed: number;
+  criticalZoneActualThicknessMmUsed: number;
+  criticalZoneMinimumThicknessMm: number;
+  criticalZoneAdequate: boolean;
   maximumCorrosionRateLongMmPerYear: number;
   maximumCorrosionRateShortMmPerYear: number;
   governingCorrosionRateMmPerYear: number;
@@ -260,15 +298,21 @@ export interface Api653BottomPlateResultSI {
 export type Api653AnnularMinimumThicknessMode = "auto" | "manual";
 export type Api653AnnularCalculatedStressMode = "auto" | "manual";
 
-export interface Api653AnnularPlateInputSI extends Omit<Api653BottomPlateInputSI, "minimumThicknessMm"> {
+export interface Api653AnnularPlateInputSI {
   diameterM: number;
   liquidHeightM: number;
   firstShellThicknessMm: number;
   specificGravity: number;
+  highSpecificGravityBasisConfirmed: boolean;
   calculatedStressMode: Api653AnnularCalculatedStressMode;
   manualCalculatedStressMpa: number;
   minimumThicknessMode: Api653AnnularMinimumThicknessMode;
   manualMinimumThicknessMm: number;
+  originalThicknessMm: number;
+  previousThicknessMm: number;
+  actualThicknessMm: number;
+  yearsInService: number;
+  yearsSincePreviousInspection: number;
 }
 
 export interface Api653AnnularStressResultSI {
@@ -293,10 +337,27 @@ export interface Api653AnnularMinimumSelectionSI {
   message: string;
 }
 
-export interface Api653AnnularPlateResultSI extends Omit<Api653BottomPlateResultSI, "engineId" | "ok" | "issues"> {
+export interface Api653AnnularPlateResultSI {
   engineId: "api653.annular-plate";
+  engineVersion: "0.1.0-original-web-parity";
   ok: boolean;
   issues: CalculationIssue[];
+  originalThicknessMmUsed: number;
+  previousThicknessMmUsed: number;
+  actualThicknessMmUsed: number;
+  minimumThicknessMmUsed: number;
+  yearsInServiceUsed: number;
+  yearsSincePreviousInspectionUsed: number;
+  metalLossLongMm: number;
+  metalLossShortMm: number;
+  longTermCorrosionRateMmPerYear: number;
+  shortTermCorrosionRateMmPerYear: number;
+  maximumCorrosionRateLongMmPerYear: number;
+  maximumCorrosionRateShortMmPerYear: number;
+  governingCorrosionRateMmPerYear: number;
+  governingThicknessMm: number;
+  availableThicknessMm: number;
+  remainingLifeYears: number;
   diameterMUsed: number;
   liquidHeightMUsed: number;
   firstShellThicknessMmUsed: number;
@@ -423,6 +484,7 @@ export interface Api653NozzleInputSI {
   nominalPipeSizeIn: string;
   minimumThicknessMode: Api653NozzleMinimumThicknessMode;
   manualMinimumThicknessMm: number;
+  pressureMinimumThicknessMm: number;
   originalThicknessMm: number;
   previousThicknessMm: number;
   actualThicknessMm: number;
@@ -460,6 +522,9 @@ export interface Api653NozzleResultSI {
   nominalPipeSizeIn: string;
   minimumThicknessMode: Api653NozzleMinimumThicknessMode;
   automaticMinimumThicknessMm: number | null;
+  structuralMinimumThicknessMmUsed: number;
+  pressureMinimumThicknessMmUsed: number;
+  governingMinimumBasis: "structural" | "pressure";
   minimumThicknessMmUsed: number;
   minimumSelection: Api653NozzleMinimumSelectionSI;
   originalThicknessMmUsed: number;
@@ -494,6 +559,10 @@ export interface Api653NozzleAssessmentResultSI {
 }
 
 export interface Api653RoofPlateInputSI {
+  roofType: "supported-cone" | "self-supporting" | "other";
+  minimumThicknessBasis: "api653-2.2mm-area-average" | "manual-controlled";
+  areaAverageConfirmed: boolean;
+  holesPresent: boolean;
   originalThicknessMm: number;
   previousThicknessMm: number;
   actualThicknessMm: number;
@@ -507,6 +576,10 @@ export interface Api653RoofPlateResultSI {
   engineVersion: "0.1.0-original-web-parity";
   ok: boolean;
   issues: CalculationIssue[];
+  roofType: "supported-cone" | "self-supporting" | "other";
+  minimumThicknessBasis: "api653-2.2mm-area-average" | "manual-controlled";
+  areaAverageConfirmed: boolean;
+  holesPresent: boolean;
   originalThicknessMmUsed: number;
   previousThicknessMmUsed: number;
   actualThicknessMmUsed: number;
@@ -749,7 +822,12 @@ export interface Api570PressureDesignResultSI {
   allowableWorkingPressureMpa: number;
 }
 
+export type Api570ValveFittingsAssessmentBasis = "listed-rating" | "code-derived-thickness" | "screening-only";
+
 export interface Api570ValveFittingsInputSI {
+  assessmentBasis: Api570ValveFittingsAssessmentBasis;
+  componentRatedPressureMpa?: number;
+  codeRequiredThicknessMm?: number;
   outsideDiameterMm: number;
   designPressureMpa: number;
   allowableStressMpa: number;
@@ -763,6 +841,11 @@ export interface Api570ValveFittingsResultSI {
   engineVersion: "0.1.0-original-web-parity";
   ok: boolean;
   issues: CalculationIssue[];
+  assessmentBasis: Api570ValveFittingsAssessmentBasis;
+  assessmentStatus: "complete" | "screening";
+  componentRatedPressureMpaUsed: number;
+  codeRequiredThicknessMmUsed: number;
+  componentAdequate: boolean | null;
   qualityFactorUsed: number;
   allowanceUsedMm: number;
   netAvailableThicknessMm: number;
@@ -810,8 +893,12 @@ export interface Api570FlangeHydroTestResultSI {
   minimumTestDurationSeconds: number;
 }
 
+export type Api570PneumaticTestCode = "asme-b31.3" | "asme-b31.1" | "manual-controlled";
+
 export interface Api570PneumaticTestInputSI {
+  pipingCode: Api570PneumaticTestCode;
   designPressureMpa: number;
+  testFactor?: number;
 }
 
 export interface Api570PneumaticTestResultSI {
@@ -819,7 +906,12 @@ export interface Api570PneumaticTestResultSI {
   engineVersion: "0.1.0-original-web-parity";
   ok: boolean;
   issues: CalculationIssue[];
+  pipingCode: Api570PneumaticTestCode;
+  codeLabel: string;
   designPressureMpaUsed: number;
+  testFactorUsed: number;
+  minimumPneumaticTestPressureMpa: number;
+  maximumPneumaticTestPressureMpa: number;
   pneumaticTestPressureMpa: number;
 }
 
@@ -887,7 +979,7 @@ export interface Api570TensionTestResultSI {
 }
 
 export interface Api570SoilResistivityInputSI {
-  pinSpacingFt: number;
+  pinSpacingM: number;
   resistanceOhm: number;
 }
 
@@ -896,8 +988,9 @@ export interface Api570SoilResistivityResultSI {
   engineVersion: "0.1.0-original-web-parity";
   ok: boolean;
   issues: CalculationIssue[];
-  pinSpacingFtUsed: number;
+  pinSpacingMUsed: number;
   resistanceOhmUsed: number;
+  soilResistivityOhmM: number;
   soilResistivityOhmCm: number;
 }
 

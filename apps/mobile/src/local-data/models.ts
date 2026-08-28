@@ -186,6 +186,9 @@ export interface Api570PipingInputSnapshot {
   hydrogenMaterialFactor: string;
   hydrogenFactor: string;
   intervalYears: string;
+  materialSpec?: string;
+  gradeKey?: string;
+  stressMode?: AutomaticValueMode;
   engineInput: Api570PipingInputSI;
 }
 
@@ -220,6 +223,9 @@ export interface Api570TubeInputSnapshot {
   minimumMode: AutomaticValueMode;
   weldFactor: string;
   intervalYears: string;
+  materialSpec?: string;
+  gradeKey?: string;
+  stressMode?: AutomaticValueMode;
   engineInput: Api570TubeInputSI;
 }
 
@@ -243,29 +249,45 @@ export interface Api570HeaderInputSnapshot {
   manualInspectionYears: string;
   minimumMode: AutomaticValueMode;
   intervalYears: string;
+  materialSpec?: string;
+  gradeKey?: string;
+  stressMode?: AutomaticValueMode;
   engineInput: Api570HeaderInputSI;
 }
 
 export interface Api570PressureDesignInputSnapshot {
   calculatorId: "pressure-design";
   unitSystem: UnitSystem;
-  fields: Record<"designPressure" | "outsideDiameter" | "allowableStress" | "availableThickness", Api570UnitFieldSnapshot>;
+  fields: Record<"designPressure" | "outsideDiameter" | "designTemperature" | "allowableStress" | "availableThickness", Api570UnitFieldSnapshot>;
   qualityFactor: string;
+  materialSpec?: string;
+  gradeKey?: string;
+  stressMode?: AutomaticValueMode;
   engineInput: Api570PressureDesignInputSI;
 }
 
 export interface Api570ValveFittingsInputSnapshot {
   calculatorId: "valve-fittings";
   unitSystem: UnitSystem;
-  fields: Record<"designPressure" | "outsideDiameter" | "allowableStress" | "allowance" | "availableWall", Api570UnitFieldSnapshot>;
+  fields: Record<"designPressure" | "componentRatedPressure" | "codeRequiredThickness" | "outsideDiameter" | "designTemperature" | "allowableStress" | "allowance" | "availableWall", Api570UnitFieldSnapshot>;
   qualityFactor: string;
+  assessmentBasis?: Api570ValveFittingsInputSI["assessmentBasis"];
+  componentRatedPressure?: string;
+  codeRequiredThickness?: string;
+  materialSpec?: string;
+  gradeKey?: string;
+  stressMode?: AutomaticValueMode;
   engineInput: Api570ValveFittingsInputSI;
 }
 
 export interface Api570HydroTestInputSnapshot {
   calculatorId: "hydro-test";
   unitSystem: UnitSystem;
-  fields: Record<"designPressure" | "designStress" | "testStress", Api570UnitFieldSnapshot>;
+  fields: Record<"designPressure" | "designTemperature" | "testTemperature" | "designStress" | "testStress", Api570UnitFieldSnapshot>;
+  materialSpec?: string;
+  gradeKey?: string;
+  designStressMode?: AutomaticValueMode;
+  testStressMode?: AutomaticValueMode;
   ratioMode: AutomaticValueMode;
   manualStressRatio: string;
   engineInput: Api570HydroTestInputSI;
@@ -281,6 +303,8 @@ export interface Api570FlangeHydroTestInputSnapshot {
 export interface Api570PneumaticTestInputSnapshot {
   calculatorId: "pneumatic-test";
   unitSystem: UnitSystem;
+  pipingCode: Api570PneumaticTestInputSI["pipingCode"];
+  testFactor: string;
   designPressure: string;
   designPressureUnit: EngineeringUnit;
   engineInput: Api570PneumaticTestInputSI;

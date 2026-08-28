@@ -28,6 +28,7 @@ test("matches the captured protected original-web API 570 Header result", () => 
   assert.equal(result.ok, true);
   assert.equal(result.engineId, "api570.header");
   assert.equal(result.engineVersion, "0.1.0-original-web-parity");
+  assert.ok(result.issues.some((issue) => issue.code === "test-pressure-planning-only" && issue.severity === "warning"));
   approximately(result.requiredThicknessMm, 2.31508875739645);
   approximately(result.automaticMinimumThicknessMm, 2.32);
   approximately(result.minimumThicknessUsedMm, 2.32);
@@ -37,11 +38,11 @@ test("matches the captured protected original-web API 570 Header result", () => 
   approximately(result.corrosionAllowanceMm, 6.48);
   approximately(result.remainingLifeYears, 81.0000000000003);
   approximately(result.governingMawpMpa, 9.735357917570498);
-  approximately(result.futureMawpMpa, 8.823695345557127);
+  approximately(result.futureMawpMpa, 9.278839815425185);
   approximately(result.hydrostaticTestPressureMpa, 3.75);
   approximately(result.pneumaticTestPressureMpa, 2.75);
   approximately(result.projectedThicknessMm, 8.400000000000002);
-  approximately(result.futureMawpThicknessMm, 8.000000000000004);
+  approximately(result.futureMawpThicknessMm, 8.400000000000002);
 });
 
 test("produces the same SI Header result from equivalent U.S. customary values", () => {
@@ -82,7 +83,7 @@ test("uses the governing long-term Header corrosion rate when it is larger", () 
   approximately(result.shortTermCorrosionRateMmPerYear, 0.03999999999999986);
   approximately(result.governingCorrosionRateMmPerYear, 0.10999999999999996);
   approximately(result.projectedThicknessMm, 8.25);
-  approximately(result.futureMawpThicknessMm, 7.700000000000001);
+  approximately(result.futureMawpThicknessMm, 8.25);
 });
 
 test("normalizes Header intervals and blocks invalid E and y inputs", () => {

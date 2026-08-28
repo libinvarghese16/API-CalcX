@@ -27,6 +27,11 @@ import {
 import type { AutomaticValueMode, EngineeringQuantity, EngineeringUnit, EngineeringUnitOption, UnitSystem } from "@api-calc-pro/calc-engine";
 import { AccountSettingsDialog } from "./account/AccountSettingsDialog.tsx";
 import type { AccountDialog } from "./account/AccountSettingsDialog.tsx";
+import { AccessGate } from "./account/AccessGate.tsx";
+import { guestCanAccessPage, modulesForGuestAccess } from "./account/access-policy.ts";
+import { authenticationProviderLabel, authenticationUserInitials } from "./account/auth-model.ts";
+import { useAuthenticationSession } from "./account/use-auth-session.ts";
+import type { AuthenticationSession } from "./account/use-auth-session.ts";
 import { WorkspaceBackupDialog } from "./backup/WorkspaceBackupDialog.tsx";
 import { API510_CALCULATORS, api510CalculatorFor, filterApi510Calculators } from "./calculators/api510-calculator-library.ts";
 import { API570_MOBILE_MODULE, filterApi570MobileWorkspaces } from "./calculators/api570-mobile-scope.ts";
@@ -97,8 +102,9 @@ const Api653ShellCourseCalculator = lazy(() => import("./api653/Api653ShellCours
 const Api653NozzleCalculator = lazy(() => import("./api653/Api653NozzleCalculator.tsx").then((module) => ({ default: module.Api653NozzleCalculator })));
 const Api653RoofPlateCalculator = lazy(() => import("./api653/Api653RoofPlateCalculator.tsx").then((module) => ({ default: module.Api653RoofPlateCalculator })));
 const Api653Other432Calculator = lazy(() => import("./api653/Api653Other432Calculator.tsx").then((module) => ({ default: module.Api653Other432Calculator })));
+const Api571DamageMechanisms = lazy(() => import("./api571/Api571DamageMechanisms.tsx").then((module) => ({ default: module.Api571DamageMechanisms })));
 
-type Page = "home" | "calculators" | "projects" | "reports" | "account" | "calculator" | "api570-piping" | "api570-tube" | "api570-header" | "api570-support" | "api570-pressure-design" | "api570-valve-fittings" | "api570-hydro-test" | "api570-flange-hydro-test" | "api570-pneumatic-test" | "api570-fillet-weld" | "api570-tension-test" | "api570-soil-resistivity" | "api653-bottom" | "api653-annular" | "api653-shell" | "api653-nozzles" | "api653-roof" | "api653-other-4-3-2";
+type Page = "home" | "calculators" | "projects" | "reports" | "account" | "calculator" | "api570-piping" | "api570-tube" | "api570-header" | "api570-support" | "api570-pressure-design" | "api570-valve-fittings" | "api570-hydro-test" | "api570-flange-hydro-test" | "api570-pneumatic-test" | "api570-fillet-weld" | "api570-tension-test" | "api570-soil-resistivity" | "api653-bottom" | "api653-annular" | "api653-shell" | "api653-nozzles" | "api653-roof" | "api653-other-4-3-2" | "api571-damage-mechanisms";
 const api570PageByCalculator: Record<Api570CalculatorId, Page> = {
   piping: "api570-piping",
   tube: "api570-tube",
@@ -112,7 +118,7 @@ const api570PageByCalculator: Record<Api570CalculatorId, Page> = {
   "tension-test": "api570-tension-test",
   "soil-resistivity": "api570-soil-resistivity",
 };
-type NavigationPage = Exclude<Page, "calculator" | "api570-piping" | "api570-tube" | "api570-header" | "api570-support" | "api570-pressure-design" | "api570-valve-fittings" | "api570-hydro-test" | "api570-flange-hydro-test" | "api570-pneumatic-test" | "api570-fillet-weld" | "api570-tension-test" | "api570-soil-resistivity" | "api653-bottom" | "api653-annular" | "api653-shell" | "api653-nozzles" | "api653-roof" | "api653-other-4-3-2">;
+type NavigationPage = Exclude<Page, "calculator" | "api570-piping" | "api570-tube" | "api570-header" | "api570-support" | "api570-pressure-design" | "api570-valve-fittings" | "api570-hydro-test" | "api570-flange-hydro-test" | "api570-pneumatic-test" | "api570-fillet-weld" | "api570-tension-test" | "api570-soil-resistivity" | "api653-bottom" | "api653-annular" | "api653-shell" | "api653-nozzles" | "api653-roof" | "api653-other-4-3-2" | "api571-damage-mechanisms">;
 type Theme = "light" | "dark";
 type Module = {
   code: string;
@@ -156,8 +162,8 @@ const modules: Module[] = [
   {
     code: "API 571",
     title: "Damage mechanisms",
-    description: "Original field guidance for degradation screening and inspection.",
-    count: "Reference library",
+    description: "Detailed article-by-article guidance for degradation screening and inspection.",
+    count: "67 mechanisms",
     accent: "violet",
     icon: BookOpenText,
     status: "Text reference",
@@ -232,7 +238,9 @@ const pageTitles: Record<NavigationPage, { eyebrow: string; title: string; descr
 
 function App() {
   const projectRepository = useMemo(() => new LocalProjectRepository(window.localStorage), []);
+  const authentication = useAuthenticationSession();
   const [page, setPage] = useState<Page>("home");
+  const [guestAccess, setGuestAccess] = useState(false);
   const [projects, setProjects] = useState<LocalProject[]>(() => projectRepository.listProjects());
   const [activeCalculation, setActiveCalculation] = useState<SavedApi510Calculation | null>(null);
   const [activeApi570Calculation, setActiveApi570Calculation] = useState<SavedApi570Calculation | null>(null);
@@ -250,6 +258,10 @@ function App() {
   const [mobileMenu, setMobileMenu] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [fieldHelp, setFieldHelp] = useState<FieldHelpContent | null>(null);
+  const isGuestAccess = authentication.ready && !authentication.user && guestAccess;
+  const accessGateVisible = !authentication.user && !guestAccess;
+  const visibleNavItems = isGuestAccess ? navItems.filter((item) => item.id === "calculators") : navItems;
+  const accessibleProjects = isGuestAccess ? [] : projects;
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -261,6 +273,10 @@ function App() {
   }, [preferredUnitSystem]);
 
   useEffect(() => {
+    if (authentication.user) setGuestAccess(false);
+  }, [authentication.user]);
+
+  useEffect(() => {
     if (!notice) return undefined;
     const timer = window.setTimeout(() => setNotice(null), 3400);
     return () => window.clearTimeout(timer);
@@ -268,17 +284,24 @@ function App() {
 
   const filteredModules = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return modules;
-    return modules.filter((module) =>
+    const permittedModules = isGuestAccess ? modulesForGuestAccess(modules) : modules;
+    if (!query) return permittedModules;
+    return permittedModules.filter((module) =>
       `${module.code} ${module.title} ${module.description}`.toLowerCase().includes(query),
     );
-  }, [search]);
+  }, [isGuestAccess, search]);
   const recentSavedCalculations = useMemo<RecentSavedCalculation[]>(() => projects
     .flatMap((project) => project.equipment.flatMap((equipment) => equipment.calculations.map((calculation) => ({ calculation, equipmentTag: equipment.tag }))))
     .sort((left, right) => right.calculation.updatedAt.localeCompare(left.calculation.updatedAt))
     .slice(0, 3), [projects]);
 
   const navigate = (target: Page) => {
+    if (isGuestAccess && !guestCanAccessPage(target)) {
+      setPage("calculators");
+      setMobileMenu(false);
+      setGuestAccess(false);
+      return;
+    }
     setPage(target);
     setMobileMenu(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -380,7 +403,7 @@ function App() {
   const api570RecordProps = {
     onNeedProject: () => navigate("projects"),
     notify: showPrototypeNotice,
-    projects,
+    projects: accessibleProjects,
     initialCalculation: activeApi570Calculation,
     onSave: saveApi570Calculation,
     onReview: reviewApi570Calculation,
@@ -408,7 +431,12 @@ function App() {
     refreshProjects();
     return result;
   };
-  const title = page === "calculator" || page === "api570-piping" || page === "api570-tube" || page === "api570-header" || page === "api570-support" || page === "api570-pressure-design" || page === "api570-valve-fittings" || page === "api570-hydro-test" || page === "api570-flange-hydro-test" || page === "api570-pneumatic-test" || page === "api570-fillet-weld" || page === "api570-tension-test" || page === "api570-soil-resistivity" || page === "api653-bottom" || page === "api653-annular" || page === "api653-shell" || page === "api653-nozzles" || page === "api653-roof" || page === "api653-other-4-3-2" ? null : pageTitles[page];
+  const defaultTitle = page === "calculator" || page === "api570-piping" || page === "api570-tube" || page === "api570-header" || page === "api570-support" || page === "api570-pressure-design" || page === "api570-valve-fittings" || page === "api570-hydro-test" || page === "api570-flange-hydro-test" || page === "api570-pneumatic-test" || page === "api570-fillet-weld" || page === "api570-tension-test" || page === "api570-soil-resistivity" || page === "api653-bottom" || page === "api653-annular" || page === "api653-shell" || page === "api653-nozzles" || page === "api653-roof" || page === "api653-other-4-3-2" || page === "api571-damage-mechanisms" ? null : pageTitles[page];
+  const title = isGuestAccess && page === "calculators" ? {
+    eyebrow: "Guest access · API 570",
+    title: "Piping Systems calculators.",
+    description: "Use the API 570 calculation library without an account, or sign in for the complete workspace.",
+  } : defaultTitle;
 
   return (
     <div className="app-shell" onClickCapture={openFieldHelp}>
@@ -426,9 +454,9 @@ function App() {
 
         <nav className="nav-list">
           <p className="nav-label">Workspace</p>
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon;
-            const selected = page === item.id || ((page === "calculator" || page === "api570-piping" || page === "api570-tube" || page === "api570-header" || page === "api570-support" || page === "api570-pressure-design" || page === "api570-valve-fittings" || page === "api570-hydro-test" || page === "api570-flange-hydro-test" || page === "api570-pneumatic-test" || page === "api570-fillet-weld" || page === "api570-tension-test" || page === "api570-soil-resistivity" || page === "api653-bottom" || page === "api653-annular" || page === "api653-shell" || page === "api653-nozzles" || page === "api653-roof" || page === "api653-other-4-3-2") && item.id === "calculators");
+            const selected = page === item.id || ((page === "calculator" || page === "api570-piping" || page === "api570-tube" || page === "api570-header" || page === "api570-support" || page === "api570-pressure-design" || page === "api570-valve-fittings" || page === "api570-hydro-test" || page === "api570-flange-hydro-test" || page === "api570-pneumatic-test" || page === "api570-fillet-weld" || page === "api570-tension-test" || page === "api570-soil-resistivity" || page === "api653-bottom" || page === "api653-annular" || page === "api653-shell" || page === "api653-nozzles" || page === "api653-roof" || page === "api653-other-4-3-2" || page === "api571-damage-mechanisms") && item.id === "calculators");
             return (
               <button
                 className={selected ? "nav-item active" : "nav-item"}
@@ -443,13 +471,13 @@ function App() {
           })}
         </nav>
 
-        <div className="side-profile">
-          <div className="avatar">LV</div>
+        <button className="side-profile" onClick={() => isGuestAccess ? setGuestAccess(false) : navigate("account")}>
+          <div className="avatar">{authenticationUserInitials(authentication.user)}</div>
           <div>
-            <strong>Libin Varghese</strong>
-            <span>Not signed in</span>
+            <strong>{authentication.user?.displayName || authentication.user?.email || (isGuestAccess ? "Guest access" : "Libin Varghese")}</strong>
+            <span>{authentication.user ? `${authenticationProviderLabel(authentication.user.providerId)} account` : isGuestAccess ? "API 570 only · Sign in" : "Not signed in"}</span>
           </div>
-        </div>
+        </button>
       </aside>
 
       {mobileMenu && <button className="nav-scrim" aria-label="Close menu" onClick={() => setMobileMenu(false)} />}
@@ -464,10 +492,13 @@ function App() {
             <span>API Calc Pro</span>
           </div>
           <div className="topbar-actions">
-            <button className="sync-pill" onClick={() => showPrototypeNotice("Cloud sync will be connected after local storage is complete.")}>
+            {isGuestAccess ? <button className="sync-pill guest-sign-in-pill" onClick={() => setGuestAccess(false)} aria-label="Sign in for full access">
+              <LogIn size={16} />
+              <span>Sign in for full access</span>
+            </button> : <button className="sync-pill" onClick={() => showPrototypeNotice("Cloud sync will be connected after local storage is complete.")}>
               <CloudOff size={16} />
               <span>Local only</span>
-            </button>
+            </button>}
             <button
               className="icon-button"
               onClick={() => setTheme((value) => (value === "light" ? "dark" : "light"))}
@@ -492,9 +523,9 @@ function App() {
             onApprove={approveCalculation}
           />
         ) : page === "api570-piping" ? (
-          <Suspense fallback={<div className="page-wrap"><div className="empty-state"><Gauge size={28} /><h2>Loading Piping calculator</h2></div></div>}><Api570PipingCalculator key={activeApi570Calculation?.calculatorId === "piping" ? activeApi570Calculation.id : "new-api570-piping"} onBack={() => navigate("calculators")} onNeedProject={() => navigate("projects")} notify={showPrototypeNotice} projects={projects} initialCalculation={activeApi570Calculation?.calculatorId === "piping" ? activeApi570Calculation : null} onSave={saveApi570Calculation} onReview={reviewApi570Calculation} onApprove={approveApi570Calculation} /></Suspense>
+          <Suspense fallback={<div className="page-wrap"><div className="empty-state"><Gauge size={28} /><h2>Loading Piping calculator</h2></div></div>}><Api570PipingCalculator key={activeApi570Calculation?.calculatorId === "piping" ? activeApi570Calculation.id : "new-api570-piping"} onBack={() => navigate("calculators")} onNeedProject={() => navigate("projects")} notify={showPrototypeNotice} projects={accessibleProjects} initialCalculation={activeApi570Calculation?.calculatorId === "piping" ? activeApi570Calculation : null} onSave={saveApi570Calculation} onReview={reviewApi570Calculation} onApprove={approveApi570Calculation} /></Suspense>
         ) : page === "api570-tube" ? (
-          <Suspense fallback={<div className="page-wrap"><div className="empty-state"><Gauge size={28} /><h2>Loading Tube calculator</h2></div></div>}><Api570TubeCalculator key={activeApi570Calculation?.calculatorId === "tube" ? activeApi570Calculation.id : "new-api570-tube"} onBack={() => navigate("calculators")} onNeedProject={() => navigate("projects")} notify={showPrototypeNotice} projects={projects} initialCalculation={activeApi570Calculation?.calculatorId === "tube" ? activeApi570Calculation : null} onSave={saveApi570Calculation} onReview={reviewApi570Calculation} onApprove={approveApi570Calculation} /></Suspense>
+          <Suspense fallback={<div className="page-wrap"><div className="empty-state"><Gauge size={28} /><h2>Loading Tube calculator</h2></div></div>}><Api570TubeCalculator key={activeApi570Calculation?.calculatorId === "tube" ? activeApi570Calculation.id : "new-api570-tube"} onBack={() => navigate("calculators")} onNeedProject={() => navigate("projects")} notify={showPrototypeNotice} projects={accessibleProjects} initialCalculation={activeApi570Calculation?.calculatorId === "tube" ? activeApi570Calculation : null} onSave={saveApi570Calculation} onReview={reviewApi570Calculation} onApprove={approveApi570Calculation} /></Suspense>
         ) : page === "api570-header" ? (
           <Suspense fallback={<div className="page-wrap"><div className="empty-state"><Gauge size={28} /><h2>Loading Header calculator</h2></div></div>}><Api570HeaderCalculator key={activeApi570Calculation?.calculatorId === "header" ? activeApi570Calculation.id : "new-api570-header"} onBack={() => navigate("calculators")} {...api570RecordProps} /></Suspense>
         ) : page === "api570-support" ? (
@@ -527,6 +558,8 @@ function App() {
           <Suspense fallback={<div className="page-wrap"><div className="empty-state"><Gauge size={28} /><h2>Loading Roof Plate calculator</h2></div></div>}><Api653RoofPlateCalculator onBack={() => navigate("calculators")} /></Suspense>
         ) : page === "api653-other-4-3-2" ? (
           <Suspense fallback={<div className="page-wrap"><div className="empty-state"><Gauge size={28} /><h2>Loading Other 4.3.2 calculator</h2></div></div>}><Api653Other432Calculator onBack={() => navigate("calculators")} /></Suspense>
+        ) : page === "api571-damage-mechanisms" ? (
+          <Suspense fallback={<div className="page-wrap"><div className="empty-state"><BookOpenText size={28} /><h2>Loading damage mechanisms</h2></div></div>}><Api571DamageMechanisms onBack={() => navigate("calculators")} /></Suspense>
         ) : (
           <div className="page-wrap">
             <section className="page-heading">
@@ -537,7 +570,7 @@ function App() {
               </div>
             </section>
 
-            {page === "home" && <HomePage navigate={navigate} openCalculator={() => openNewCalculation()} openApi570Piping={openNewApi570Piping} recentCalculations={recentSavedCalculations} onOpenSaved={openSavedCalculation} notify={showPrototypeNotice} preferredUnitSystem={preferredUnitSystem} />}
+            {page === "home" && <HomePage navigate={navigate} openCalculator={() => openNewCalculation()} openApi570Piping={openNewApi570Piping} openApi571DamageMechanisms={() => navigate("api571-damage-mechanisms")} recentCalculations={recentSavedCalculations} onOpenSaved={openSavedCalculation} notify={showPrototypeNotice} preferredUnitSystem={preferredUnitSystem} />}
             {page === "calculators" && (
               <CalculatorsPage
                 search={search}
@@ -554,7 +587,10 @@ function App() {
                 openApi653Nozzles={() => navigate("api653-nozzles")}
                 openApi653Roof={() => navigate("api653-roof")}
                 openApi653Other432={() => navigate("api653-other-4-3-2")}
+                openApi571DamageMechanisms={() => navigate("api571-damage-mechanisms")}
                 notify={showPrototypeNotice}
+                guestMode={isGuestAccess}
+                onSignIn={() => setGuestAccess(false)}
               />
             )}
             {page === "projects" && (
@@ -600,15 +636,15 @@ function App() {
               />
             )}
             {page === "reports" && <ReportsPage projects={projects} notify={showPrototypeNotice} onOpenCalculation={openSavedCalculation} onApproveCalculation={approveCalculation} />}
-            {page === "account" && <AccountPage projects={projects} theme={theme} preferredUnitSystem={preferredUnitSystem} notify={showPrototypeNotice} onThemeChange={setTheme} onPreferredUnitSystemChange={setPreferredUnitSystem} onExportWorkspace={() => exportBackup()} onPreviewBackup={previewBackup} onImportBackup={importBackup} />}
+            {page === "account" && <AccountPage projects={projects} theme={theme} preferredUnitSystem={preferredUnitSystem} authentication={authentication} notify={showPrototypeNotice} onThemeChange={setTheme} onPreferredUnitSystemChange={setPreferredUnitSystem} onExportWorkspace={() => exportBackup()} onPreviewBackup={previewBackup} onImportBackup={importBackup} />}
           </div>
         )}
       </main>
 
-      <nav className="mobile-tabs" aria-label="Mobile navigation">
-        {navItems.map((item) => {
+      <nav className={isGuestAccess ? "mobile-tabs guest-mode" : "mobile-tabs"} aria-label="Mobile navigation">
+        {visibleNavItems.map((item) => {
           const Icon = item.icon;
-          const selected = page === item.id || ((page === "calculator" || page === "api570-piping" || page === "api570-tube" || page === "api570-header" || page === "api570-support" || page === "api570-pressure-design" || page === "api570-valve-fittings" || page === "api570-hydro-test" || page === "api570-flange-hydro-test" || page === "api570-pneumatic-test" || page === "api570-fillet-weld" || page === "api570-tension-test" || page === "api570-soil-resistivity" || page === "api653-bottom" || page === "api653-annular" || page === "api653-shell" || page === "api653-nozzles" || page === "api653-roof" || page === "api653-other-4-3-2") && item.id === "calculators");
+          const selected = page === item.id || ((page === "calculator" || page === "api570-piping" || page === "api570-tube" || page === "api570-header" || page === "api570-support" || page === "api570-pressure-design" || page === "api570-valve-fittings" || page === "api570-hydro-test" || page === "api570-flange-hydro-test" || page === "api570-pneumatic-test" || page === "api570-fillet-weld" || page === "api570-tension-test" || page === "api570-soil-resistivity" || page === "api653-bottom" || page === "api653-annular" || page === "api653-shell" || page === "api653-nozzles" || page === "api653-roof" || page === "api653-other-4-3-2" || page === "api571-damage-mechanisms") && item.id === "calculators");
           return (
             <button className={selected ? "active" : ""} key={item.id} onClick={() => navigate(item.id)}>
               <Icon size={21} />
@@ -626,11 +662,12 @@ function App() {
         </div>
       )}
       {fieldHelp ? <FieldHelpDialog content={fieldHelp} onClose={() => setFieldHelp(null)} /> : null}
+      {accessGateVisible ? <AccessGate authentication={authentication} onContinueAsGuest={() => { setGuestAccess(true); setPage("calculators"); setMobileMenu(false); }} /> : null}
     </div>
   );
 }
 
-function HomePage({ navigate, openCalculator, openApi570Piping, recentCalculations, onOpenSaved, notify, preferredUnitSystem }: { navigate: (page: Page) => void; openCalculator: () => void; openApi570Piping: () => void; recentCalculations: RecentSavedCalculation[]; onOpenSaved: (calculation: SavedApi510Calculation) => void; notify: (message: string) => void; preferredUnitSystem: UnitSystem }) {
+function HomePage({ navigate, openCalculator, openApi570Piping, openApi571DamageMechanisms, recentCalculations, onOpenSaved, notify, preferredUnitSystem }: { navigate: (page: Page) => void; openCalculator: () => void; openApi570Piping: () => void; openApi571DamageMechanisms: () => void; recentCalculations: RecentSavedCalculation[]; onOpenSaved: (calculation: SavedApi510Calculation) => void; notify: (message: string) => void; preferredUnitSystem: UnitSystem }) {
   const [converterOpen, setConverterOpen] = useState(false);
   return (
     <>
@@ -661,7 +698,7 @@ function HomePage({ navigate, openCalculator, openApi570Piping, recentCalculatio
           <button className="text-button" onClick={() => navigate("calculators")}>View all <ChevronRight size={17} /></button>
         </div>
         <div className="module-grid compact">
-          {modules.map((module) => <ModuleCard key={module.code} module={module} onClick={() => module.code === "API 510" ? openCalculator() : module.code === "API 570" ? openApi570Piping() : notify(modulePreviewNotice(module.code))} />)}
+          {modules.map((module) => <ModuleCard key={module.code} module={module} onClick={() => module.code === "API 510" ? openCalculator() : module.code === "API 570" ? openApi570Piping() : module.code === "API 653" ? navigate("api653-bottom") : module.code === "API 571" ? openApi571DamageMechanisms() : notify(modulePreviewNotice(module.code))} />)}
         </div>
       </section>
 
@@ -731,7 +768,10 @@ function CalculatorsPage({
   openApi653Nozzles,
   openApi653Roof,
   openApi653Other432,
+  openApi571DamageMechanisms,
   notify,
+  guestMode,
+  onSignIn,
 }: {
   search: string;
   setSearch: (value: string) => void;
@@ -747,29 +787,36 @@ function CalculatorsPage({
   openApi653Nozzles: () => void;
   openApi653Roof: () => void;
   openApi653Other432: () => void;
+  openApi571DamageMechanisms: () => void;
   notify: (message: string) => void;
+  guestMode: boolean;
+  onSignIn: () => void;
 }) {
-  const visibleApi510Calculators = filterApi510Calculators(search);
+  const visibleApi510Calculators = guestMode ? [] : filterApi510Calculators(search);
   const visibleApi570Workspaces = filterApi570MobileWorkspaces(search);
-  const visibleApi653Workspaces = filterApi653MobileWorkspaces(search);
+  const visibleApi653Workspaces = guestMode ? [] : filterApi653MobileWorkspaces(search);
   return (
     <>
+      {guestMode ? <section className="guest-access-banner">
+        <div><ShieldCheck size={20} /><span><strong>Guest access</strong><small>API 570 Piping Systems only</small></span></div>
+        <button className="secondary-button" onClick={onSignIn}><LogIn size={17} /> Sign in for full access</button>
+      </section> : null}
       <div className="search-row">
         <label className="search-box">
           <Search size={19} />
-          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search code, equipment or calculation" />
+          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={guestMode ? "Search piping calculations" : "Search code, equipment or calculation"} />
           <kbd>⌘ K</kbd>
         </label>
-        <button className="filter-button"><Layers3 size={17} /> All modules</button>
+        <button className="filter-button"><Layers3 size={17} /> {guestMode ? "Piping systems" : "All modules"}</button>
       </div>
       <div className="module-grid library-grid">
         {visibleModules.map((module) => (
-          <ModuleCard key={module.code} module={module} onClick={module.code === "API 510" ? () => document.getElementById("api510-calculator-library")?.scrollIntoView({ behavior: "smooth", block: "start" }) : module.code === "API 570" ? () => document.getElementById("api570-calculator-library")?.scrollIntoView({ behavior: "smooth", block: "start" }) : module.code === "API 653" ? () => document.getElementById("api653-calculator-library")?.scrollIntoView({ behavior: "smooth", block: "start" }) : () => notify(modulePreviewNotice(module.code))} />
+          <ModuleCard key={module.code} module={module} onClick={module.code === "API 510" ? () => document.getElementById("api510-calculator-library")?.scrollIntoView({ behavior: "smooth", block: "start" }) : module.code === "API 570" ? () => document.getElementById("api570-calculator-library")?.scrollIntoView({ behavior: "smooth", block: "start" }) : module.code === "API 653" ? () => document.getElementById("api653-calculator-library")?.scrollIntoView({ behavior: "smooth", block: "start" }) : module.code === "API 571" ? openApi571DamageMechanisms : () => notify(modulePreviewNotice(module.code))} />
         ))}
       </div>
       {visibleModules.length === 0 && visibleApi510Calculators.length === 0 && visibleApi570Workspaces.length === 0 && visibleApi653Workspaces.length === 0 && <div className="empty-state"><Search size={28} /><h2>No calculators found</h2><p>Try a code number, equipment type, geometry or result name.</p></div>}
 
-      <section className="section-block library-section" id="api510-calculator-library">
+      {!guestMode ? <section className="section-block library-section" id="api510-calculator-library">
         <div className="section-heading">
           <div><p className="eyebrow">Pressure vessel calculations</p><h2>API 510 geometry calculators</h2></div>
         </div>
@@ -783,7 +830,7 @@ function CalculatorsPage({
             </button>
           ))}
         </div> : <div className="empty-state api510-library-empty"><Search size={24} /><h3>No API 510 geometry matched</h3><p>Try shell, head, cone, sphere, crown radius or flat.</p></div>}
-      </section>
+      </section> : null}
 
       <section className="section-block library-section" id="api570-calculator-library">
         <div className="section-heading">
@@ -804,7 +851,7 @@ function CalculatorsPage({
         </div> : <div className="empty-state api510-library-empty"><Search size={24} /><h3>No API 570 workspace matched</h3><p>Try piping, tube, header, MAWP, remaining life or pressure test.</p></div>}
       </section>
 
-      <section className="section-block library-section" id="api653-calculator-library">
+      {!guestMode ? <section className="section-block library-section" id="api653-calculator-library">
         <div className="section-heading">
           <div><p className="eyebrow">Storage tank calculations</p><h2>API 653 calculators</h2></div>
         </div>
@@ -818,7 +865,7 @@ function CalculatorsPage({
               </button>
           ))}
         </div> : <div className="empty-state api510-library-empty"><Search size={24} /><h3>No API 653 workspace matched</h3><p>Try bottom, annular, shell, nozzle, roof, pitting or remaining life.</p></div>}
-      </section>
+      </section> : null}
     </>
   );
 }
@@ -897,22 +944,26 @@ function ReportsPage({ projects, notify, onOpenCalculation, onApproveCalculation
   );
 }
 
-function AccountPage({ projects, theme, preferredUnitSystem, notify, onThemeChange, onPreferredUnitSystemChange, onExportWorkspace, onPreviewBackup, onImportBackup }: { projects: LocalProject[]; theme: Theme; preferredUnitSystem: UnitSystem; notify: (message: string) => void; onThemeChange: (theme: Theme) => void; onPreferredUnitSystemChange: (unitSystem: UnitSystem) => void; onExportWorkspace: () => void; onPreviewBackup: (raw: string) => WorkspaceBackupPreview; onImportBackup: (raw: string) => WorkspaceImportResult }) {
+function AccountPage({ projects, theme, preferredUnitSystem, authentication, notify, onThemeChange, onPreferredUnitSystemChange, onExportWorkspace, onPreviewBackup, onImportBackup }: { projects: LocalProject[]; theme: Theme; preferredUnitSystem: UnitSystem; authentication: AuthenticationSession; notify: (message: string) => void; onThemeChange: (theme: Theme) => void; onPreferredUnitSystemChange: (unitSystem: UnitSystem) => void; onExportWorkspace: () => void; onPreviewBackup: (raw: string) => WorkspaceBackupPreview; onImportBackup: (raw: string) => WorkspaceImportResult }) {
   const [backupOpen, setBackupOpen] = useState(false);
   const [accountDialog, setAccountDialog] = useState<AccountDialog | null>(null);
   const openBackup = () => {
     setAccountDialog(null);
     setBackupOpen(true);
   };
+  const profileName = authentication.user?.displayName || authentication.user?.email || "Libin Varghese";
+  const profileDetail = authentication.user
+    ? `${authenticationProviderLabel(authentication.user.providerId)} account · Signed in`
+    : "Local profile · Not signed in";
   return (
     <><div className="account-grid">
       <section className="profile-card">
-        <div className="profile-avatar">LV</div>
-        <h2>Libin Varghese</h2>
-        <p>Local profile · Not signed in</p>
+        <div className="profile-avatar">{authentication.user?.photoUrl ? <img src={authentication.user.photoUrl} alt="" referrerPolicy="no-referrer" /> : authenticationUserInitials(authentication.user)}</div>
+        <h2>{profileName}</h2>
+        <p>{profileDetail}</p>
         <span className="ownership-badge"><HardDrive size={16} /> {projects.length} local project{projects.length === 1 ? "" : "s"}</span>
         <div className="profile-divider" />
-        <button className="profile-sign-in" onClick={() => setAccountDialog("sign-in")}><span><LogIn size={18} /> Sign in or create account</span><ChevronRight size={17} /></button>
+        <button className="profile-sign-in" onClick={() => setAccountDialog("sign-in")}><span><LogIn size={18} /> {authentication.user ? "Manage signed-in account" : "Sign in or create account"}</span><ChevronRight size={17} /></button>
       </section>
 
       <div className="account-stack">
@@ -929,7 +980,7 @@ function AccountPage({ projects, theme, preferredUnitSystem, notify, onThemeChan
         <section className="settings-card">
           <div className="section-heading"><div><p className="eyebrow">Preferences</p><h2>Account settings</h2></div></div>
           {[
-            { icon: LogIn, title: "Sign in", description: "Google · Apple ID · Phone number", action: () => setAccountDialog("sign-in" as const) },
+            { icon: LogIn, title: authentication.user ? "Signed-in account" : "Sign in", description: authentication.user ? `${authenticationProviderLabel(authentication.user.providerId)} · ${authentication.user.email || "Connected"}` : "Google · Apple", action: () => setAccountDialog("sign-in" as const) },
             { icon: Settings, title: "Units and appearance", description: `${preferredUnitSystem === "metric" ? "Metric" : "U.S. customary"} · ${theme === "light" ? "Light" : "Dark"}`, action: () => setAccountDialog("units" as const) },
             { icon: Cloud, title: "Backup and restore", description: `${projects.length} local project${projects.length === 1 ? "" : "s"} · JSON export/import`, action: openBackup },
             { icon: RotateCcw, title: "Restore purchase", description: "Lifetime access", action: () => setAccountDialog("restore-purchase" as const) },
@@ -939,7 +990,7 @@ function AccountPage({ projects, theme, preferredUnitSystem, notify, onThemeChan
           })}
         </section>
       </div>
-    </div>{accountDialog ? <AccountSettingsDialog dialog={accountDialog} theme={theme} preferredUnitSystem={preferredUnitSystem} projectCount={projects.length} onThemeChange={onThemeChange} onPreferredUnitSystemChange={onPreferredUnitSystemChange} onOpenBackup={openBackup} onClose={() => setAccountDialog(null)} /> : null}{backupOpen ? <WorkspaceBackupDialog projectCount={projects.length} onClose={() => setBackupOpen(false)} onExportWorkspace={onExportWorkspace} onPreviewBackup={onPreviewBackup} onImportBackup={onImportBackup} notify={notify} /> : null}</>
+    </div>{accountDialog ? <AccountSettingsDialog dialog={accountDialog} theme={theme} preferredUnitSystem={preferredUnitSystem} projectCount={projects.length} authentication={authentication} onThemeChange={onThemeChange} onPreferredUnitSystemChange={onPreferredUnitSystemChange} onOpenBackup={openBackup} onClose={() => setAccountDialog(null)} /> : null}{backupOpen ? <WorkspaceBackupDialog projectCount={projects.length} onClose={() => setBackupOpen(false)} onExportWorkspace={onExportWorkspace} onPreviewBackup={onPreviewBackup} onImportBackup={onImportBackup} notify={notify} /> : null}</>
   );
 }
 
@@ -1208,6 +1259,7 @@ function CalculatorPreview({ onBack, onNeedProject, notify, projects, initialCal
     ? convertFromSI(actualThicknessMm - result.requiredThicknessMm, "length", unitSystem)
     : null;
   const firstError = result.issues.find((issue) => issue.severity === "error");
+  const calculationWarning = result.issues.find((issue) => issue.severity === "warning");
   const calculationError = stressMode === "auto" && materialStress.status !== "resolved"
     ? materialStress.message
     : serviceYearsMode === "auto" && serviceYears.message
@@ -1461,7 +1513,7 @@ function CalculatorPreview({ onBack, onNeedProject, notify, projects, initialCal
           <section className="form-card" id="calculation-inputs">
             <div className="form-card-heading"><div><span>02</span><div><h2>Design and inspection data</h2><p>Enter controlled input values with explicit units.</p></div></div><Info size={20} /></div>
             <div className="form-grid">
-              <NumberField label="Internal design pressure" value={pressure} onChange={setPressure} unit={unitSymbol(pressureInputUnit)} unitValue={pressureInputUnit} unitOptions={pressureInputUnitOptions} onUnitChange={(nextUnit) => changeInputUnit(pressure, setPressure, "pressure", pressureInputUnit, setPressureInputUnit, nextUnit)} help="Positive pressure at calculation condition. Select the actual field unit; the engine converts it before calculation." />
+              <NumberField label="Internal design pressure" value={pressure} onChange={setPressure} unit={unitSymbol(pressureInputUnit)} unitValue={pressureInputUnit} unitOptions={pressureInputUnitOptions} onUnitChange={(nextUnit) => changeInputUnit(pressure, setPressure, "pressure", pressureInputUnit, setPressureInputUnit, nextUnit)} help="Positive pressure at calculation condition. Select the actual field unit; it is converted automatically before calculation." />
               {component === "flat-circular"
                 ? <NumberField label="Diameter or short span" value={diameterOrShortSpan} onChange={setDiameterOrShortSpan} unit={unitSymbol(diameterOrShortSpanInputUnit)} unitValue={diameterOrShortSpanInputUnit} unitOptions={lengthInputUnitOptions} onUnitChange={(nextUnit) => changeInputUnit(diameterOrShortSpan, setDiameterOrShortSpan, "length", diameterOrShortSpanInputUnit, setDiameterOrShortSpanInputUnit, nextUnit)} help="Diameter or short span d used by the flat-head equation." />
                 : <NumberField label={component === "conical" ? "Outside diameter" : "Inside diameter"} value={diameter} onChange={setDiameter} unit={unitSymbol(diameterInputUnit)} unitValue={diameterInputUnit} unitOptions={lengthInputUnitOptions} onUnitChange={(nextUnit) => changeInputUnit(diameter, setDiameter, "length", diameterInputUnit, setDiameterInputUnit, nextUnit)} help={component === "conical" ? "Outside diameter D used by the conical-head equation." : "Nominal inside diameter."} />}
@@ -1494,17 +1546,19 @@ function CalculatorPreview({ onBack, onNeedProject, notify, projects, initialCal
 
         <aside className="result-column">
           <div className="result-card">
-            <div className="result-card-top"><span className="status-pulse" /> Live engine <small>{result.ok ? hasManualOverrides ? "Manual override" : "Baseline matched" : "Check inputs"}</small></div>
-            <p>Required thickness</p>
-            <div className="result-value"><strong>{result.ok ? formatDisplayNumber(requiredThickness) : "—"}</strong><span>{resultLengthUnit}</span></div>
+            <div className="result-card-top"><span className="status-pulse" /> Calculation results <small>{result.ok ? "Calculated" : "Check inputs"}</small></div>
+            <div className="result-primary-grid">
+              <div className="result-primary"><p>Remaining life</p><div className="result-primary-value"><strong>{result.ok ? formatDisplayNumber(result.remainingLifeYears) : "—"}</strong><span>yr</span></div></div>
+              <div className="result-primary"><p>Required thickness</p><div className="result-primary-value"><strong>{result.ok ? formatDisplayNumber(requiredThickness) : "—"}</strong><span>{resultLengthUnit}</span></div></div>
+            </div>
             <div className="result-comparison"><span>Measured thickness<strong>{Number.isFinite(measuredThickness) ? `${formatDisplayNumber(measuredThickness)} ${resultLengthUnit}` : "—"}</strong></span><span>Thickness margin<strong>{thicknessMargin === null ? "—" : `${formatDisplayNumber(thicknessMargin)} ${resultLengthUnit}`}</strong></span></div>
-            <div className="result-comparison"><span>Governing MAWP<strong>{result.ok ? `${formatDisplayNumber(convertFromSI(result.governingMawpMpa, "pressure", unitSystem))} ${resultPressureUnit}` : "—"}</strong></span><span>Remaining life<strong>{result.ok ? `${formatDisplayNumber(result.remainingLifeYears)} yr` : "—"}</strong></span></div>
-            <div className={`result-status ${result.ok ? hasManualOverrides ? "is-manual" : "is-valid" : ""}`}>{result.ok && !hasManualOverrides ? <CircleCheck size={19} /> : <TriangleAlert size={19} />}<div><strong>{result.ok ? hasManualOverrides ? "Calculation includes overrides" : "Calculation completed" : "Input review required"}</strong><span>{result.ok ? hasManualOverrides ? `Verify ${manualOverrides.join(" and ")} before engineering approval.` : "Legacy baseline parity passed; engineering approval remains required." : calculationError}</span></div></div>
-            <button className="calculate-button" onClick={() => notify(result.ok ? "The typed calculation engine has recomputed all linked results." : calculationError ?? "Review the calculation inputs.")}><Calculator size={18} /> Recalculate</button>
+            <div className="result-comparison"><span>Governing MAWP<strong>{result.ok ? `${formatDisplayNumber(convertFromSI(result.governingMawpMpa, "pressure", unitSystem))} ${resultPressureUnit}` : "—"}</strong></span><span>Governing corrosion rate<strong>{result.ok ? `${formatDisplayNumber(convertFromSI(result.governingCorrosionRateMmPerYear, "length", unitSystem), "corrosion-rate")} ${resultLengthUnit}/yr` : "—"}</strong></span></div>
+            <div className={`result-status ${result.ok ? hasManualOverrides || calculationWarning ? "is-manual" : "is-valid" : ""}`}>{result.ok && !hasManualOverrides && !calculationWarning ? <CircleCheck size={19} /> : <TriangleAlert size={19} />}<div><strong>{result.ok ? hasManualOverrides ? "Calculation includes overrides" : calculationWarning ? "Engineering scope review required" : "Calculation completed" : "Input review required"}</strong><span>{result.ok ? hasManualOverrides ? `Verify ${manualOverrides.join(" and ")} before engineering approval.${calculationWarning ? ` ${calculationWarning.message}` : ""}` : calculationWarning?.message ?? "Review remaining life, required thickness, and MAWP before approval." : calculationError}</span></div></div>
+            <button className="calculate-button" onClick={() => notify(result.ok ? "All linked results have been recalculated." : calculationError ?? "Review the calculation inputs.")}><Calculator size={18} /> Recalculate</button>
           </div>
 
           <div className="trace-card">
-            <p className="eyebrow">Result trace</p><h3>Visible calculation context</h3>
+            <p className="eyebrow">Supporting results</p><h3>Calculation details</h3>
             <div><span>Component</span><strong>{componentLabel}</strong></div>
             <div><span>Long-term corrosion rate</span><strong>{result.ok ? `${formatDisplayNumber(convertFromSI(result.longTermCorrosionRateMmPerYear, "length", unitSystem), "corrosion-rate")} ${resultLengthUnit}/yr` : "—"}</strong></div>
             <div><span>Short-term corrosion rate</span><strong>{result.ok ? `${formatDisplayNumber(convertFromSI(result.shortTermCorrosionRateMmPerYear, "length", unitSystem), "corrosion-rate")} ${resultLengthUnit}/yr` : "—"}</strong></div>
@@ -1513,7 +1567,7 @@ function CalculatorPreview({ onBack, onNeedProject, notify, projects, initialCal
             <div><span>Projected thickness ({result.intervalYears} yr)</span><strong>{result.ok ? `${formatDisplayNumber(convertFromSI(result.projectedThicknessMm, "length", unitSystem))} ${resultLengthUnit}` : "—"}</strong></div>
             <div><span>Future MAWP thickness ({result.intervalYears} yr)</span><strong>{result.ok ? `${formatDisplayNumber(convertFromSI(result.futureMawpThicknessMm, "length", unitSystem))} ${resultLengthUnit}` : "—"}</strong></div>
             <div><span>Future MAWP</span><strong>{result.ok ? `${formatDisplayNumber(convertFromSI(result.futureMawpMpa, "pressure", unitSystem))} ${resultPressureUnit}` : "—"}</strong></div>
-            <div><span>Overrides</span><strong>{hasManualOverrides ? manualOverrides.join(" · ") : "None"}</strong></div><div><span>Output units</span><strong>{unitSystem === "metric" ? "Metric SI" : "U.S. customary"}</strong></div><div><span>Regression suite</span><strong>Passed</strong></div>
+            <div><span>Overrides</span><strong>{hasManualOverrides ? manualOverrides.join(" · ") : "None"}</strong></div><div><span>Output units</span><strong>{unitSystem === "metric" ? "Metric SI" : "U.S. customary"}</strong></div>
           </div>
 
           <div className="sticky-actions"><button className="secondary-button" onClick={openReview}><ShieldCheck size={17} /> Review</button><button className="primary-button report-preview-button" onClick={openReportPreview}><FileText size={17} /> Report</button></div>
@@ -1531,7 +1585,7 @@ function CalculatorPreview({ onBack, onNeedProject, notify, projects, initialCal
               <label className="modal-field"><span>Prepared by *</span><input value={preparedBy} onChange={(event) => setPreparedBy(event.target.value)} placeholder="Preparer name" autoComplete="name" /></label>
               <div className="modal-field workflow-save-status"><span>Workflow status</span><strong className={`record-status ${recordStatus}`}>{recordStatus}</strong><small>Review and approval are recorded only through the controlled workflow.</small></div>
             </div>
-            <div className="modal-note"><HardDrive size={17} /><span>The exact input snapshot, structured engine result, units, overrides and engine version will be saved on this device.</span></div>
+            <div className="modal-note"><HardDrive size={17} /><span>The exact inputs, calculated results, units, and overrides will be saved on this device.</span></div>
             <div className="modal-actions"><button className="secondary-button" onClick={() => setSaveDialogOpen(false)}>Cancel</button><button className="primary-button" onClick={saveLocalRecord} disabled={!saveProjectId || !equipmentTag.trim() || !calculationTitle.trim() || !preparedBy.trim()}><CircleCheck size={17} /> {savedCalculationId && savedProjectId === saveProjectId ? "Update record" : "Save locally"}</button></div>
           </section>
         </div>

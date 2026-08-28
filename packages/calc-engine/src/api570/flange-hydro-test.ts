@@ -27,6 +27,7 @@ function addNonNegativeIssue(
 /** Pure SI extraction of the protected B16.5 flange hydro-test Other Piping Calculation. */
 export function calculateApi570FlangeHydroTest(input: Api570FlangeHydroTestInputSI): Api570FlangeHydroTestResultSI {
   const issues: CalculationIssue[] = [];
+  issues.push({ code: "component-test-screening-only", field: "calculation", severity: "warning", message: "The 1.5 x flange-rating result is a component-test screening value, not a universal piping-system hydrotest pressure." });
   addNonNegativeIssue(issues, "pressureRating38CMpa", input.pressureRating38CMpa, "38°C pressure rating");
   addNonNegativeIssue(issues, "pressureRating100FMpa", input.pressureRating100FMpa, "100°F pressure rating");
   addNonNegativeIssue(issues, "nominalPipeSizeMm", input.nominalPipeSizeMm, "Nominal pipe size");

@@ -82,8 +82,10 @@ export function calculateConicalHead(input: ConicalHeadInputSI): ConicalHeadResu
   };
   const governingMawpMpa = mawpFromThickness(actualThicknessMm);
   const projectedThicknessMm = actualThicknessMm > 0 ? Math.max(actualThicknessMm - (governingCorrosionRateMmPerYear * intervalYears), 0) : 0;
-  const futureMawpThicknessMm = actualThicknessMm > 0 ? Math.max(actualThicknessMm - (2 * governingCorrosionRateMmPerYear * intervalYears), 0) : 0;
+  const futureMawpThicknessMm = projectedThicknessMm;
 
+  issues.push({ code: "cone-junction-scope-review", field: "calculation", severity: "warning", message: "The cone equation is limited to the implemented angle route; junction reinforcement, transition geometry, and applicability require controlled review." });
+  issues.push({ code: "test-pressure-basis-review", field: "calculation", severity: "warning", message: "Displayed test pressures are planning values; construction-code stress ratios and component limits govern." });
   return {
     engineId: "api510.conical-head",
     engineVersion: "0.1.0-legacy-parity",

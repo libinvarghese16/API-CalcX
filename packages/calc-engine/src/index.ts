@@ -56,6 +56,14 @@ export {
   listPressureVesselMaterialSpecs,
   resolvePressureVesselAllowableStress,
 } from "./materials/pressure-vessel-materials.ts";
+export {
+  DEFAULT_API570_MATERIAL_GRADE,
+  DEFAULT_API570_MATERIAL_SPEC,
+  listApi570PipingMaterialGrades,
+  listApi570PipingMaterialSpecs,
+  resolveApi570PipingAllowableStress,
+} from "./materials/api570-piping-materials.ts";
+export type { Api570PipingMaterialGradeOption } from "./materials/api570-piping-materials.ts";
 export type {
   MaterialCatalog,
   MaterialGradeOption,
@@ -83,6 +91,7 @@ export type {
   Api570PressureDesignInputSI,
   Api570PressureDesignResultSI,
   Api570ValveFittingsField,
+  Api570ValveFittingsAssessmentBasis,
   Api570ValveFittingsInputSI,
   Api570ValveFittingsResultSI,
   Api570HydroTestField,
@@ -92,6 +101,7 @@ export type {
   Api570FlangeHydroTestInputSI,
   Api570FlangeHydroTestResultSI,
   Api570PneumaticTestField,
+  Api570PneumaticTestCode,
   Api570PneumaticTestInputSI,
   Api570PneumaticTestResultSI,
   Api570FilletWeldField,
@@ -107,6 +117,8 @@ export type {
   Api570SoilResistivityInputSI,
   Api570SoilResistivityResultSI,
   Api653BottomPlateField,
+  Api653BottomCorrosionRateMode,
+  Api653BottomMinimumThicknessBasis,
   Api653BottomPlateInputSI,
   Api653BottomPlateResultSI,
   Api653AnnularPlateField,
