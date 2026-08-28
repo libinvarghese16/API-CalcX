@@ -6,7 +6,7 @@ import type {
 } from "../contracts.ts";
 
 const ENGINE_ID = "api653.bottom-plate" as const;
-const ENGINE_VERSION = "0.2.0-api653-mrt" as const;
+const ENGINE_VERSION = "0.3.0-api653-pit-depth" as const;
 
 function positive(issues: CalculationIssue[], field: Api653BottomPlateField, value: number, label: string): void {
   if (!Number.isFinite(value) || value <= 0) issues.push({ code: "positive-value-required", field, severity: "error", message: `${label} must be a finite value greater than zero.` });
@@ -25,14 +25,12 @@ export function calculateApi653BottomPlate(input: Api653BottomPlateInputSI): Api
   const issues: CalculationIssue[] = [];
   positive(issues, "originalThicknessMm", input.originalThicknessMm, "Original bottom thickness");
   positive(issues, "bottomRemainingThicknessMm", input.bottomRemainingThicknessMm, "Current bottom remaining thickness RTbc");
-  positive(issues, "internalPittingRemainingThicknessMm", input.internalPittingRemainingThicknessMm, "Current internal-pitting remaining thickness RTip");
+  nonNegative(issues, "previousInternalPittingDepthMm", input.previousInternalPittingDepthMm, "Previous internal-pitting depth");
+  nonNegative(issues, "currentInternalPittingDepthMm", input.currentInternalPittingDepthMm, "Current internal-pitting depth");
   nonNegative(issues, "projectionYears", input.projectionYears, "Projection interval Or");
 
   if (!Number.isFinite(input.previousThicknessMm) || input.previousThicknessMm < 0) {
     issues.push({ code: "non-negative-value-required", field: "previousThicknessMm", severity: "error", message: "Previous bottom remaining thickness must be zero when unavailable or a finite positive value." });
-  }
-  if (!Number.isFinite(input.previousInternalPittingRemainingThicknessMm) || input.previousInternalPittingRemainingThicknessMm < 0) {
-    issues.push({ code: "non-negative-value-required", field: "previousInternalPittingRemainingThicknessMm", severity: "error", message: "Previous internal-pitting remaining thickness must be zero when unavailable or a finite positive value." });
   }
   if (!Number.isFinite(input.yearsInService) || input.yearsInService < 0) {
     issues.push({ code: "non-negative-value-required", field: "yearsInService", severity: "error", message: "Years in service must be zero when unavailable or a finite positive value." });
@@ -44,25 +42,43 @@ export function calculateApi653BottomPlate(input: Api653BottomPlateInputSI): Api
   const originalThicknessMmUsed = safe(input.originalThicknessMm);
   const previousThicknessMmUsed = safe(input.previousThicknessMm);
   const bottomRemainingThicknessMmUsed = safe(input.bottomRemainingThicknessMm);
-  const previousInternalPittingRemainingThicknessMmUsed = safe(input.previousInternalPittingRemainingThicknessMm);
-  const internalPittingRemainingThicknessMmUsed = safe(input.internalPittingRemainingThicknessMm);
+  const previousInternalPittingDepthMmUsed = safe(input.previousInternalPittingDepthMm);
+  const currentInternalPittingDepthMmUsed = safe(input.currentInternalPittingDepthMm);
+  const previousPittingDepthValid = originalThicknessMmUsed > 0
+    && Number.isFinite(input.previousInternalPittingDepthMm)
+    && input.previousInternalPittingDepthMm >= 0
+    && input.previousInternalPittingDepthMm <= originalThicknessMmUsed;
+  const currentPittingDepthValid = originalThicknessMmUsed > 0
+    && Number.isFinite(input.currentInternalPittingDepthMm)
+    && input.currentInternalPittingDepthMm >= 0
+    && input.currentInternalPittingDepthMm <= originalThicknessMmUsed;
+  if (originalThicknessMmUsed > 0 && previousInternalPittingDepthMmUsed > originalThicknessMmUsed) {
+    issues.push({ code: "pitting-depth-exceeds-original", field: "previousInternalPittingDepthMm", severity: "error", message: "Previous internal-pitting depth cannot exceed the original bottom thickness." });
+  }
+  if (originalThicknessMmUsed > 0 && currentInternalPittingDepthMmUsed > originalThicknessMmUsed) {
+    issues.push({ code: "pitting-depth-exceeds-original", field: "currentInternalPittingDepthMm", severity: "error", message: "Current internal-pitting depth cannot exceed the original bottom thickness." });
+  }
+  const previousInternalPittingRemainingThicknessMmUsed = previousPittingDepthValid
+    ? originalThicknessMmUsed - previousInternalPittingDepthMmUsed : 0;
+  const internalPittingRemainingThicknessMmUsed = currentPittingDepthValid
+    ? originalThicknessMmUsed - currentInternalPittingDepthMmUsed : 0;
   const yearsInServiceUsed = safe(input.yearsInService);
   const yearsSincePreviousInspectionUsed = safe(input.yearsSincePreviousInspection);
   const projectionYearsUsed = safe(input.projectionYears);
 
   const undersideLongBasisAvailable = originalThicknessMmUsed > 0 && bottomRemainingThicknessMmUsed > 0 && yearsInServiceUsed > 0;
   const undersideShortBasisAvailable = previousThicknessMmUsed > 0 && bottomRemainingThicknessMmUsed > 0 && yearsSincePreviousInspectionUsed > 0;
-  const topSideLongBasisAvailable = originalThicknessMmUsed > 0 && internalPittingRemainingThicknessMmUsed > 0 && yearsInServiceUsed > 0;
-  const topSideShortBasisAvailable = previousInternalPittingRemainingThicknessMmUsed > 0 && internalPittingRemainingThicknessMmUsed > 0 && yearsSincePreviousInspectionUsed > 0;
+  const topSideLongBasisAvailable = currentPittingDepthValid && internalPittingRemainingThicknessMmUsed > 0 && yearsInServiceUsed > 0;
+  const topSideShortBasisAvailable = previousPittingDepthValid && currentPittingDepthValid && internalPittingRemainingThicknessMmUsed > 0 && yearsSincePreviousInspectionUsed > 0;
 
   const undersideLongTermCorrosionRateMmPerYear = undersideLongBasisAvailable
     ? Math.max(originalThicknessMmUsed - bottomRemainingThicknessMmUsed, 0) / yearsInServiceUsed : 0;
   const undersideShortTermCorrosionRateMmPerYear = undersideShortBasisAvailable
     ? Math.max(previousThicknessMmUsed - bottomRemainingThicknessMmUsed, 0) / yearsSincePreviousInspectionUsed : 0;
   const topSideLongTermCorrosionRateMmPerYear = topSideLongBasisAvailable
-    ? Math.max(originalThicknessMmUsed - internalPittingRemainingThicknessMmUsed, 0) / yearsInServiceUsed : 0;
+    ? currentInternalPittingDepthMmUsed / yearsInServiceUsed : 0;
   const topSideShortTermCorrosionRateMmPerYear = topSideShortBasisAvailable
-    ? Math.max(previousInternalPittingRemainingThicknessMmUsed - internalPittingRemainingThicknessMmUsed, 0) / yearsSincePreviousInspectionUsed : 0;
+    ? Math.max(currentInternalPittingDepthMmUsed - previousInternalPittingDepthMmUsed, 0) / yearsSincePreviousInspectionUsed : 0;
   const automaticUndersideCorrosionRateMmPerYear = Math.max(undersideLongTermCorrosionRateMmPerYear, undersideShortTermCorrosionRateMmPerYear);
   const automaticTopSideCorrosionRateMmPerYear = Math.max(topSideLongTermCorrosionRateMmPerYear, topSideShortTermCorrosionRateMmPerYear);
 
@@ -70,10 +86,7 @@ export function calculateApi653BottomPlate(input: Api653BottomPlateInputSI): Api
     issues.push({ code: "underside-rate-basis-required", field: "undersideCorrosionRateMmPerYear", severity: "error", message: "Automatic UPr needs a valid long-term or comparable previous-inspection bottom-thickness basis. Enter the missing history or use a controlled manual UPr." });
   }
   if (input.topSideCorrosionRateMode === "auto" && !topSideLongBasisAvailable && !topSideShortBasisAvailable) {
-    issues.push({ code: "top-side-rate-basis-required", field: "topSideCorrosionRateMmPerYear", severity: "error", message: "Automatic StPr needs a valid long-term or comparable previous-inspection RTip basis. Enter the missing history or use a controlled manual StPr." });
-  }
-  if (input.topSideCorrosionRateMode === "auto" && topSideLongBasisAvailable && !topSideShortBasisAvailable) {
-    issues.push({ code: "top-side-short-term-basis-unavailable", field: "previousInternalPittingRemainingThicknessMm", severity: "warning", message: "StPr uses the long-term RTip route only because comparable previous internal-pitting thickness is unavailable; no short-term rate was manufactured." });
+    issues.push({ code: "top-side-rate-basis-required", field: "topSideCorrosionRateMmPerYear", severity: "error", message: "Automatic StPr needs valid pitting depths and a long-term or previous-inspection period. Enter the missing history or use a controlled manual StPr." });
   }
 
   if (input.undersideCorrosionRateMode === "manual") nonNegative(issues, "undersideCorrosionRateMmPerYear", input.manualUndersideCorrosionRateMmPerYear, "Manual underside corrosion rate UPr");
@@ -102,6 +115,7 @@ export function calculateApi653BottomPlate(input: Api653BottomPlateInputSI): Api
   const generalBottomAssessmentReady = originalThicknessMmUsed > 0
     && bottomRemainingThicknessMmUsed > 0
     && internalPittingRemainingThicknessMmUsed > 0
+    && currentPittingDepthValid
     && Number.isFinite(input.projectionYears) && input.projectionYears >= 0
     && minimumBasisReady && undersideRateReady && topSideRateReady;
 
@@ -133,6 +147,7 @@ export function calculateApi653BottomPlate(input: Api653BottomPlateInputSI): Api
     engineId: ENGINE_ID, engineVersion: ENGINE_VERSION, ok: !issues.some((issue) => issue.severity === "error"), issues,
     generalBottomAssessmentReady,
     originalThicknessMmUsed, previousThicknessMmUsed, bottomRemainingThicknessMmUsed,
+    previousInternalPittingDepthMmUsed, currentInternalPittingDepthMmUsed,
     previousInternalPittingRemainingThicknessMmUsed, internalPittingRemainingThicknessMmUsed,
     minimumThicknessBasis: input.minimumThicknessBasis, minimumThicknessMmUsed, projectionYearsUsed,
     yearsInServiceUsed, yearsSincePreviousInspectionUsed,

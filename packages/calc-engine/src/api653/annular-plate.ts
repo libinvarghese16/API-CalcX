@@ -19,6 +19,15 @@ function positiveIssue(field: Api653AnnularPlateField, value: number, label: str
   };
 }
 
+function nonNegativeIssue(field: Api653AnnularPlateField, value: number, label: string): CalculationIssue | null {
+  return Number.isFinite(value) && value >= 0 ? null : {
+    code: "non-negative-value-required",
+    field,
+    severity: "error",
+    message: `${label} must be a finite value of zero or greater.`,
+  };
+}
+
 function collectIssues(...issues: Array<CalculationIssue | null>): CalculationIssue[] {
   return issues.filter((issue): issue is CalculationIssue => issue !== null);
 }
@@ -187,20 +196,38 @@ export function calculateApi653AnnularPlate(input: Api653AnnularPlateInputSI): A
     positiveIssue("originalThicknessMm", input.originalThicknessMm, "Original annular thickness"),
     positiveIssue("previousThicknessMm", input.previousThicknessMm, "Previous annular thickness"),
     positiveIssue("actualThicknessMm", input.actualThicknessMm, "Current annular thickness"),
+    nonNegativeIssue("previousInternalPittingDepthMm", input.previousInternalPittingDepthMm, "Previous internal-pitting depth"),
+    nonNegativeIssue("currentInternalPittingDepthMm", input.currentInternalPittingDepthMm, "Current internal-pitting depth"),
     positiveIssue("yearsInService", input.yearsInService, "Years in service"),
     positiveIssue("yearsSincePreviousInspection", input.yearsSincePreviousInspection, "Years since previous inspection"),
   );
   const originalThicknessMmUsed = Number.isFinite(input.originalThicknessMm) ? Math.max(input.originalThicknessMm, 0) : 0;
   const previousThicknessMmUsed = Number.isFinite(input.previousThicknessMm) ? Math.max(input.previousThicknessMm, 0) : 0;
   const actualThicknessMmUsed = Number.isFinite(input.actualThicknessMm) ? Math.max(input.actualThicknessMm, 0) : 0;
+  const previousInternalPittingDepthMmUsed = Number.isFinite(input.previousInternalPittingDepthMm) ? Math.max(input.previousInternalPittingDepthMm, 0) : 0;
+  const currentInternalPittingDepthMmUsed = Number.isFinite(input.currentInternalPittingDepthMm) ? Math.max(input.currentInternalPittingDepthMm, 0) : 0;
+  if (originalThicknessMmUsed > 0 && previousInternalPittingDepthMmUsed > originalThicknessMmUsed) {
+    plateIssues.push({ code: "pitting-depth-exceeds-original", field: "previousInternalPittingDepthMm", severity: "error", message: "Previous internal-pitting depth cannot exceed the original annular thickness." });
+  }
+  if (originalThicknessMmUsed > 0 && currentInternalPittingDepthMmUsed > originalThicknessMmUsed) {
+    plateIssues.push({ code: "pitting-depth-exceeds-original", field: "currentInternalPittingDepthMm", severity: "error", message: "Current internal-pitting depth cannot exceed the original annular thickness." });
+  }
+  const previousInternalPittingRemainingThicknessMmUsed = Math.max(originalThicknessMmUsed - previousInternalPittingDepthMmUsed, 0);
+  const internalPittingRemainingThicknessMmUsed = Math.max(originalThicknessMmUsed - currentInternalPittingDepthMmUsed, 0);
   const yearsInServiceUsed = Number.isFinite(input.yearsInService) ? Math.max(input.yearsInService, 0) : 0;
   const yearsSincePreviousInspectionUsed = Number.isFinite(input.yearsSincePreviousInspection) ? Math.max(input.yearsSincePreviousInspection, 0) : 0;
   const metalLossLongMm = Math.max(originalThicknessMmUsed - actualThicknessMmUsed, 0);
   const metalLossShortMm = Math.max(previousThicknessMmUsed - actualThicknessMmUsed, 0);
-  const longTermCorrosionRateMmPerYear = yearsInServiceUsed > 0 ? metalLossLongMm / yearsInServiceUsed : 0;
-  const shortTermCorrosionRateMmPerYear = yearsSincePreviousInspectionUsed > 0 ? metalLossShortMm / yearsSincePreviousInspectionUsed : 0;
+  const bottomSideLongTermCorrosionRateMmPerYear = yearsInServiceUsed > 0 ? metalLossLongMm / yearsInServiceUsed : 0;
+  const bottomSideShortTermCorrosionRateMmPerYear = yearsSincePreviousInspectionUsed > 0 ? metalLossShortMm / yearsSincePreviousInspectionUsed : 0;
+  const topSideLongTermCorrosionRateMmPerYear = yearsInServiceUsed > 0 ? currentInternalPittingDepthMmUsed / yearsInServiceUsed : 0;
+  const topSideShortTermCorrosionRateMmPerYear = yearsSincePreviousInspectionUsed > 0
+    ? Math.max(currentInternalPittingDepthMmUsed - previousInternalPittingDepthMmUsed, 0) / yearsSincePreviousInspectionUsed : 0;
+  const longTermCorrosionRateMmPerYear = Math.max(bottomSideLongTermCorrosionRateMmPerYear, topSideLongTermCorrosionRateMmPerYear);
+  const shortTermCorrosionRateMmPerYear = Math.max(bottomSideShortTermCorrosionRateMmPerYear, topSideShortTermCorrosionRateMmPerYear);
   const governingCorrosionRateMmPerYear = Math.max(longTermCorrosionRateMmPerYear, shortTermCorrosionRateMmPerYear);
-  const availableThicknessMm = Math.max(actualThicknessMmUsed - minimumThicknessMm, 0);
+  const governingThicknessMm = Math.min(actualThicknessMmUsed, internalPittingRemainingThicknessMmUsed);
+  const availableThicknessMm = Math.max(governingThicknessMm - minimumThicknessMm, 0);
   const remainingLifeYears = governingCorrosionRateMmPerYear > 0 ? availableThicknessMm / governingCorrosionRateMmPerYear : 0;
   const selectionIssues = input.minimumThicknessMode === "auto"
     ? selection.issues
@@ -221,23 +248,31 @@ export function calculateApi653AnnularPlate(input: Api653AnnularPlateInputSI): A
 
   return {
     engineId: ENGINE_ID,
-    engineVersion: "0.1.0-original-web-parity",
+    engineVersion: "0.2.0-pit-depth-parity",
     ok: !issues.some((issue) => issue.severity === "error"),
     issues,
     originalThicknessMmUsed,
     previousThicknessMmUsed,
     actualThicknessMmUsed,
+    previousInternalPittingDepthMmUsed,
+    currentInternalPittingDepthMmUsed,
+    previousInternalPittingRemainingThicknessMmUsed,
+    internalPittingRemainingThicknessMmUsed,
     minimumThicknessMmUsed: minimumThicknessMm,
     yearsInServiceUsed,
     yearsSincePreviousInspectionUsed,
     metalLossLongMm,
     metalLossShortMm,
+    bottomSideLongTermCorrosionRateMmPerYear,
+    bottomSideShortTermCorrosionRateMmPerYear,
+    topSideLongTermCorrosionRateMmPerYear,
+    topSideShortTermCorrosionRateMmPerYear,
     longTermCorrosionRateMmPerYear,
     shortTermCorrosionRateMmPerYear,
     maximumCorrosionRateLongMmPerYear: longTermCorrosionRateMmPerYear,
     maximumCorrosionRateShortMmPerYear: shortTermCorrosionRateMmPerYear,
     governingCorrosionRateMmPerYear,
-    governingThicknessMm: actualThicknessMmUsed,
+    governingThicknessMm,
     availableThicknessMm,
     remainingLifeYears,
     diameterMUsed: stress.diameterMUsed,

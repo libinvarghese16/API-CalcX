@@ -1,6 +1,6 @@
 # API 653 Annular Plate remaining-life parity
 
-Status: corrected complete dependency chain and shared mobile structure passed locally on 20 August 2026. The earlier manual-only 4.50 mm minimum and 21.50-year result were incomplete and are withdrawn. This record supersedes that result.
+Status: corrected complete dependency chain and shared mobile structure passed locally on 28 August 2026. Pitting is entered as previous/current depth and converted to remaining thickness internally.
 
 ## Protected source identity
 
@@ -10,7 +10,7 @@ Status: corrected complete dependency chain and shared mobile structure passed l
 - Annular inputs: `ann-years`, `ann-original`, `ann-prev`, `ann-act`, `ann-min`, `ann-pitting`
 - Protected functions: `updateCalculatedStress`, `updateAnnularMinimumThickness`, `getAnnularMinimumThicknessSelection`, `calculateAnnular`
 - Engine identity: `api653.annular-plate`
-- Engine version: `0.1.0-original-web-parity`
+- Engine version: `0.2.0-pit-depth-parity`
 
 ## Correct complete calculation chain
 
@@ -22,7 +22,9 @@ Status: corrected complete dependency chain and shared mobile structure passed l
 6. Route specific gravity below 1.0 and specific gravity of 1.0 or above through their separate protected minimum-selection paths.
 7. Select Annular minimum thickness from first-shell-thickness and the automatic or manually entered stress band.
 8. Allow the selected minimum to be manually overridden while continuing to show the automatic recommendation and manual status.
-9. Apply the selected or manually entered minimum to the audited corrosion-rate and remaining-life equation.
+9. Accept previous and current internal-pitting depth, defaulting both to zero, and derive each `RTip = original thickness - pit depth`.
+10. Calculate bottom-side and top-side long/short rates independently. The annular long- and short-term rates are the maximum applicable route for each period.
+11. Use the lower of current measured annular thickness and derived current `RTip` as the governing current thickness, then apply the selected or manually entered minimum to remaining life.
 
 The application implements the protected lookup behavior internally. It does not display or bundle a standards table, standards PDF, or protected reference image.
 
@@ -39,7 +41,8 @@ The application implements the protected lookup behavior internally. It does not
 | Original Annular thickness | 10.00 mm |
 | Previous measured thickness | 9.30 mm |
 | Current measured thickness | 8.80 mm |
-| Pitting depth | 1.00 mm |
+| Previous internal-pitting depth | 0.00 mm |
+| Current internal-pitting depth | 1.00 mm |
 
 | Dependency/result | Protected original | Corrected mobile browser |
 | --- | ---: | ---: |
@@ -84,9 +87,11 @@ With the corrected golden case held constant and calculated shell stress changed
 - Manual shell-stress mode remains highlighted, uses the entered value for Tmin selection, and preserves the automatic stress recommendation for review.
 - Equivalent U.S. customary diameter, height, shell, Annular, and pitting inputs reproduce the same normalized stress, selection, corrosion rates, and remaining life.
 - Metric and U.S. result systems preserve the 22.40-year result.
+- Zero-depth defaults calculate normally from annular thickness loss, while depths greater than original thickness are blocked.
+- Previous/current depth, derived current `RTip`, and separate bottom-/top-side long/short rates remain visible in the supporting results.
 - Build year, previous inspection year, service periods, calculated stress mode/value/recommendation, and Annular minimum are all visible and traceable.
 - Bottom, Annular, and Shell use the same calculator header, parity badge, workflow indicator, Calculation basis card, Unit system selector, Design and inspection card, mixed-unit note, result card, and trace treatment.
 - Light and dark themes were opened in the local browser with the corrected result active.
-- Bottom Plate was regression-checked after the shared UI change and retains its separate 17.75-year golden result.
+- Bottom Plate was regression-checked after the shared UI change and retains its separate audited `StPr + UPr` route.
 
 This parity record verifies the original application calculation chain. Tank geometry, liquid level, product properties, settlement, shell-to-bottom junction condition, inspection coverage, pitting characterization, controlled code edition, and responsible engineering approval remain external requirements.

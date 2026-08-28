@@ -26,7 +26,7 @@ import type {
 import { ArrowLeft, CircleCheck, Gauge, Info, RotateCcw, ShieldCheck, TriangleAlert, Wrench } from "lucide-react";
 import { formatDisplayNumber } from "../display-precision.ts";
 
-type UnitFieldId = "tankDiameter" | "liquidHeight" | "firstShellThickness" | "calculatedStress" | "originalThickness" | "previousThickness" | "actualThickness" | "minimumThickness" | "pittingDepth" | "previousInternalPitting" | "internalPitting" | "undersideRate" | "topSideRate" | "lowerShellMinimum" | "criticalZoneActual";
+type UnitFieldId = "tankDiameter" | "liquidHeight" | "firstShellThickness" | "calculatedStress" | "originalThickness" | "previousThickness" | "actualThickness" | "minimumThickness" | "previousInternalPitting" | "internalPitting" | "undersideRate" | "topSideRate" | "lowerShellMinimum" | "criticalZoneActual";
 type UnitFieldState = { value: string; unit: EngineeringUnit; quantity: EngineeringQuantity };
 type UnitFieldMap = Record<UnitFieldId, UnitFieldState>;
 
@@ -46,9 +46,8 @@ function initialUnitFields(variant: Api653PlateVariant): UnitFieldMap {
     previousThickness: { value: "9.3", unit: "mm", quantity: "length" },
     actualThickness: { value: "8.8", unit: "mm", quantity: "length" },
     minimumThickness: { value: "4.32", unit: "mm", quantity: "length" },
-    pittingDepth: { value: "1", unit: "mm", quantity: "length" },
-    previousInternalPitting: { value: "9.4", unit: "mm", quantity: "length" },
-    internalPitting: { value: "9", unit: "mm", quantity: "length" },
+    previousInternalPitting: { value: "0", unit: "mm", quantity: "length" },
+    internalPitting: { value: "0", unit: "mm", quantity: "length" },
     undersideRate: { value: "0.1", unit: "mm", quantity: "length" },
     topSideRate: { value: "0.08", unit: "mm", quantity: "length" },
     lowerShellMinimum: { value: "6", unit: "mm", quantity: "length" },
@@ -62,9 +61,8 @@ function initialUnitFields(variant: Api653PlateVariant): UnitFieldMap {
     previousThickness: { value: "7.4", unit: "mm", quantity: "length" },
     actualThickness: { value: "7", unit: "mm", quantity: "length" },
     minimumThickness: { value: "2.54", unit: "mm", quantity: "length" },
-    pittingDepth: { value: "1.2", unit: "mm", quantity: "length" },
-    previousInternalPitting: { value: "7.2", unit: "mm", quantity: "length" },
-    internalPitting: { value: "6.8", unit: "mm", quantity: "length" },
+    previousInternalPitting: { value: "0", unit: "mm", quantity: "length" },
+    internalPitting: { value: "0", unit: "mm", quantity: "length" },
     undersideRate: { value: "0.08", unit: "mm", quantity: "length" },
     topSideRate: { value: "0.08", unit: "mm", quantity: "length" },
     lowerShellMinimum: { value: "6", unit: "mm", quantity: "length" },
@@ -175,8 +173,8 @@ export function Api653PlateRemainingLifeCalculator({ onBack, variant }: { onBack
     originalThicknessMm: unitValue(fields.originalThickness),
     previousThicknessMm: unitValue(fields.previousThickness),
     bottomRemainingThicknessMm: unitValue(fields.actualThickness),
-    previousInternalPittingRemainingThicknessMm: unitValue(fields.previousInternalPitting),
-    internalPittingRemainingThicknessMm: unitValue(fields.internalPitting),
+    previousInternalPittingDepthMm: unitValue(fields.previousInternalPitting),
+    currentInternalPittingDepthMm: unitValue(fields.internalPitting),
     minimumThicknessBasis: bottomMinimumBasis,
     reducedMinimumCriteriaConfirmed,
     manualMinimumThicknessMm: unitValue(fields.minimumThickness),
@@ -203,6 +201,8 @@ export function Api653PlateRemainingLifeCalculator({ onBack, variant }: { onBack
     originalThicknessMm: unitValue(fields.originalThickness),
     previousThicknessMm: unitValue(fields.previousThickness),
     actualThicknessMm: unitValue(fields.actualThickness),
+    previousInternalPittingDepthMm: unitValue(fields.previousInternalPitting),
+    currentInternalPittingDepthMm: unitValue(fields.internalPitting),
     yearsInService,
     yearsSincePreviousInspection,
   }), [calculatedStressMode, fields, highSpecificGravityBasisConfirmed, minimumThicknessMode, specificGravity, yearsInService, yearsSincePreviousInspection]);
@@ -265,7 +265,7 @@ export function Api653PlateRemainingLifeCalculator({ onBack, variant }: { onBack
     referenceBasis: "API 653 annular plate remaining-life workflow",
     minimumHelp: "Automatic selection follows the protected original application and remains manually editable.",
     routeLabel: "Annular structural route connected.",
-    routeMessage: "The dependency chain calculates shell stress, selects annular Tmin, and evaluates annular thickness history separately from bottom MRT and pitting logic.",
+    routeMessage: "The dependency chain calculates shell stress, selects annular Tmin, derives RTip from entered pit depth, and evaluates bottom- and top-side annular metal loss.",
     originalLabel: "Original annular thickness",
     originalHelp: "Original or nominal annular plate thickness T org.",
     previousHelp: "Representative annular thickness at the previous inspection.",
@@ -331,14 +331,14 @@ export function Api653PlateRemainingLifeCalculator({ onBack, variant }: { onBack
           <UnitInput label={copy.originalLabel} field={fields.originalThickness} options={lengthUnits} help={copy.originalHelp} onValueChange={(value) => updateFieldValue("originalThickness", value)} onUnitChange={(unit) => updateFieldUnit("originalThickness", unit)} />
           <UnitInput label="Previous measured thickness" field={fields.previousThickness} options={lengthUnits} help={copy.previousHelp} onValueChange={(value) => updateFieldValue("previousThickness", value)} onUnitChange={(unit) => updateFieldUnit("previousThickness", unit)} />
           <UnitInput label={isAnnular ? "Current annular thickness" : "Current bottom remaining thickness RTbc"} field={fields.actualThickness} options={lengthUnits} help={copy.currentHelp} onValueChange={(value) => updateFieldValue("actualThickness", value)} onUnitChange={(unit) => updateFieldUnit("actualThickness", unit)} />
+          <UnitInput label="Previous internal-pitting depth" field={fields.previousInternalPitting} options={lengthUnits} help="Measured pit depth at the previous inspection. Enter 0 when no internal pit depth was measured; previous RTip is derived as original thickness minus this depth." onValueChange={(value) => updateFieldValue("previousInternalPitting", value)} onUnitChange={(unit) => updateFieldUnit("previousInternalPitting", unit)} />
+          <UnitInput label="Current internal-pitting depth" field={fields.internalPitting} options={lengthUnits} help="Current measured pit depth. Enter 0 when no internal pit depth is present; current RTip is derived as original thickness minus this depth." onValueChange={(value) => updateFieldValue("internalPitting", value)} onUnitChange={(unit) => updateFieldUnit("internalPitting", unit)} />
           {!isAnnular && <>
-            <UnitInput label="Previous internal-pitting remaining thickness" field={fields.previousInternalPitting} options={lengthUnits} help="Comparable RTip measurement from the previous inspection; do not enter current pit depth here." onValueChange={(value) => updateFieldValue("previousInternalPitting", value)} onUnitChange={(unit) => updateFieldUnit("previousInternalPitting", unit)} />
-            <UnitInput label="Current internal-pitting remaining thickness RTip" field={fields.internalPitting} options={lengthUnits} help="Current remaining thickness at the internal-pitting route." onValueChange={(value) => updateFieldValue("internalPitting", value)} onUnitChange={(unit) => updateFieldUnit("internalPitting", unit)} />
             <AutomaticUnitInput label="Underside corrosion rate UPr" field={undersideRateMode === "auto" ? { ...fields.undersideRate, value: formatInput(convertSIToUnit(bottomResult.automaticUndersideCorrosionRateMmPerYear, "length", fields.undersideRate.unit)) } : fields.undersideRate} options={lengthUnits} mode={undersideRateMode} help="Automatic UPr is the larger available long- or short-term bottom-side rate. Manual mode accepts an independently established controlled rate." onValueChange={(value) => updateFieldValue("undersideRate", value)} onUnitChange={(unit) => updateFieldUnit("undersideRate", unit)} onModeChange={setUndersideRateMode} />
-            <AutomaticUnitInput label="Top-side corrosion rate StPr" field={topSideRateMode === "auto" ? { ...fields.topSideRate, value: formatInput(convertSIToUnit(bottomResult.automaticTopSideCorrosionRateMmPerYear, "length", fields.topSideRate.unit)) } : fields.topSideRate} options={lengthUnits} mode={topSideRateMode} help="Automatic StPr is the larger valid RTip long- or short-term rate. A short-term rate is calculated only from comparable previous and current RTip measurements." onValueChange={(value) => updateFieldValue("topSideRate", value)} onUnitChange={(unit) => updateFieldUnit("topSideRate", unit)} onModeChange={setTopSideRateMode} />
+            <AutomaticUnitInput label="Top-side corrosion rate StPr" field={topSideRateMode === "auto" ? { ...fields.topSideRate, value: formatInput(convertSIToUnit(bottomResult.automaticTopSideCorrosionRateMmPerYear, "length", fields.topSideRate.unit)) } : fields.topSideRate} options={lengthUnits} mode={topSideRateMode} help="Automatic StPr is the larger long- or short-term pit-depth rate. The short-term route uses the increase from previous to current internal-pitting depth." onValueChange={(value) => updateFieldValue("topSideRate", value)} onUnitChange={(unit) => updateFieldUnit("topSideRate", unit)} onModeChange={setTopSideRateMode} />
           </>}
         </div>
-        <div className={`form-note ${manualOverrideActive ? "is-manual" : "is-valid"}`}>{manualOverrideActive ? <TriangleAlert size={18} /> : <Info size={17} />}<p><strong>{manualOverrideActive ? "Manual override active." : "Automatic dependencies active."}</strong> {manualOverrideActive ? "Verify every highlighted manual field before engineering review." : isAnnular ? "Annular thickness loss remains separate from bottom MRT and pitting logic." : "MRT uses separate RTbc, RTip, UPr, StPr, and projection interval inputs."}</p></div>
+        <div className={`form-note ${manualOverrideActive ? "is-manual" : "is-valid"}`}>{manualOverrideActive ? <TriangleAlert size={18} /> : <Info size={17} />}<p><strong>{manualOverrideActive ? "Manual override active." : "Automatic dependencies active."}</strong> {manualOverrideActive ? "Verify every highlighted manual field before engineering review." : isAnnular ? "Annular RTip and pitting rates are derived automatically from the entered previous and current pit depths." : "MRT uses separate RTbc, derived RTip, UPr, StPr, and projection interval inputs."}</p></div>
         <div className="unit-system-note"><Info size={17} /><p><strong>Mixed engineering units are active.</strong> Every field converts into the normalized engine while results follow <b>{unitSystem === "metric" ? "Metric" : "U.S. customary"}</b>.</p></div>
       </section>
 
@@ -370,9 +370,18 @@ export function Api653PlateRemainingLifeCalculator({ onBack, variant }: { onBack
           <div><span>Automatic shell stress</span><strong>{formatDisplayNumber(convertFromSI(annularResult.automaticCalculatedStressMpa, "pressure", unitSystem))} {stressUnit}</strong></div>
           <div><span>Annular minimum mode</span><strong>{minimumThicknessMode === "auto" ? "Automatic" : "Manual override"}</strong></div>
           <div><span>Selection route</span><strong>{annularResult.minimumSelectionTableLabel ?? "Unavailable"}</strong></div>
+          <div><span>Previous pitting depth</span><strong>{formatOutput(annularResult.previousInternalPittingDepthMmUsed, "length", unitSystem)} {lengthUnit}</strong></div>
+          <div><span>Current pitting depth</span><strong>{formatOutput(annularResult.currentInternalPittingDepthMmUsed, "length", unitSystem)} {lengthUnit}</strong></div>
+          <div><span>Derived current RTip</span><strong>{formatOutput(annularResult.internalPittingRemainingThicknessMmUsed, "length", unitSystem)} {lengthUnit}</strong></div>
+          <div><span>Bottom-side long-term rate</span><strong>{formatOutput(annularResult.bottomSideLongTermCorrosionRateMmPerYear, "rate", unitSystem, true)} {rateUnit}</strong></div>
+          <div><span>Top-side long-term rate</span><strong>{formatOutput(annularResult.topSideLongTermCorrosionRateMmPerYear, "rate", unitSystem, true)} {rateUnit}</strong></div>
+          <div><span>Bottom-side short-term rate</span><strong>{formatOutput(annularResult.bottomSideShortTermCorrosionRateMmPerYear, "rate", unitSystem, true)} {rateUnit}</strong></div>
+          <div><span>Top-side short-term rate</span><strong>{formatOutput(annularResult.topSideShortTermCorrosionRateMmPerYear, "rate", unitSystem, true)} {rateUnit}</strong></div>
           <div><span>Long-term annular rate</span><strong>{formatOutput(annularResult.longTermCorrosionRateMmPerYear, "rate", unitSystem, true)} {rateUnit}</strong></div>
           <div><span>Short-term annular rate</span><strong>{formatOutput(annularResult.shortTermCorrosionRateMmPerYear, "rate", unitSystem, true)} {rateUnit}</strong></div>
         </> : <>
+          <div><span>Previous pitting depth</span><strong>{formatOutput(bottomResult.previousInternalPittingDepthMmUsed, "length", unitSystem)} {lengthUnit}</strong></div>
+          <div><span>Current pitting depth</span><strong>{formatOutput(bottomResult.currentInternalPittingDepthMmUsed, "length", unitSystem)} {lengthUnit}</strong></div>
           <div><span>RTbc current</span><strong>{formatOutput(bottomResult.bottomRemainingThicknessMmUsed, "length", unitSystem)} {lengthUnit}</strong></div>
           <div><span>RTip current</span><strong>{formatOutput(bottomResult.internalPittingRemainingThicknessMmUsed, "length", unitSystem)} {lengthUnit}</strong></div>
           <div><span>UPr long-term</span><strong>{formatOutput(bottomResult.undersideLongTermCorrosionRateMmPerYear, "rate", unitSystem, true)} {rateUnit}</strong></div>

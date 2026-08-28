@@ -78,6 +78,10 @@ test("keeps Annular calculated shell stress editable, unit-aware, and visibly tr
   assert.match(bottomAndAnnularSource, /setCalculatedStressMode\(mode\)/);
   assert.match(bottomAndAnnularSource, /Calculated shell stress mode/);
   assert.match(bottomAndAnnularSource, /Automatic shell stress/);
+  assert.match(bottomAndAnnularSource, /UnitInput label="Previous internal-pitting depth"/);
+  assert.match(bottomAndAnnularSource, /UnitInput label="Current internal-pitting depth"/);
+  assert.match(bottomAndAnnularSource, /Derived current RTip/);
+  assert.match(bottomAndAnnularSource, /Top-side short-term rate/);
 });
 
 test("keeps the bottom MRT and critical-zone routes separate, complete, and visibly traceable", () => {
@@ -88,6 +92,10 @@ test("keeps the bottom MRT and critical-zone routes separate, complete, and visi
   assert.match(bottomAndAnnularSource, /UPr short-term/);
   assert.match(bottomAndAnnularSource, /StPr long-term/);
   assert.match(bottomAndAnnularSource, /StPr short-term/);
+  assert.match(bottomAndAnnularSource, /previousInternalPitting: \{ value: "0"/);
+  assert.match(bottomAndAnnularSource, /internalPitting: \{ value: "0"/);
+  assert.match(bottomAndAnnularSource, /Current pitting depth/);
+  assert.match(bottomAndAnnularSource, /RTip current/);
   assert.match(bottomAndAnnularSource, /<h2>Critical-zone assessment<\/h2>/);
   assert.match(bottomAndAnnularSource, /UnitInput label="Lower shell course required thickness tmin"/);
   assert.match(bottomAndAnnularSource, /UnitInput label="Critical-zone measured thickness"/);

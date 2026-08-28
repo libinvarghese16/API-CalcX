@@ -141,8 +141,8 @@ export type Api653BottomPlateField =
   | "originalThicknessMm"
   | "previousThicknessMm"
   | "bottomRemainingThicknessMm"
-  | "previousInternalPittingRemainingThicknessMm"
-  | "internalPittingRemainingThicknessMm"
+  | "previousInternalPittingDepthMm"
+  | "currentInternalPittingDepthMm"
   | "minimumThicknessMm"
   | "minimumThicknessBasis"
   | "projectionYears"
@@ -246,8 +246,8 @@ export interface Api653BottomPlateInputSI {
   originalThicknessMm: number;
   previousThicknessMm: number;
   bottomRemainingThicknessMm: number;
-  previousInternalPittingRemainingThicknessMm: number;
-  internalPittingRemainingThicknessMm: number;
+  previousInternalPittingDepthMm: number;
+  currentInternalPittingDepthMm: number;
   minimumThicknessBasis: Api653BottomMinimumThicknessBasis;
   reducedMinimumCriteriaConfirmed: boolean;
   manualMinimumThicknessMm: number;
@@ -264,13 +264,15 @@ export interface Api653BottomPlateInputSI {
 
 export interface Api653BottomPlateResultSI {
   engineId: "api653.bottom-plate";
-  engineVersion: "0.2.0-api653-mrt";
+  engineVersion: "0.3.0-api653-pit-depth";
   ok: boolean;
   issues: CalculationIssue[];
   generalBottomAssessmentReady: boolean;
   originalThicknessMmUsed: number;
   previousThicknessMmUsed: number;
   bottomRemainingThicknessMmUsed: number;
+  previousInternalPittingDepthMmUsed: number;
+  currentInternalPittingDepthMmUsed: number;
   previousInternalPittingRemainingThicknessMmUsed: number;
   internalPittingRemainingThicknessMmUsed: number;
   minimumThicknessBasis: Api653BottomMinimumThicknessBasis;
@@ -319,6 +321,8 @@ export interface Api653AnnularPlateInputSI {
   originalThicknessMm: number;
   previousThicknessMm: number;
   actualThicknessMm: number;
+  previousInternalPittingDepthMm: number;
+  currentInternalPittingDepthMm: number;
   yearsInService: number;
   yearsSincePreviousInspection: number;
 }
@@ -347,17 +351,25 @@ export interface Api653AnnularMinimumSelectionSI {
 
 export interface Api653AnnularPlateResultSI {
   engineId: "api653.annular-plate";
-  engineVersion: "0.1.0-original-web-parity";
+  engineVersion: "0.2.0-pit-depth-parity";
   ok: boolean;
   issues: CalculationIssue[];
   originalThicknessMmUsed: number;
   previousThicknessMmUsed: number;
   actualThicknessMmUsed: number;
+  previousInternalPittingDepthMmUsed: number;
+  currentInternalPittingDepthMmUsed: number;
+  previousInternalPittingRemainingThicknessMmUsed: number;
+  internalPittingRemainingThicknessMmUsed: number;
   minimumThicknessMmUsed: number;
   yearsInServiceUsed: number;
   yearsSincePreviousInspectionUsed: number;
   metalLossLongMm: number;
   metalLossShortMm: number;
+  bottomSideLongTermCorrosionRateMmPerYear: number;
+  bottomSideShortTermCorrosionRateMmPerYear: number;
+  topSideLongTermCorrosionRateMmPerYear: number;
+  topSideShortTermCorrosionRateMmPerYear: number;
   longTermCorrosionRateMmPerYear: number;
   shortTermCorrosionRateMmPerYear: number;
   maximumCorrosionRateLongMmPerYear: number;

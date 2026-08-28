@@ -8,8 +8,8 @@ const input: Api653BottomPlateInputSI = {
   originalThicknessMm: 8,
   previousThicknessMm: 7.4,
   bottomRemainingThicknessMm: 7,
-  previousInternalPittingRemainingThicknessMm: 7.2,
-  internalPittingRemainingThicknessMm: 6.8,
+  previousInternalPittingDepthMm: 0.8,
+  currentInternalPittingDepthMm: 1.2,
   minimumThicknessBasis: "table-4.4-standard",
   reducedMinimumCriteriaConfirmed: false,
   manualMinimumThicknessMm: 0,
@@ -32,13 +32,15 @@ test("uses separate RTbc and RTip rates in the API 653 MRT projection", () => {
   const result = calculateApi653BottomPlate(input);
 
   assert.equal(result.ok, true);
-  assert.equal(result.engineVersion, "0.2.0-api653-mrt");
+  assert.equal(result.engineVersion, "0.3.0-api653-pit-depth");
   assert.equal(result.generalBottomAssessmentReady, true);
   approximately(result.undersideLongTermCorrosionRateMmPerYear, 0.05);
   approximately(result.undersideShortTermCorrosionRateMmPerYear, 0.08);
   approximately(result.automaticUndersideCorrosionRateMmPerYear, 0.08);
   approximately(result.topSideLongTermCorrosionRateMmPerYear, 0.06);
   approximately(result.topSideShortTermCorrosionRateMmPerYear, 0.08);
+  approximately(result.previousInternalPittingRemainingThicknessMmUsed, 7.2);
+  approximately(result.internalPittingRemainingThicknessMmUsed, 6.8);
   approximately(result.automaticTopSideCorrosionRateMmPerYear, 0.08);
   approximately(result.combinedCorrosionRateMmPerYear, 0.16);
   approximately(result.governingThicknessMm, 6.8);
@@ -52,7 +54,7 @@ test("supports controlled manual StPr and UPr without deriving a rate from curre
   const result = calculateApi653BottomPlate({
     ...input,
     previousThicknessMm: 0,
-    previousInternalPittingRemainingThicknessMm: 0,
+    previousInternalPittingDepthMm: 0,
     yearsInService: 0,
     yearsSincePreviousInspection: 0,
     undersideCorrosionRateMode: "manual",
@@ -89,20 +91,24 @@ test("assesses the critical zone separately from the general MRT route", () => {
   assert.ok(result.issues.some((issue) => issue.code === "critical-zone-below-minimum"));
 });
 
-test("uses only the valid long-term StPr route when comparable previous pitting data is unavailable", () => {
-  const result = calculateApi653BottomPlate({ ...input, previousInternalPittingRemainingThicknessMm: 0 });
+test("accepts zero as the default no-pitting depth and keeps the bottom route active", () => {
+  const result = calculateApi653BottomPlate({ ...input, previousInternalPittingDepthMm: 0, currentInternalPittingDepthMm: 0 });
 
   assert.equal(result.generalBottomAssessmentReady, true);
+  approximately(result.internalPittingRemainingThicknessMmUsed, 8);
+  approximately(result.topSideLongTermCorrosionRateMmPerYear, 0);
   approximately(result.topSideShortTermCorrosionRateMmPerYear, 0);
-  approximately(result.topSideCorrosionRateMmPerYear, 0.06);
-  assert.ok(result.issues.some((issue) => issue.code === "top-side-short-term-basis-unavailable"));
+  approximately(result.topSideCorrosionRateMmPerYear, 0);
+  approximately(result.governingThicknessMm, 7);
+  approximately(result.remainingLifeYears, 55.75);
 });
 
 test("does not manufacture automatic corrosion rates without a valid history basis", () => {
   const result = calculateApi653BottomPlate({
     ...input,
     previousThicknessMm: 0,
-    previousInternalPittingRemainingThicknessMm: 0,
+    previousInternalPittingDepthMm: 0,
+    currentInternalPittingDepthMm: 0,
     yearsInService: 0,
     yearsSincePreviousInspection: 0,
   });
@@ -129,12 +135,20 @@ test("reports zero-corrosion remaining life as open-ended instead of zero years"
     originalThicknessMm: 7,
     previousThicknessMm: 7,
     bottomRemainingThicknessMm: 7,
-    previousInternalPittingRemainingThicknessMm: 7,
-    internalPittingRemainingThicknessMm: 7,
+    previousInternalPittingDepthMm: 0,
+    currentInternalPittingDepthMm: 0,
   });
 
   assert.equal(result.generalBottomAssessmentReady, true);
   assert.equal(result.remainingLifeOpenEnded, true);
   assert.equal(result.remainingLifeYears, Number.POSITIVE_INFINITY);
   approximately(result.projectedMinimumRemainingThicknessMm, 7);
+});
+
+test("rejects a pit depth greater than the original bottom thickness", () => {
+  const result = calculateApi653BottomPlate({ ...input, currentInternalPittingDepthMm: 8.1 });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.generalBottomAssessmentReady, false);
+  assert.ok(result.issues.some((issue) => issue.code === "pitting-depth-exceeds-original" && issue.field === "currentInternalPittingDepthMm"));
 });

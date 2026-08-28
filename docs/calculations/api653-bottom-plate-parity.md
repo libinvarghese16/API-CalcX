@@ -7,7 +7,7 @@ Status: corrected mobile calculation route verified locally on 28 August 2026 ag
 - Workspace: API 653 > Bottom and Annular
 - Calculator: Bottom plate remaining life
 - Engine identity: `api653.bottom-plate`
-- Engine version: `0.2.0-api653-mrt`
+- Engine version: `0.3.0-api653-pit-depth`
 - Display policy: two decimals for thickness/life and three decimals for corrosion rates
 
 No standards PDF, displayed standard table, or copyrighted reference image is bundled with the application.
@@ -15,20 +15,21 @@ No standards PDF, displayed standard table, or copyrighted reference image is bu
 ## Corrected general-bottom route
 
 1. `RTbc` is the current bottom-side remaining thickness after the applicable inspection/repair basis.
-2. `RTip` is the current internal-pitting remaining thickness after the applicable inspection/repair basis.
-3. Automatic `UPr` is the larger available long- or short-term bottom-side corrosion rate.
-4. Automatic `StPr` is the larger available long- or short-term top-side rate. The short-term route is calculated only when comparable previous and current `RTip` values are available.
-5. A controlled manual `UPr` or `StPr` may be used without requiring unavailable historical thickness data; the interface highlights the override.
-6. Projected minimum remaining thickness:
+2. The user enters previous and current internal-pitting **depth**. Both fields default to `0`, which represents no measured internal-pitting depth.
+3. Previous and current `RTip` are derived internally as `original thickness - pit depth`; pit depth cannot exceed the original thickness.
+4. Automatic `UPr` is the larger available long- or short-term bottom-side corrosion rate.
+5. Automatic `StPr` is the larger of `current pit depth / years in service` and `max(current pit depth - previous pit depth, 0) / years since previous inspection`.
+6. A controlled manual `UPr` or `StPr` may be used without requiring unavailable historical thickness data; the interface highlights the override.
+7. Projected minimum remaining thickness:
 
    `MRT = min(RTbc, RTip) - Or × (StPr + UPr)`
 
-7. Calculated time to the selected bottom minimum:
+8. Calculated time to the selected bottom minimum:
 
    `Remaining life = [min(RTbc, RTip) - Tmin] / (StPr + UPr)`
 
-8. When available thickness is positive and `StPr + UPr` is zero, remaining life is reported as open-ended rather than zero years.
-9. Invalid or incomplete general-bottom inputs display an unavailable result rather than a misleading numerical zero.
+9. When available thickness is positive and `StPr + UPr` is zero, remaining life is reported as open-ended rather than zero years.
+10. Invalid or incomplete general-bottom inputs display an unavailable result rather than a misleading numerical zero.
 
 ## Separate critical-zone route
 
@@ -52,8 +53,10 @@ An incomplete critical-zone assessment is reported separately without suppressin
 | Original bottom thickness | 8.00 mm |
 | Previous bottom thickness | 7.40 mm |
 | Current `RTbc` | 7.00 mm |
-| Previous `RTip` | 7.20 mm |
-| Current `RTip` | 6.80 mm |
+| Previous internal-pitting depth | 0.80 mm |
+| Current internal-pitting depth | 1.20 mm |
+| Derived previous `RTip` | 7.20 mm |
+| Derived current `RTip` | 6.80 mm |
 | Projection interval `Or` | 10 yr |
 | Bottom minimum | 2.54 mm |
 | Lower-shell `tmin` | 6.00 mm |
@@ -74,7 +77,9 @@ An incomplete critical-zone assessment is reported separately without suppressin
 
 - Correct `StPr + UPr` MRT arithmetic.
 - Independent long- and short-term `UPr` and `StPr` traces.
-- No manufactured short-term `StPr` when previous comparable pitting data is unavailable.
+- Zero-depth defaults remain valid and calculate a zero top-side pitting rate.
+- Previous/current pit depths derive the same `RTip` and `StPr` values as the equivalent remaining-thickness history.
+- Pit depths greater than original thickness are blocked.
 - Manual rates without irrelevant history-field blocking.
 - Standard, reduced-confirmed, and controlled-manual bottom minimum routes.
 - Separate complete, incomplete, and below-minimum critical-zone assessments.
