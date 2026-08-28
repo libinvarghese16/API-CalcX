@@ -1,6 +1,6 @@
 # API 653 bottom-plate MRT audit record
 
-Status: corrected mobile calculation route verified locally on 28 August 2026 against the protected master application's input identities and the supplied proof-audit correction register. The mobile engine intentionally corrects the master application's former generic maximum-rate remaining-life route.
+Status: corrected mobile calculation route verified locally on 29 August 2026 against the protected master application's input identities and the supplied proof-audit correction register. The mobile engine intentionally corrects the master application's former generic maximum-rate remaining-life route.
 
 ## Engine identity
 
@@ -15,10 +15,10 @@ No standards PDF, displayed standard table, or copyrighted reference image is bu
 ## Corrected general-bottom route
 
 1. `RTbc` is the current bottom-side remaining thickness after the applicable inspection/repair basis.
-2. The user enters previous and current internal-pitting **depth**. Both fields default to `0`, which represents no measured internal-pitting depth.
-3. Previous and current `RTip` are derived internally as `original thickness - pit depth`; pit depth cannot exceed the original thickness.
+2. The user enters only the current internal-pitting **depth**. It defaults to `0`, which represents no measured internal-pitting depth.
+3. Current `RTip` is derived internally as `original thickness - current pit depth`; pit depth cannot exceed the original thickness. The hidden previous-depth baseline remains zero so removing the field does not change the protected single-depth calculation route.
 4. Automatic `UPr` is the larger available long- or short-term bottom-side corrosion rate.
-5. Automatic `StPr` is the larger of `current pit depth / years in service` and `max(current pit depth - previous pit depth, 0) / years since previous inspection`.
+5. Automatic `StPr` is the larger of `current pit depth / years in service` and `current pit depth / years since previous inspection`.
 6. A controlled manual `UPr` or `StPr` may be used without requiring unavailable historical thickness data; the interface highlights the override.
 7. Projected minimum remaining thickness:
 
@@ -53,9 +53,7 @@ An incomplete critical-zone assessment is reported separately without suppressin
 | Original bottom thickness | 8.00 mm |
 | Previous bottom thickness | 7.40 mm |
 | Current `RTbc` | 7.00 mm |
-| Previous internal-pitting depth | 0.80 mm |
 | Current internal-pitting depth | 1.20 mm |
-| Derived previous `RTip` | 7.20 mm |
 | Derived current `RTip` | 6.80 mm |
 | Projection interval `Or` | 10 yr |
 | Bottom minimum | 2.54 mm |
@@ -65,11 +63,11 @@ An incomplete critical-zone assessment is reported separately without suppressin
 | Result | Expected |
 | --- | ---: |
 | `UPr` long / short / used | 0.050 / 0.080 / 0.080 mm/yr |
-| `StPr` long / short / used | 0.060 / 0.080 / 0.080 mm/yr |
-| `StPr + UPr` | 0.160 mm/yr |
+| `StPr` long / short / used | 0.060 / 0.240 / 0.240 mm/yr |
+| `StPr + UPr` | 0.320 mm/yr |
 | Governing current thickness | 6.80 mm |
-| Projected MRT at 10 years | 5.20 mm |
-| Remaining life to 2.54 mm | 26.625 yr |
+| Projected MRT at 10 years | 3.60 mm |
+| Remaining life to 2.54 mm | 13.3125 yr |
 | Critical-zone minimum | 3.00 mm |
 | Critical-zone status | Adequate |
 
@@ -78,7 +76,7 @@ An incomplete critical-zone assessment is reported separately without suppressin
 - Correct `StPr + UPr` MRT arithmetic.
 - Independent long- and short-term `UPr` and `StPr` traces.
 - Zero-depth defaults remain valid and calculate a zero top-side pitting rate.
-- Previous/current pit depths derive the same `RTip` and `StPr` values as the equivalent remaining-thickness history.
+- Current pit depth alone derives `RTip` and the protected single-depth `StPr` routes.
 - Pit depths greater than original thickness are blocked.
 - Manual rates without irrelevant history-field blocking.
 - Standard, reduced-confirmed, and controlled-manual bottom minimum routes.

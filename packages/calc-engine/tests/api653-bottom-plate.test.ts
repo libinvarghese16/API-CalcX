@@ -8,7 +8,7 @@ const input: Api653BottomPlateInputSI = {
   originalThicknessMm: 8,
   previousThicknessMm: 7.4,
   bottomRemainingThicknessMm: 7,
-  previousInternalPittingDepthMm: 0.8,
+  previousInternalPittingDepthMm: 0,
   currentInternalPittingDepthMm: 1.2,
   minimumThicknessBasis: "table-4.4-standard",
   reducedMinimumCriteriaConfirmed: false,
@@ -38,15 +38,15 @@ test("uses separate RTbc and RTip rates in the API 653 MRT projection", () => {
   approximately(result.undersideShortTermCorrosionRateMmPerYear, 0.08);
   approximately(result.automaticUndersideCorrosionRateMmPerYear, 0.08);
   approximately(result.topSideLongTermCorrosionRateMmPerYear, 0.06);
-  approximately(result.topSideShortTermCorrosionRateMmPerYear, 0.08);
-  approximately(result.previousInternalPittingRemainingThicknessMmUsed, 7.2);
+  approximately(result.topSideShortTermCorrosionRateMmPerYear, 0.24);
+  approximately(result.previousInternalPittingRemainingThicknessMmUsed, 8);
   approximately(result.internalPittingRemainingThicknessMmUsed, 6.8);
-  approximately(result.automaticTopSideCorrosionRateMmPerYear, 0.08);
-  approximately(result.combinedCorrosionRateMmPerYear, 0.16);
+  approximately(result.automaticTopSideCorrosionRateMmPerYear, 0.24);
+  approximately(result.combinedCorrosionRateMmPerYear, 0.32);
   approximately(result.governingThicknessMm, 6.8);
-  approximately(result.projectedMinimumRemainingThicknessMm, 5.2);
+  approximately(result.projectedMinimumRemainingThicknessMm, 3.6);
   assert.equal(result.projectedMrtAdequate, true);
-  approximately(result.remainingLifeYears, 26.625);
+  approximately(result.remainingLifeYears, 13.3125);
   assert.equal(result.remainingLifeOpenEnded, false);
 });
 
@@ -83,7 +83,7 @@ test("assesses the critical zone separately from the general MRT route", () => {
   const result = calculateApi653BottomPlate({ ...input, criticalZoneActualThicknessMm: 2.8 });
 
   assert.equal(result.generalBottomAssessmentReady, true);
-  approximately(result.remainingLifeYears, 26.625);
+  approximately(result.remainingLifeYears, 13.3125);
   assert.equal(result.criticalZoneAssessmentComplete, true);
   assert.equal(result.criticalZoneMinimumThicknessMm, 3);
   assert.equal(result.criticalZoneAdequate, false);
@@ -125,7 +125,7 @@ test("keeps general bottom life available when the separate critical-zone assess
   assert.equal(result.ok, true);
   assert.equal(result.generalBottomAssessmentReady, true);
   assert.equal(result.criticalZoneAssessmentComplete, false);
-  approximately(result.remainingLifeYears, 26.625);
+  approximately(result.remainingLifeYears, 13.3125);
   assert.ok(result.issues.some((issue) => issue.code === "critical-zone-assessment-incomplete"));
 });
 

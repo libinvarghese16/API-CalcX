@@ -1,6 +1,6 @@
 # API 653 Annular Plate remaining-life parity
 
-Status: corrected complete dependency chain and shared mobile structure passed locally on 28 August 2026. Pitting is entered as previous/current depth and converted to remaining thickness internally.
+Status: corrected complete dependency chain and shared mobile structure passed locally on 29 August 2026. Pitting is entered as current depth and converted to remaining thickness internally.
 
 ## Protected source identity
 
@@ -22,7 +22,7 @@ Status: corrected complete dependency chain and shared mobile structure passed l
 6. Route specific gravity below 1.0 and specific gravity of 1.0 or above through their separate protected minimum-selection paths.
 7. Select Annular minimum thickness from first-shell-thickness and the automatic or manually entered stress band.
 8. Allow the selected minimum to be manually overridden while continuing to show the automatic recommendation and manual status.
-9. Accept previous and current internal-pitting depth, defaulting both to zero, and derive each `RTip = original thickness - pit depth`.
+9. Accept current internal-pitting depth, defaulting it to zero, and derive `RTip = original thickness - current pit depth`. The internal previous-depth baseline remains zero for the protected single-depth route.
 10. Calculate bottom-side and top-side long/short rates independently. The annular long- and short-term rates are the maximum applicable route for each period.
 11. Use the lower of current measured annular thickness and derived current `RTip` as the governing current thickness, then apply the selected or manually entered minimum to remaining life.
 
@@ -41,7 +41,6 @@ The application implements the protected lookup behavior internally. It does not
 | Original Annular thickness | 10.00 mm |
 | Previous measured thickness | 9.30 mm |
 | Current measured thickness | 8.80 mm |
-| Previous internal-pitting depth | 0.00 mm |
 | Current internal-pitting depth | 1.00 mm |
 
 | Dependency/result | Protected original | Corrected mobile browser |
@@ -88,7 +87,7 @@ With the corrected golden case held constant and calculated shell stress changed
 - Equivalent U.S. customary diameter, height, shell, Annular, and pitting inputs reproduce the same normalized stress, selection, corrosion rates, and remaining life.
 - Metric and U.S. result systems preserve the 22.40-year result.
 - Zero-depth defaults calculate normally from annular thickness loss, while depths greater than original thickness are blocked.
-- Previous/current depth, derived current `RTip`, and separate bottom-/top-side long/short rates remain visible in the supporting results.
+- Current depth, derived current `RTip`, and separate bottom-/top-side long/short rates remain visible in the supporting results.
 - Build year, previous inspection year, service periods, calculated stress mode/value/recommendation, and Annular minimum are all visible and traceable.
 - Bottom, Annular, and Shell use the same calculator header, parity badge, workflow indicator, Calculation basis card, Unit system selector, Design and inspection card, mixed-unit note, result card, and trace treatment.
 - Light and dark themes were opened in the local browser with the corrected result active.
