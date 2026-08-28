@@ -80,6 +80,8 @@ test("keeps shared calculator input and output boxes dimensionally consistent", 
   assert.match(styles, /\.number-control input \{[^}]*height: 100%/);
   assert.match(styles, /\.result-primary \{[^}]*min-height: 104px/);
   assert.match(styles, /\.result-comparison > span \{[^}]*min-height: 50px/);
+  assert.match(styles, /\.result-primary-value \{[^}]*flex-wrap: nowrap/);
+  assert.match(styles, /\.result-primary-value strong \{[^}]*white-space: nowrap[^}]*overflow-wrap: normal/);
 });
 
 test("opens the API 653 storage-tank workspace on the first home-card click", () => {
