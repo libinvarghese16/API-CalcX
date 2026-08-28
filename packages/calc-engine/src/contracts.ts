@@ -264,9 +264,10 @@ export interface Api653BottomPlateInputSI {
 
 export interface Api653BottomPlateResultSI {
   engineId: "api653.bottom-plate";
-  engineVersion: "0.1.0-original-web-parity";
+  engineVersion: "0.2.0-api653-mrt";
   ok: boolean;
   issues: CalculationIssue[];
+  generalBottomAssessmentReady: boolean;
   originalThicknessMmUsed: number;
   previousThicknessMmUsed: number;
   bottomRemainingThicknessMmUsed: number;
@@ -277,14 +278,20 @@ export interface Api653BottomPlateResultSI {
   projectionYearsUsed: number;
   yearsInServiceUsed: number;
   yearsSincePreviousInspectionUsed: number;
+  undersideLongTermCorrosionRateMmPerYear: number;
+  undersideShortTermCorrosionRateMmPerYear: number;
   automaticUndersideCorrosionRateMmPerYear: number;
   undersideCorrosionRateMmPerYear: number;
+  topSideLongTermCorrosionRateMmPerYear: number;
+  topSideShortTermCorrosionRateMmPerYear: number;
   automaticTopSideCorrosionRateMmPerYear: number;
   topSideCorrosionRateMmPerYear: number;
   combinedCorrosionRateMmPerYear: number;
   projectedMinimumRemainingThicknessMm: number;
+  projectedMrtAdequate: boolean;
   lowerShellMinimumThicknessMmUsed: number;
   criticalZoneActualThicknessMmUsed: number;
+  criticalZoneAssessmentComplete: boolean;
   criticalZoneMinimumThicknessMm: number;
   criticalZoneAdequate: boolean;
   maximumCorrosionRateLongMmPerYear: number;
@@ -293,6 +300,7 @@ export interface Api653BottomPlateResultSI {
   governingThicknessMm: number;
   availableThicknessMm: number;
   remainingLifeYears: number;
+  remainingLifeOpenEnded: boolean;
 }
 
 export type Api653AnnularMinimumThicknessMode = "auto" | "manual";

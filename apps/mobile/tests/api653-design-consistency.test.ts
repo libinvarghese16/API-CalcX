@@ -80,6 +80,24 @@ test("keeps Annular calculated shell stress editable, unit-aware, and visibly tr
   assert.match(bottomAndAnnularSource, /Automatic shell stress/);
 });
 
+test("keeps the bottom MRT and critical-zone routes separate, complete, and visibly traceable", () => {
+  assert.match(bottomAndAnnularSource, /MRT = min\(RTbc, RTip\) − Or\(StPr \+ UPr\)/);
+  assert.match(bottomAndAnnularSource, /AutomaticUnitInput label="Underside corrosion rate UPr"/);
+  assert.match(bottomAndAnnularSource, /AutomaticUnitInput label="Top-side corrosion rate StPr"/);
+  assert.match(bottomAndAnnularSource, /UPr long-term/);
+  assert.match(bottomAndAnnularSource, /UPr short-term/);
+  assert.match(bottomAndAnnularSource, /StPr long-term/);
+  assert.match(bottomAndAnnularSource, /StPr short-term/);
+  assert.match(bottomAndAnnularSource, /<h2>Critical-zone assessment<\/h2>/);
+  assert.match(bottomAndAnnularSource, /UnitInput label="Lower shell course required thickness tmin"/);
+  assert.match(bottomAndAnnularSource, /UnitInput label="Critical-zone measured thickness"/);
+  assert.match(bottomAndAnnularSource, /0–300 mm as the maximum survey band/);
+  assert.match(bottomAndAnnularSource, /API 653 critical zone: 0–76\.2 mm \(3 in\.\)/);
+  assert.match(bottomAndAnnularSource, /max\(2\.5 mm, min\(3\.0 mm, 50% × lower-shell tmin\)\)/);
+  assert.match(bottomAndAnnularSource, /criticalZoneAssessmentComplete/);
+  assert.match(bottomAndAnnularSource, /remainingLifeOpenEnded/);
+});
+
 test("keeps Nozzle Tmin automatic, manually editable, unit-aware, and traceable", () => {
   assert.match(nozzleSource, /Minimum required thickness/);
   assert.match(nozzleSource, /automaticMode=\{nozzle\.minimumThicknessMode\}/);

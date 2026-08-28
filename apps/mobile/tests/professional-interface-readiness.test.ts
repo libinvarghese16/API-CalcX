@@ -73,6 +73,15 @@ test("uses one professional result-card hierarchy across every calculator", () =
   assert.match(styles, /\.result-primary-value/);
 });
 
+test("keeps shared calculator input and output boxes dimensionally consistent", () => {
+  assert.match(styles, /\.form-grid \{[^}]*align-items: start/);
+  assert.match(styles, /\.field \{[^}]*align-self: start/);
+  assert.match(styles, /\.field > input, \.select-control, \.number-control \{[^}]*height: 45px/);
+  assert.match(styles, /\.number-control input \{[^}]*height: 100%/);
+  assert.match(styles, /\.result-primary \{[^}]*min-height: 104px/);
+  assert.match(styles, /\.result-comparison > span \{[^}]*min-height: 50px/);
+});
+
 test("opens the API 653 storage-tank workspace on the first home-card click", () => {
   assert.match(appSource, /module\.code === "API 653" \? navigate\("api653-bottom"\)/);
 });

@@ -1,65 +1,82 @@
-# API 653 Bottom Plate remaining-life parity
+# API 653 bottom-plate MRT audit record
 
-Status: protected original-web inputs, result route, mixed units, automatic/manual periods, and regression cases passed locally on 13 August 2026. This is API 653 calculator 1 of 6.
+Status: corrected mobile calculation route verified locally on 28 August 2026 against the protected master application's input identities and the supplied proof-audit correction register. The mobile engine intentionally corrects the master application's former generic maximum-rate remaining-life route.
 
-## Protected source identity
+## Engine identity
 
 - Workspace: API 653 > Bottom and Annular
-- Calculator card: Bottom Plate remaining life
-- Source function: `calculateBottom`
+- Calculator: Bottom plate remaining life
 - Engine identity: `api653.bottom-plate`
-- Engine version: `0.1.0-original-web-parity`
-- Test tolerance: `1e-12` for normalized engine values; displayed values use the shared precision policy
+- Engine version: `0.2.0-api653-mrt`
+- Display policy: two decimals for thickness/life and three decimals for corrosion rates
 
-The mobile application contains only the audited calculation behavior and original explanatory text. It does not include a standards PDF, copyrighted standard table, or protected reference image.
+No standards PDF, displayed standard table, or copyrighted reference image is bundled with the application.
 
-## Equation behavior preserved
+## Corrected general-bottom route
 
-- Bottom-side total loss is the positive difference between original and current thickness.
-- Bottom-side short-term loss is the positive difference between previous and current thickness.
-- Top-side loss is the entered pitting depth; top-side remaining thickness is original thickness less that depth, never below zero.
-- Long-term bottom and top rates use years in service.
-- Short-term bottom and top rates use years since the previous inspection.
-- Maximum long- and short-term routes take the larger bottom-side or top-side rate.
-- The governing corrosion rate is the larger of the maximum long- and short-term rates.
-- Governing current thickness is the lesser of current measured bottom thickness and calculated top-side remaining thickness.
-- Available thickness is governing current thickness less the editable minimum thickness, never below zero.
-- Remaining life is available thickness divided by the governing corrosion rate; zero rate preserves the protected zero-corrosion behavior.
+1. `RTbc` is the current bottom-side remaining thickness after the applicable inspection/repair basis.
+2. `RTip` is the current internal-pitting remaining thickness after the applicable inspection/repair basis.
+3. Automatic `UPr` is the larger available long- or short-term bottom-side corrosion rate.
+4. Automatic `StPr` is the larger available long- or short-term top-side rate. The short-term route is calculated only when comparable previous and current `RTip` values are available.
+5. A controlled manual `UPr` or `StPr` may be used without requiring unavailable historical thickness data; the interface highlights the override.
+6. Projected minimum remaining thickness:
 
-## Captured protected golden case
+   `MRT = min(RTbc, RTip) - Or × (StPr + UPr)`
+
+7. Calculated time to the selected bottom minimum:
+
+   `Remaining life = [min(RTbc, RTip) - Tmin] / (StPr + UPr)`
+
+8. When available thickness is positive and `StPr + UPr` is zero, remaining life is reported as open-ended rather than zero years.
+9. Invalid or incomplete general-bottom inputs display an unavailable result rather than a misleading numerical zero.
+
+## Separate critical-zone route
+
+The critical-zone assessment does not replace the general bottom MRT calculation. It requires:
+
+- lower shell course required thickness `tmin`; and
+- actual measured remaining thickness in the shell-to-bottom critical zone.
+
+The controlled minimum implemented for this audit route is:
+
+`Critical-zone minimum = max(2.5 mm, min(3.0 mm, 0.5 × lower-shell tmin))`
+
+An incomplete critical-zone assessment is reported separately without suppressing an otherwise valid general bottom MRT/remaining-life result. A completed assessment below the calculated critical-zone minimum is reported as an error while retaining the general-bottom result for traceability.
+
+## Golden metric case
 
 | Input | Value |
 | --- | ---: |
-| Build year | 2006 |
-| Previous inspection year | 2021 |
-| Years in service | 20 years |
-| Years since previous inspection | 5 years |
+| Years in service | 20 yr |
+| Years since previous inspection | 5 yr |
 | Original bottom thickness | 8.00 mm |
-| Previous measured thickness | 7.40 mm |
-| Current measured thickness | 7.00 mm |
-| Minimum required thickness | 2.54 mm |
-| Pitting depth | 1.20 mm |
+| Previous bottom thickness | 7.40 mm |
+| Current `RTbc` | 7.00 mm |
+| Previous `RTip` | 7.20 mm |
+| Current `RTip` | 6.80 mm |
+| Projection interval `Or` | 10 yr |
+| Bottom minimum | 2.54 mm |
+| Lower-shell `tmin` | 6.00 mm |
+| Critical-zone measured thickness | 4.00 mm |
 
-| Result | Protected original | Mobile browser |
-| --- | ---: | ---: |
-| Bottom-side metal loss | 1.00 mm | 1.00 mm |
-| Top-side thickness remaining | 6.80 mm | 6.80 mm |
-| Bottom rate, long term | 0.050 mm/yr | 0.050 mm/yr |
-| Bottom rate, short term | 0.080 mm/yr | 0.080 mm/yr |
-| Top rate, long term | 0.060 mm/yr | 0.060 mm/yr |
-| Top rate, short term | 0.240 mm/yr | 0.240 mm/yr |
-| Maximum rate, long term | 0.060 mm/yr | 0.060 mm/yr |
-| Maximum rate, short term | 0.240 mm/yr | 0.240 mm/yr |
-| Remaining life | 17.75 years | 17.75 years |
+| Result | Expected |
+| --- | ---: |
+| `UPr` long / short / used | 0.050 / 0.080 / 0.080 mm/yr |
+| `StPr` long / short / used | 0.060 / 0.080 / 0.080 mm/yr |
+| `StPr + UPr` | 0.160 mm/yr |
+| Governing current thickness | 6.80 mm |
+| Projected MRT at 10 years | 5.20 mm |
+| Remaining life to 2.54 mm | 26.625 yr |
+| Critical-zone minimum | 3.00 mm |
+| Critical-zone status | Adequate |
 
-## Mobile acceptance verified
+## Regression coverage
 
-- Build year automatically produces years in service and remains manually editable with a highlighted override state.
-- Previous inspection year automatically produces years since the previous inspection and remains manually editable with a highlighted override state.
-- Every thickness and pitting input has its own live unit selector.
-- Switching the global result system from Metric to U.S. customary converts the fields and result display without changing the normalized calculation or 17.75-year result.
-- Standard thickness and life values display two decimals; corrosion rates display three decimals.
-- The visible trace identifies all four corrosion routes, governing rate, governing thickness, available thickness, minimum thickness, engine ID, and validation state.
-- Light and dark themes were opened in the local browser with no calculation error or horizontal content overflow observed at the available application viewport.
-
-This parity record verifies the original application calculation path. Inspection coverage, bottom scanning interpretation, pitting characterization, applicable controlled minimum thickness, code edition, and responsible engineering approval remain external requirements.
+- Correct `StPr + UPr` MRT arithmetic.
+- Independent long- and short-term `UPr` and `StPr` traces.
+- No manufactured short-term `StPr` when previous comparable pitting data is unavailable.
+- Manual rates without irrelevant history-field blocking.
+- Standard, reduced-confirmed, and controlled-manual bottom minimum routes.
+- Separate complete, incomplete, and below-minimum critical-zone assessments.
+- Open-ended remaining life for a confirmed zero combined corrosion rate.
+- Equivalent mixed-unit input normalization in the shared engineering-unit system.

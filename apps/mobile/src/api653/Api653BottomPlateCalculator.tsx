@@ -248,6 +248,15 @@ export function Api653PlateRemainingLifeCalculator({ onBack, variant }: { onBack
     : "Editable project minimum. The protected source starts at 2.54 mm (0.10 in); confirm the applicable controlled basis.";
   const annularBasisOk = annularResult.calculatedStressMpa > 0
     && (minimumThicknessMode === "manual" || annularResult.automaticMinimumThicknessMm !== null);
+  const bottomLifeDisplay = !bottomResult.generalBottomAssessmentReady
+    ? "—"
+    : bottomResult.remainingLifeOpenEnded
+      ? ">99"
+      : formatDisplayNumber(bottomResult.remainingLifeYears);
+  const calculationReady = isAnnular ? result.ok : bottomResult.generalBottomAssessmentReady;
+  const criticalZoneError = !isAnnular
+    ? bottomResult.issues.find((issue) => issue.code === "critical-zone-below-minimum")
+    : undefined;
   const copy = isAnnular ? {
     eyebrow: "API 653 · Annular integrity · Calculator 2 of 6",
     title: "Annular plate remaining life",
@@ -272,8 +281,8 @@ export function Api653PlateRemainingLifeCalculator({ onBack, variant }: { onBack
     minimumHeading: "Set the result unit system and the editable bottom minimum.",
     referenceBasis: "API 653 bottom plate remaining-life workflow",
     minimumHelp: "Editable project minimum. The protected source starts at 2.54 mm (0.10 in); confirm the applicable controlled basis.",
-    routeLabel: "Protected Bottom route connected.",
-    routeMessage: "The engine preserves the source dependency order for bottom loss, top remaining thickness, long/short corrosion rates, and remaining life.",
+    routeLabel: "API 653 bottom MRT route connected.",
+    routeMessage: "The engine calculates RTbc and RTip corrosion histories separately, selects UPr and StPr, adds both rates, and applies MRT = min(RTbc, RTip) − Or(StPr + UPr).",
     originalLabel: "Original bottom thickness",
     originalHelp: "Original or nominal bottom plate thickness T org.",
     previousHelp: "Representative bottom thickness at the previous inspection.",
@@ -285,7 +294,7 @@ export function Api653PlateRemainingLifeCalculator({ onBack, variant }: { onBack
   };
 
   return <div className={`calculator-page api653-${variant}-page`}>
-    <header className="calculator-header"><button className="back-button" onClick={onBack}><ArrowLeft size={16} /> API 653 library</button><div className="calculator-heading-row"><div><p className="eyebrow">{copy.eyebrow}</p><h1>{copy.title}</h1><p>{copy.description}</p></div><div className="calculator-actions"><span className="save-state-badge"><CircleCheck size={14} /> Original-web parity</span><button className="secondary-button" onClick={reset}><RotateCcw size={16} /> Reset</button></div></div><div className="step-line" aria-label="Calculation workflow"><button className="complete"><b>1</b> Basis</button><i /><button className="complete"><b>2</b> Inspection</button><i /><button className="active"><b>3</b> Results</button></div></header>
+    <header className="calculator-header"><button className="back-button" onClick={onBack}><ArrowLeft size={16} /> API 653 library</button><div className="calculator-heading-row"><div><p className="eyebrow">{copy.eyebrow}</p><h1>{copy.title}</h1><p>{copy.description}</p></div><div className="calculator-actions"><span className="save-state-badge"><CircleCheck size={14} /> {isAnnular ? "Original-web parity" : "Audited MRT route"}</span><button className="secondary-button" onClick={reset}><RotateCcw size={16} /> Reset</button></div></div><div className="step-line" aria-label="Calculation workflow"><button className="complete"><b>1</b> Basis</button><i /><button className="complete"><b>2</b> Inspection</button><i /><button className="active"><b>3</b> Results</button></div></header>
 
     <div className="calculator-workspace"><div className="input-column">
       <section className="form-card">
@@ -325,26 +334,33 @@ export function Api653PlateRemainingLifeCalculator({ onBack, variant }: { onBack
           {!isAnnular && <>
             <UnitInput label="Previous internal-pitting remaining thickness" field={fields.previousInternalPitting} options={lengthUnits} help="Comparable RTip measurement from the previous inspection; do not enter current pit depth here." onValueChange={(value) => updateFieldValue("previousInternalPitting", value)} onUnitChange={(unit) => updateFieldUnit("previousInternalPitting", unit)} />
             <UnitInput label="Current internal-pitting remaining thickness RTip" field={fields.internalPitting} options={lengthUnits} help="Current remaining thickness at the internal-pitting route." onValueChange={(value) => updateFieldValue("internalPitting", value)} onUnitChange={(unit) => updateFieldUnit("internalPitting", unit)} />
-            <AutomaticUnitInput label="Underside corrosion rate UPr" field={undersideRateMode === "auto" ? { ...fields.undersideRate, value: formatInput(convertSIToUnit(bottomResult.automaticUndersideCorrosionRateMmPerYear, "length", fields.undersideRate.unit)) } : fields.undersideRate} options={lengthUnits} mode={undersideRateMode} help="Automatic mode uses the governing comparable bottom-thickness history; manual mode requires a controlled rate." onValueChange={(value) => updateFieldValue("undersideRate", value)} onUnitChange={(unit) => updateFieldUnit("undersideRate", unit)} onModeChange={setUndersideRateMode} />
-            <AutomaticUnitInput label="Top-side corrosion rate StPr" field={topSideRateMode === "auto" ? { ...fields.topSideRate, value: formatInput(convertSIToUnit(bottomResult.automaticTopSideCorrosionRateMmPerYear, "length", fields.topSideRate.unit)) } : fields.topSideRate} options={lengthUnits} mode={topSideRateMode} help="Automatic mode uses comparable previous and current RTip values; current pit depth alone is not a corrosion rate." onValueChange={(value) => updateFieldValue("topSideRate", value)} onUnitChange={(unit) => updateFieldUnit("topSideRate", unit)} onModeChange={setTopSideRateMode} />
-            <UnitInput label="Lower shell minimum thickness" field={fields.lowerShellMinimum} options={lengthUnits} help="Input for the separate critical-zone minimum calculation." onValueChange={(value) => updateFieldValue("lowerShellMinimum", value)} onUnitChange={(unit) => updateFieldUnit("lowerShellMinimum", unit)} />
-            <UnitInput label="Critical-zone actual thickness" field={fields.criticalZoneActual} options={lengthUnits} help="Assessed separately from the general bottom MRT projection." onValueChange={(value) => updateFieldValue("criticalZoneActual", value)} onUnitChange={(unit) => updateFieldUnit("criticalZoneActual", unit)} />
+            <AutomaticUnitInput label="Underside corrosion rate UPr" field={undersideRateMode === "auto" ? { ...fields.undersideRate, value: formatInput(convertSIToUnit(bottomResult.automaticUndersideCorrosionRateMmPerYear, "length", fields.undersideRate.unit)) } : fields.undersideRate} options={lengthUnits} mode={undersideRateMode} help="Automatic UPr is the larger available long- or short-term bottom-side rate. Manual mode accepts an independently established controlled rate." onValueChange={(value) => updateFieldValue("undersideRate", value)} onUnitChange={(unit) => updateFieldUnit("undersideRate", unit)} onModeChange={setUndersideRateMode} />
+            <AutomaticUnitInput label="Top-side corrosion rate StPr" field={topSideRateMode === "auto" ? { ...fields.topSideRate, value: formatInput(convertSIToUnit(bottomResult.automaticTopSideCorrosionRateMmPerYear, "length", fields.topSideRate.unit)) } : fields.topSideRate} options={lengthUnits} mode={topSideRateMode} help="Automatic StPr is the larger valid RTip long- or short-term rate. A short-term rate is calculated only from comparable previous and current RTip measurements." onValueChange={(value) => updateFieldValue("topSideRate", value)} onUnitChange={(unit) => updateFieldUnit("topSideRate", unit)} onModeChange={setTopSideRateMode} />
           </>}
         </div>
         <div className={`form-note ${manualOverrideActive ? "is-manual" : "is-valid"}`}>{manualOverrideActive ? <TriangleAlert size={18} /> : <Info size={17} />}<p><strong>{manualOverrideActive ? "Manual override active." : "Automatic dependencies active."}</strong> {manualOverrideActive ? "Verify every highlighted manual field before engineering review." : isAnnular ? "Annular thickness loss remains separate from bottom MRT and pitting logic." : "MRT uses separate RTbc, RTip, UPr, StPr, and projection interval inputs."}</p></div>
         <div className="unit-system-note"><Info size={17} /><p><strong>Mixed engineering units are active.</strong> Every field converts into the normalized engine while results follow <b>{unitSystem === "metric" ? "Metric" : "U.S. customary"}</b>.</p></div>
       </section>
 
+      {!isAnnular && <section className="form-card">
+        <div className="form-card-heading"><div><span>03</span><div><h2>Critical-zone assessment</h2><p>Evaluate the shell-to-bottom critical zone separately from the general bottom MRT calculation.</p></div></div><ShieldCheck size={19} /></div>
+        <div className="form-grid">
+          <UnitInput label="Lower shell course required thickness tmin" field={fields.lowerShellMinimum} options={lengthUnits} help="Required minimum thickness of the lower shell course at the assessed condition; this is not the measured shell thickness." onValueChange={(value) => updateFieldValue("lowerShellMinimum", value)} onUnitChange={(unit) => updateFieldUnit("lowerShellMinimum", unit)} />
+          <UnitInput label="Critical-zone measured thickness" field={fields.criticalZoneActual} options={lengthUnits} help="Measure radially inward from the inside shell edge around the full circumference. For field inspection, consider 0–300 mm as the maximum survey band. Enter the lowest confirmed remaining thickness found within the API 653 critical zone: 0–76.2 mm (3 in.) from the inside shell edge." onValueChange={(value) => updateFieldValue("criticalZoneActual", value)} onUnitChange={(unit) => updateFieldUnit("criticalZoneActual", unit)} />
+        </div>
+        <div className="unit-system-note"><Info size={17} /><p><strong>Critical-zone minimum:</strong> max(2.5 mm, min(3.0 mm, 50% × lower-shell tmin)). This acceptance check does not replace or block calculation of the separate general bottom MRT result.</p></div>
+      </section>}
+
       <section className="reference-card"><div className="reference-heading"><div><ShieldCheck size={18} /><div><span>Original explanatory reference</span><h3>{copy.referenceTitle}</h3></div></div><span>No standards PDF</span></div><p>{copy.referenceText}</p><div className="reference-points"><span><b>01</b>{copy.referencePointOne}</span><span><b>02</b>Verify the project minimum thickness basis.</span><span><b>03</b>Review the governing corrosion route and inspection plan.</span></div></section>
     </div>
 
     <aside className="result-column">
       <section className="result-card">
-        <div className="result-card-top"><Gauge size={17} /> Calculation results <small>{result.ok ? "Calculated" : "Check inputs"}</small></div>
-        <div className="result-primary-grid"><div className="result-primary"><p>Remaining life</p><div className="result-primary-value"><strong>{formatDisplayNumber(result.remainingLifeYears)}</strong><span>yr</span></div></div><div className="result-primary"><p>Minimum thickness</p><div className="result-primary-value"><strong>{formatOutput(result.minimumThicknessMmUsed, "length", unitSystem)}</strong><span>{lengthUnit}</span></div></div></div>
-        <div className="result-comparison"><span>Governing thickness<strong>{formatOutput(result.governingThicknessMm, "length", unitSystem)} {lengthUnit}</strong></span><span>Available thickness<strong>{formatOutput(result.availableThicknessMm, "length", unitSystem)} {lengthUnit}</strong></span></div>
-        <div className="result-comparison"><span>{isAnnular ? "Long-term rate" : "Combined UPr + StPr"}<strong>{formatOutput(isAnnular ? annularResult.longTermCorrosionRateMmPerYear : bottomResult.combinedCorrosionRateMmPerYear, "rate", unitSystem, true)} {rateUnit}</strong></span><span>{isAnnular ? "Short-term rate" : "Projected MRT"}<strong>{isAnnular ? `${formatOutput(annularResult.shortTermCorrosionRateMmPerYear, "rate", unitSystem, true)} ${rateUnit}` : `${formatOutput(bottomResult.projectedMinimumRemainingThicknessMm, "length", unitSystem)} ${lengthUnit}`}</strong></span></div>
-        <div className={`result-status ${result.ok ? manualOverrideActive || warning ? "is-manual" : "is-valid" : ""}`}>{result.ok && !manualOverrideActive && !warning ? <CircleCheck size={18} /> : <TriangleAlert size={18} />}<div><strong>{error ? "Resolve input issues" : manualOverrideActive ? "Calculation includes manual inputs" : warning ? "Engineering review required" : "Calculation completed"}</strong><span>{error?.message ?? (manualOverrideActive ? `Verify all highlighted overrides before engineering approval.${warning ? ` ${warning.message}` : ""}` : warning?.message ?? copy.completionText)}</span></div></div>
+        <div className="result-card-top"><Gauge size={17} /> Calculation results <small>{calculationReady ? error || warning ? "Calculated · review" : "Calculated" : "Check inputs"}</small></div>
+        <div className="result-primary-grid"><div className="result-primary"><p>Remaining life</p><div className="result-primary-value"><strong>{isAnnular ? formatDisplayNumber(result.remainingLifeYears) : bottomLifeDisplay}</strong><span>yr</span></div></div><div className="result-primary"><p>Minimum required thickness</p><div className="result-primary-value"><strong>{formatOutput(result.minimumThicknessMmUsed, "length", unitSystem)}</strong><span>{lengthUnit}</span></div></div></div>
+        <div className="result-comparison"><span>Governing current thickness<strong>{calculationReady ? `${formatOutput(result.governingThicknessMm, "length", unitSystem)} ${lengthUnit}` : "—"}</strong></span><span>Available thickness<strong>{calculationReady ? `${formatOutput(result.availableThicknessMm, "length", unitSystem)} ${lengthUnit}` : "—"}</strong></span></div>
+        <div className="result-comparison"><span>{isAnnular ? "Long-term rate" : "Combined UPr + StPr"}<strong>{isAnnular ? `${formatOutput(annularResult.longTermCorrosionRateMmPerYear, "rate", unitSystem, true)} ${rateUnit}` : calculationReady ? `${formatOutput(bottomResult.combinedCorrosionRateMmPerYear, "rate", unitSystem, true)} ${rateUnit}` : "—"}</strong></span><span>{isAnnular ? "Short-term rate" : "Projected MRT"}<strong>{isAnnular ? `${formatOutput(annularResult.shortTermCorrosionRateMmPerYear, "rate", unitSystem, true)} ${rateUnit}` : calculationReady ? `${formatOutput(bottomResult.projectedMinimumRemainingThicknessMm, "length", unitSystem)} ${lengthUnit}` : "—"}</strong></span></div>
+        <div className={`result-status ${calculationReady && !criticalZoneError ? manualOverrideActive || warning ? "is-manual" : "is-valid" : ""}`}>{calculationReady && !criticalZoneError && !manualOverrideActive && !warning ? <CircleCheck size={18} /> : <TriangleAlert size={18} />}<div><strong>{!calculationReady ? "Resolve calculation inputs" : criticalZoneError ? "Critical zone below minimum" : manualOverrideActive ? "Calculation includes manual inputs" : warning ? "Engineering review required" : "Calculation completed"}</strong><span>{!calculationReady ? error?.message ?? "Complete the RTbc, RTip, corrosion-rate, period, and minimum-thickness basis." : criticalZoneError?.message ?? (manualOverrideActive ? `Verify all highlighted overrides before engineering approval.${warning ? ` ${warning.message}` : ""}` : warning?.message ?? (bottomResult.remainingLifeOpenEnded && !isAnnular ? "Zero UPr + StPr gives an open-ended remaining-life result; confirm the zero-rate basis." : copy.completionText))}</span></div></div>
       </section>
       <section className="trace-card">
         <p className="eyebrow">Supporting results</p><h3>Calculation details</h3>
@@ -359,13 +375,20 @@ export function Api653PlateRemainingLifeCalculator({ onBack, variant }: { onBack
         </> : <>
           <div><span>RTbc current</span><strong>{formatOutput(bottomResult.bottomRemainingThicknessMmUsed, "length", unitSystem)} {lengthUnit}</strong></div>
           <div><span>RTip current</span><strong>{formatOutput(bottomResult.internalPittingRemainingThicknessMmUsed, "length", unitSystem)} {lengthUnit}</strong></div>
+          <div><span>UPr long-term</span><strong>{formatOutput(bottomResult.undersideLongTermCorrosionRateMmPerYear, "rate", unitSystem, true)} {rateUnit}</strong></div>
+          <div><span>UPr short-term</span><strong>{formatOutput(bottomResult.undersideShortTermCorrosionRateMmPerYear, "rate", unitSystem, true)} {rateUnit}</strong></div>
           <div><span>Underside rate UPr</span><strong>{formatOutput(bottomResult.undersideCorrosionRateMmPerYear, "rate", unitSystem, true)} {rateUnit}</strong></div>
+          <div><span>StPr long-term</span><strong>{formatOutput(bottomResult.topSideLongTermCorrosionRateMmPerYear, "rate", unitSystem, true)} {rateUnit}</strong></div>
+          <div><span>StPr short-term</span><strong>{formatOutput(bottomResult.topSideShortTermCorrosionRateMmPerYear, "rate", unitSystem, true)} {rateUnit}</strong></div>
           <div><span>Top-side rate StPr</span><strong>{formatOutput(bottomResult.topSideCorrosionRateMmPerYear, "rate", unitSystem, true)} {rateUnit}</strong></div>
           <div><span>Projection formula</span><strong>min(RTbc, RTip) − Or(StPr + UPr)</strong></div>
           <div><span>Projection interval Or</span><strong>{formatDisplayNumber(bottomResult.projectionYearsUsed)} yr</strong></div>
-          <div><span>Projected MRT</span><strong>{formatOutput(bottomResult.projectedMinimumRemainingThicknessMm, "length", unitSystem)} {lengthUnit}</strong></div>
-          <div><span>Critical-zone minimum</span><strong>{formatOutput(bottomResult.criticalZoneMinimumThicknessMm, "length", unitSystem)} {lengthUnit}</strong></div>
-          <div><span>Critical-zone status</span><strong>{bottomResult.criticalZoneAdequate ? "Adequate" : "Below minimum"}</strong></div>
+          <div><span>Projected MRT</span><strong>{bottomResult.generalBottomAssessmentReady ? `${formatOutput(bottomResult.projectedMinimumRemainingThicknessMm, "length", unitSystem)} ${lengthUnit}` : "—"}</strong></div>
+          <div><span>MRT acceptance at Or</span><strong>{bottomResult.generalBottomAssessmentReady ? bottomResult.projectedMrtAdequate ? "Meets selected minimum" : "Below selected minimum" : "Not calculated"}</strong></div>
+          <div><span>Lower-shell tmin used</span><strong>{bottomResult.criticalZoneAssessmentComplete ? `${formatOutput(bottomResult.lowerShellMinimumThicknessMmUsed, "length", unitSystem)} ${lengthUnit}` : "—"}</strong></div>
+          <div><span>Critical-zone measured</span><strong>{bottomResult.criticalZoneAssessmentComplete ? `${formatOutput(bottomResult.criticalZoneActualThicknessMmUsed, "length", unitSystem)} ${lengthUnit}` : "—"}</strong></div>
+          <div><span>Critical-zone minimum</span><strong>{bottomResult.criticalZoneAssessmentComplete ? `${formatOutput(bottomResult.criticalZoneMinimumThicknessMm, "length", unitSystem)} ${lengthUnit}` : "—"}</strong></div>
+          <div><span>Critical-zone status</span><strong>{!bottomResult.criticalZoneAssessmentComplete ? "Not assessed" : bottomResult.criticalZoneAdequate ? "Adequate" : "Below minimum"}</strong></div>
         </>}
         <div><span>Minimum required thickness used</span><strong>{formatOutput(result.minimumThicknessMmUsed, "length", unitSystem)} {lengthUnit}</strong></div>
       </section>
