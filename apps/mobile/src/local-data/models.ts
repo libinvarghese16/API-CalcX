@@ -45,6 +45,7 @@ export interface Api510InputSnapshot {
   originalThicknessUnit?: EngineeringUnit;
   previousThicknessUnit?: EngineeringUnit;
   actualThicknessUnit?: EngineeringUnit;
+  minimumThicknessUnit?: EngineeringUnit;
   pressure: string;
   diameter: string;
   crownRadius: string;
@@ -61,6 +62,8 @@ export interface Api510InputSnapshot {
   originalThickness: string;
   previousThickness: string;
   actualThickness: string;
+  minimumMode?: AutomaticValueMode;
+  manualMinimumThickness?: string;
   buildYear: string;
   serviceYearsMode: AutomaticValueMode;
   manualServiceYears: string;

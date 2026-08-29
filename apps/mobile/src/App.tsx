@@ -1026,6 +1026,7 @@ function CalculatorPreview({ onBack, onNeedProject, notify, projects, initialCal
   const [originalThicknessInputUnit, setOriginalThicknessInputUnit] = useState<EngineeringUnit>(() => resolveInputUnit(initialInputs?.originalThicknessUnit, "length", initialUnitSystem));
   const [previousThicknessInputUnit, setPreviousThicknessInputUnit] = useState<EngineeringUnit>(() => resolveInputUnit(initialInputs?.previousThicknessUnit, "length", initialUnitSystem));
   const [actualThicknessInputUnit, setActualThicknessInputUnit] = useState<EngineeringUnit>(() => resolveInputUnit(initialInputs?.actualThicknessUnit, "length", initialUnitSystem));
+  const [minimumThicknessInputUnit, setMinimumThicknessInputUnit] = useState<EngineeringUnit>(() => resolveInputUnit(initialInputs?.minimumThicknessUnit, "length", initialUnitSystem));
   const [pressure, setPressure] = useState(initialInputs?.pressure ?? "1.50");
   const [diameter, setDiameter] = useState(initialInputs?.diameter ?? "2000");
   const [crownRadius, setCrownRadius] = useState(initialInputs?.crownRadius ?? "2000");
@@ -1042,6 +1043,8 @@ function CalculatorPreview({ onBack, onNeedProject, notify, projects, initialCal
   const [originalThickness, setOriginalThickness] = useState(initialInputs?.originalThickness ?? "18.00");
   const [previousThickness, setPreviousThickness] = useState(initialInputs?.previousThickness ?? "16.50");
   const [actualThickness, setActualThickness] = useState(initialInputs?.actualThickness ?? "15.80");
+  const [minimumMode, setMinimumMode] = useState<AutomaticValueMode>(initialInputs?.minimumMode ?? "auto");
+  const [manualMinimumThickness, setManualMinimumThickness] = useState(initialInputs?.manualMinimumThickness ?? "");
   const [buildYear, setBuildYear] = useState(initialInputs?.buildYear ?? String(currentYear - 20));
   const [serviceYearsMode, setServiceYearsMode] = useState<AutomaticValueMode>(initialInputs?.serviceYearsMode ?? "auto");
   const [manualServiceYears, setManualServiceYears] = useState(initialInputs?.manualServiceYears ?? "20");
@@ -1075,6 +1078,7 @@ function CalculatorPreview({ onBack, onNeedProject, notify, projects, initialCal
   const originalThicknessMm = convertUnitToSI(Number(originalThickness), "length", originalThicknessInputUnit);
   const previousThicknessMm = convertUnitToSI(Number(previousThickness), "length", previousThicknessInputUnit);
   const actualThicknessMm = convertUnitToSI(Number(actualThickness), "length", actualThicknessInputUnit);
+  const manualMinimumThicknessMm = convertUnitToSI(manualMinimumThickness.trim() ? Number(manualMinimumThickness) : Number.NaN, "length", minimumThicknessInputUnit);
   const resultLengthUnit = unitLabel("length", unitSystem);
   const resultPressureUnit = unitLabel("pressure", unitSystem);
   const serviceYears = useMemo(
@@ -1121,7 +1125,7 @@ function CalculatorPreview({ onBack, onNeedProject, notify, projects, initialCal
     manualInspectionYears.trim() ? Number(manualInspectionYears) : Number.NaN,
   );
   const result = useMemo(() => {
-    const input = {
+    const baseInput = {
       insideDiameterMm,
       designPressureMpa: pressureMpa,
       allowableStressMpa: selectedStress.value,
@@ -1133,6 +1137,7 @@ function CalculatorPreview({ onBack, onNeedProject, notify, projects, initialCal
       yearsSincePreviousInspection: selectedInspectionYears.value,
       nextInspectionYears: Number(nextInspectionYears),
     };
+    const input = minimumMode === "manual" ? { ...baseInput, minimumThicknessMm: manualMinimumThicknessMm } : baseInput;
     if (component === "spherical") return calculateSphericalShell(input);
     if (component === "ellipsoidal") return calculateEllipsoidalHead(input);
     if (component === "torispherical") return calculateTorisphericalHead({ ...input, crownRadiusMm });
@@ -1140,7 +1145,10 @@ function CalculatorPreview({ onBack, onNeedProject, notify, projects, initialCal
     if (component === "conical") return calculateConicalHead({ ...input, outsideDiameterMm: insideDiameterMm, halfApexAngleDeg: Number(halfApexAngle) });
     if (component === "flat-circular") return calculateFlatCircularHead({ ...input, diameterOrShortSpanMm, attachmentFactor: Number(attachmentFactor) });
     return calculateCylindricalShell(input);
-  }, [actualThicknessMm, attachmentFactor, component, crownRadiusMm, diameterOrShortSpanMm, efficiency, halfApexAngle, insideDiameterMm, nextInspectionYears, originalThicknessMm, pressureMpa, previousThicknessMm, selectedInspectionYears.value, selectedServiceYears.value, selectedStress.value, sphericalRadiusMm]);
+  }, [actualThicknessMm, attachmentFactor, component, crownRadiusMm, diameterOrShortSpanMm, efficiency, halfApexAngle, insideDiameterMm, manualMinimumThicknessMm, minimumMode, nextInspectionYears, originalThicknessMm, pressureMpa, previousThicknessMm, selectedInspectionYears.value, selectedServiceYears.value, selectedStress.value, sphericalRadiusMm]);
+  const automaticMinimumDisplay = Number.isFinite(result.minimumThicknessUsedMm)
+    ? formatConvertedInput(convertSIToUnit(result.minimumThicknessUsedMm, "length", minimumThicknessInputUnit), "length", minimumThicknessInputUnit)
+    : "";
   const calculatorDefinition = api510CalculatorFor(component);
   const componentLabel = calculatorDefinition.title;
   const inputSnapshot: Api510InputSnapshot = {
@@ -1156,6 +1164,7 @@ function CalculatorPreview({ onBack, onNeedProject, notify, projects, initialCal
     originalThicknessUnit: originalThicknessInputUnit,
     previousThicknessUnit: previousThicknessInputUnit,
     actualThicknessUnit: actualThicknessInputUnit,
+    minimumThicknessUnit: minimumThicknessInputUnit,
     pressure,
     diameter,
     crownRadius,
@@ -1172,6 +1181,8 @@ function CalculatorPreview({ onBack, onNeedProject, notify, projects, initialCal
     originalThickness,
     previousThickness,
     actualThickness,
+    minimumMode,
+    manualMinimumThickness,
     buildYear,
     serviceYearsMode,
     manualServiceYears,
@@ -1325,6 +1336,7 @@ function CalculatorPreview({ onBack, onNeedProject, notify, projects, initialCal
   }, [isDirty]);
   const manualOverrides = [
     stressMode === "manual" ? "Allowable stress" : null,
+    minimumMode === "manual" ? "Minimum thickness" : null,
     serviceYearsMode === "manual" ? "Years in service" : null,
     inspectionYearsMode === "manual" ? "Years since previous inspection" : null,
   ].filter((value): value is string => Boolean(value));
@@ -1429,6 +1441,10 @@ function CalculatorPreview({ onBack, onNeedProject, notify, projects, initialCal
     if (mode === "manual" && automaticStressDisplay) setManualStress(automaticStressDisplay);
     setStressMode(mode);
   };
+  const changeMinimumMode = (mode: AutomaticValueMode) => {
+    if (mode === "manual" && automaticMinimumDisplay) setManualMinimumThickness(automaticMinimumDisplay);
+    setMinimumMode(mode);
+  };
   const changeServiceYearsMode = (mode: AutomaticValueMode) => {
     if (mode === "manual" && serviceYears.yearsInService !== null) {
       setManualServiceYears(String(serviceYears.yearsInService));
@@ -1472,6 +1488,7 @@ function CalculatorPreview({ onBack, onNeedProject, notify, projects, initialCal
     setOriginalThickness(convertDisplayedUnit(originalThickness, "length", originalThicknessInputUnit, nextLengthUnit));
     setPreviousThickness(convertDisplayedUnit(previousThickness, "length", previousThicknessInputUnit, nextLengthUnit));
     setActualThickness(convertDisplayedUnit(actualThickness, "length", actualThicknessInputUnit, nextLengthUnit));
+    setManualMinimumThickness(convertDisplayedUnit(manualMinimumThickness, "length", minimumThicknessInputUnit, nextLengthUnit));
     setManualStress(convertDisplayedUnit(manualStress, "pressure", allowableStressInputUnit, nextPressureUnit));
     setPressureInputUnit(nextPressureUnit);
     setDiameterInputUnit(nextLengthUnit);
@@ -1483,6 +1500,7 @@ function CalculatorPreview({ onBack, onNeedProject, notify, projects, initialCal
     setOriginalThicknessInputUnit(nextLengthUnit);
     setPreviousThicknessInputUnit(nextLengthUnit);
     setActualThicknessInputUnit(nextLengthUnit);
+    setMinimumThicknessInputUnit(nextLengthUnit);
     setUnitSystem(next);
   };
 
@@ -1527,6 +1545,7 @@ function CalculatorPreview({ onBack, onNeedProject, notify, projects, initialCal
               <NumberField label="Original thickness" value={originalThickness} onChange={setOriginalThickness} unit={unitSymbol(originalThicknessInputUnit)} unitValue={originalThicknessInputUnit} unitOptions={lengthInputUnitOptions} onUnitChange={(nextUnit) => changeInputUnit(originalThickness, setOriginalThickness, "length", originalThicknessInputUnit, setOriginalThicknessInputUnit, nextUnit)} help="Original recorded component thickness." />
               <NumberField label="Previous measured thickness" value={previousThickness} onChange={setPreviousThickness} unit={unitSymbol(previousThicknessInputUnit)} unitValue={previousThicknessInputUnit} unitOptions={lengthInputUnitOptions} onUnitChange={(nextUnit) => changeInputUnit(previousThickness, setPreviousThickness, "length", previousThicknessInputUnit, setPreviousThicknessInputUnit, nextUnit)} help="Representative thickness at the previous inspection." />
               <NumberField label="Current measured thickness" value={actualThickness} onChange={setActualThickness} unit={unitSymbol(actualThicknessInputUnit)} unitValue={actualThicknessInputUnit} unitOptions={lengthInputUnitOptions} onUnitChange={(nextUnit) => changeInputUnit(actualThickness, setActualThickness, "length", actualThicknessInputUnit, setActualThicknessInputUnit, nextUnit)} help="Representative current inspection thickness." />
+              <AutomaticNumberField label="Minimum thickness used" value={minimumMode === "auto" ? automaticMinimumDisplay : manualMinimumThickness} onChange={setManualMinimumThickness} unit={unitSymbol(minimumThicknessInputUnit)} unitValue={minimumThicknessInputUnit} unitOptions={lengthInputUnitOptions} onUnitChange={(nextUnit) => changeInputUnit(minimumMode === "auto" ? automaticMinimumDisplay : manualMinimumThickness, setManualMinimumThickness, "length", minimumThicknessInputUnit, setMinimumThicknessInputUnit, nextUnit)} help={minimumMode === "auto" ? "Defaults to the calculated required thickness, rounded to 0.01 mm to match the live reference workflow." : "Manual override is active. Verify the controlled minimum thickness before engineering approval."} mode={minimumMode} onModeChange={changeMinimumMode} />
               <NumberField label="Build year" value={buildYear} onChange={setBuildYear} unit="year" help={`Whole year from 1900 to ${currentYear}.`} min={1900} max={currentYear} step={1} />
               <AutomaticNumberField label="Years in service" value={serviceYearsMode === "auto" ? serviceYears.yearsInService === null ? "" : String(serviceYears.yearsInService) : manualServiceYears} onChange={setManualServiceYears} unit="yr" help={serviceYearsMode === "auto" ? serviceYears.message ?? `Automatically calculated: ${currentYear} − build year.` : "Manual override is active. Build year remains recorded but does not set this value."} mode={serviceYearsMode} onModeChange={changeServiceYearsMode} />
               <NumberField label="Previous inspection year" value={previousInspectionYear} onChange={setPreviousInspectionYear} unit="year" help={`Whole year from the build year to ${currentYear}.`} min={1900} max={currentYear} step={1} />
@@ -1567,6 +1586,8 @@ function CalculatorPreview({ onBack, onNeedProject, notify, projects, initialCal
             <div><span>Projected thickness ({result.intervalYears} yr)</span><strong>{result.ok ? `${formatDisplayNumber(convertFromSI(result.projectedThicknessMm, "length", unitSystem))} ${resultLengthUnit}` : "—"}</strong></div>
             <div><span>Future MAWP thickness ({result.intervalYears} yr)</span><strong>{result.ok ? `${formatDisplayNumber(convertFromSI(result.futureMawpThicknessMm, "length", unitSystem))} ${resultLengthUnit}` : "—"}</strong></div>
             <div><span>Future MAWP</span><strong>{result.ok ? `${formatDisplayNumber(convertFromSI(result.futureMawpMpa, "pressure", unitSystem))} ${resultPressureUnit}` : "—"}</strong></div>
+            <div><span>Hydrostatic planning pressure</span><strong>{result.ok ? `${formatDisplayNumber(convertFromSI(result.hydrostaticTestPressureMpa, "pressure", unitSystem))} ${resultPressureUnit}` : "—"}</strong></div>
+            <div><span>Pneumatic planning pressure</span><strong>{result.ok ? `${formatDisplayNumber(convertFromSI(result.pneumaticTestPressureMpa, "pressure", unitSystem))} ${resultPressureUnit}` : "—"}</strong></div>
             <div><span>Overrides</span><strong>{hasManualOverrides ? manualOverrides.join(" · ") : "None"}</strong></div><div><span>Output units</span><strong>{unitSystem === "metric" ? "Metric SI" : "U.S. customary"}</strong></div>
           </div>
 

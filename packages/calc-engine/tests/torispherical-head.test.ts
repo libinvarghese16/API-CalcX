@@ -30,8 +30,10 @@ test("matches the captured legacy API 510 torispherical-head result", () => {
   approximately(result.governingMawpMpa, 1.7073079917408525);
   approximately(result.longTermCorrosionRateMmPerYear, 0.10999999999999996);
   approximately(result.shortTermCorrosionRateMmPerYear, 0.13999999999999985);
-  approximately(result.remainingLifeYears, 22.405341137735462);
-  approximately(result.futureMawpMpa, 1.6610512775668402);
+  approximately(result.minimumThicknessUsedMm, 22.66);
+  approximately(result.remainingLifeYears, 22.428571428571455);
+  approximately(result.futureMawpThicknessMm, 24.400000000000002);
+  approximately(result.futureMawpMpa, 1.6147909097063935);
 });
 
 test("blocks an invalid torispherical crown-radius basis", () => {

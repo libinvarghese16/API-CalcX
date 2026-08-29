@@ -134,8 +134,10 @@ export function createApi510ReportModel(context: Api510ReportContext): Api510Rep
   const originalThicknessUnit = resolveUnit(inputs.originalThicknessUnit, "length", inputs.unitSystem);
   const previousThicknessUnit = resolveUnit(inputs.previousThicknessUnit, "length", inputs.unitSystem);
   const actualThicknessUnit = resolveUnit(inputs.actualThicknessUnit, "length", inputs.unitSystem);
+  const minimumThicknessUnit = resolveUnit(inputs.minimumThicknessUnit, "length", inputs.unitSystem);
   const overrides = [
     inputs.stressMode === "manual" ? "Allowable stress" : null,
+    inputs.minimumMode === "manual" ? "Minimum thickness" : null,
     inputs.serviceYearsMode === "manual" ? "Years in service" : null,
     inputs.inspectionYearsMode === "manual" ? "Years since previous inspection" : null,
   ].filter((value): value is string => Boolean(value));
@@ -176,6 +178,7 @@ export function createApi510ReportModel(context: Api510ReportContext): Api510Rep
       { label: "Original thickness", value: inputValue(inputs.originalThickness, originalThicknessUnit) },
       { label: "Previous measured thickness", value: inputValue(inputs.previousThickness, previousThicknessUnit) },
       { label: "Current measured thickness", value: inputValue(inputs.actualThickness, actualThicknessUnit) },
+      { label: "Minimum thickness basis", value: inputs.minimumMode === "manual" ? `${inputValue(inputs.manualMinimumThickness ?? "", minimumThicknessUnit)} · Manual override` : "Automatic from calculated required thickness", emphasis: inputs.minimumMode === "manual" ? "warning" : "normal" },
       { label: "Build year", value: inputs.buildYear || "Not entered" },
       { label: "Years in service", value: resolvedYears(inputs.serviceYearsMode, inputs.manualServiceYears, inputs.resolvedYearsInService, "build year"), emphasis: inputs.serviceYearsMode === "manual" ? "warning" : "normal" },
       { label: "Previous inspection year", value: inputs.previousInspectionYear || "Not entered" },
@@ -184,7 +187,7 @@ export function createApi510ReportModel(context: Api510ReportContext): Api510Rep
     ],
     resultRows: [
       { label: "Required thickness", value: `${formatDisplayNumber(convertFromSI(result.requiredThicknessMm, "length", inputs.unitSystem))} ${lengthUnit}`, emphasis: "primary" },
-      { label: "Minimum thickness used", value: `${formatDisplayNumber(convertFromSI(result.minimumThicknessUsedMm, "length", inputs.unitSystem))} ${lengthUnit}` },
+      { label: "Minimum thickness used", value: `${formatDisplayNumber(convertFromSI(result.minimumThicknessUsedMm, "length", inputs.unitSystem))} ${lengthUnit}${inputs.minimumMode === "manual" ? " · Manual override" : ""}`, emphasis: inputs.minimumMode === "manual" ? "warning" : "normal" },
       { label: "Governing MAWP", value: `${formatDisplayNumber(convertFromSI(result.governingMawpMpa, "pressure", inputs.unitSystem))} ${pressureUnit}`, emphasis: "primary" },
       { label: "Remaining life", value: `${formatDisplayNumber(result.remainingLifeYears)} yr`, emphasis: "primary" },
       { label: "Long-term corrosion rate", value: `${formatDisplayNumber(convertFromSI(result.longTermCorrosionRateMmPerYear, "length", inputs.unitSystem), "corrosion-rate")} ${lengthUnit}/yr` },

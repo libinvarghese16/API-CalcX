@@ -118,6 +118,18 @@ test("surfaces manual overrides and calculation issues in review and text output
   assert.match(text, /not an issued engineering document/i);
 });
 
+test("records a controlled manual pressure-vessel minimum thickness", () => {
+  const model = createModel(
+    { minimumMode: "manual", manualMinimumThickness: "13.20", minimumThicknessUnit: "mm" },
+    { minimumThicknessUsedMm: 13.2 },
+  );
+
+  assert.deepEqual(model.overrides, ["Minimum thickness"]);
+  assert.equal(model.inspectionRows.find((row) => row.label === "Minimum thickness basis")?.value, "13.20 mm · Manual override");
+  assert.equal(model.resultRows.find((row) => row.label === "Minimum thickness used")?.value, "13.20 mm · Manual override");
+  assert.equal(model.resultRows.find((row) => row.label === "Minimum thickness used")?.emphasis, "warning");
+});
+
 test("uses the supplied result snapshot instead of recalculating report values", () => {
   const model = createModel({}, { requiredThicknessMm: 10, governingMawpMpa: 2.25 });
 

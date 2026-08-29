@@ -57,7 +57,7 @@ export function calculateHemisphericalHead(input: HemisphericalHeadInputSI): Hem
     else issues.push({ code: "hemispherical-denominator-not-positive", field: "calculation", severity: "error", message: "The hemispherical-head required-thickness denominator must be greater than zero." });
   }
 
-  const minimumThicknessUsedMm = input.minimumThicknessMm === undefined ? requiredThicknessMm : Math.max(input.minimumThicknessMm, 0);
+  const minimumThicknessUsedMm = input.minimumThicknessMm === undefined ? Math.round(requiredThicknessMm * 100) / 100 : Math.max(input.minimumThicknessMm, 0);
   const originalThicknessMm = Math.max(Number.isFinite(input.originalThicknessMm) ? input.originalThicknessMm : 0, 0);
   const previousThicknessMm = Math.max(Number.isFinite(input.previousThicknessMm) ? input.previousThicknessMm : 0, 0);
   const actualThicknessMm = Math.max(Number.isFinite(input.actualThicknessMm) ? input.actualThicknessMm : 0, 0);
@@ -77,7 +77,7 @@ export function calculateHemisphericalHead(input: HemisphericalHeadInputSI): Hem
   };
   const governingMawpMpa = mawpFromThickness(actualThicknessMm);
   const projectedThicknessMm = actualThicknessMm > 0 ? Math.max(actualThicknessMm - (governingCorrosionRateMmPerYear * intervalYears), 0) : 0;
-  const futureMawpThicknessMm = projectedThicknessMm;
+  const futureMawpThicknessMm = actualThicknessMm > 0 ? Math.max(actualThicknessMm - (2 * governingCorrosionRateMmPerYear * intervalYears), 0) : 0;
 
   issues.push({ code: "thin-hemisphere-scope-review", field: "calculation", severity: "warning", message: "The thin hemispherical-head route requires equation-applicability confirmation or a controlled thick-wall/alternate analysis." });
   issues.push({ code: "test-pressure-basis-review", field: "calculation", severity: "warning", message: "Displayed test pressures are planning values; construction-code stress ratios and component limits govern." });

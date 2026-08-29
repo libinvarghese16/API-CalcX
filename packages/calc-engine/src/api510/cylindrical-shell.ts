@@ -174,7 +174,7 @@ export function calculateCylindricalShell(input: CylindricalShellInputSI): Cylin
     longitudinalRequiredThicknessMm,
   );
   const minimumThicknessUsedMm = input.minimumThicknessMm === undefined
-    ? requiredThicknessMm
+    ? Math.round(requiredThicknessMm * 100) / 100
     : Math.max(finiteOrZero(input.minimumThicknessMm), 0);
 
   const originalThicknessMm = Math.max(finiteOrZero(input.originalThicknessMm), 0);
@@ -210,7 +210,9 @@ export function calculateCylindricalShell(input: CylindricalShellInputSI): Cylin
   const projectedThicknessMm = actualThicknessMm > 0
     ? Math.max(actualThicknessMm - (governingCorrosionRateMmPerYear * intervalYears), 0)
     : 0;
-  const futureMawpThicknessMm = projectedThicknessMm;
+  const futureMawpThicknessMm = actualThicknessMm > 0
+    ? Math.max(actualThicknessMm - (2 * governingCorrosionRateMmPerYear * intervalYears), 0)
+    : 0;
   const mawpFuture = pressureBasisValid
     ? mawpFromThickness(futureMawpThicknessMm, insideRadiusMm, allowableStressMpa, jointEfficiency)
     : { circumferential: 0, longitudinal: 0, governing: 0, governingCase: "none" as const };

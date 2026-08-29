@@ -58,7 +58,7 @@ export function calculateFlatCircularHead(input: FlatCircularHeadInputSI): FlatC
     else issues.push({ code: "flat-head-ratio-not-positive", field: "calculation", severity: "error", message: "The flat-head required-thickness square-root ratio must be greater than zero." });
   }
 
-  const minimumThicknessUsedMm = input.minimumThicknessMm === undefined ? requiredThicknessMm : Math.max(input.minimumThicknessMm, 0);
+  const minimumThicknessUsedMm = input.minimumThicknessMm === undefined ? Math.round(requiredThicknessMm * 100) / 100 : Math.max(input.minimumThicknessMm, 0);
   const originalThicknessMm = Math.max(Number.isFinite(input.originalThicknessMm) ? input.originalThicknessMm : 0, 0);
   const previousThicknessMm = Math.max(Number.isFinite(input.previousThicknessMm) ? input.previousThicknessMm : 0, 0);
   const actualThicknessMm = Math.max(Number.isFinite(input.actualThicknessMm) ? input.actualThicknessMm : 0, 0);
@@ -78,7 +78,7 @@ export function calculateFlatCircularHead(input: FlatCircularHeadInputSI): FlatC
   };
   const governingMawpMpa = mawpFromThickness(actualThicknessMm);
   const projectedThicknessMm = actualThicknessMm > 0 ? Math.max(actualThicknessMm - (governingCorrosionRateMmPerYear * intervalYears), 0) : 0;
-  const futureMawpThicknessMm = projectedThicknessMm;
+  const futureMawpThicknessMm = actualThicknessMm > 0 ? Math.max(actualThicknessMm - (2 * governingCorrosionRateMmPerYear * intervalYears), 0) : 0;
 
   issues.push({ code: "flat-head-attachment-scope-review", field: "attachmentFactor", severity: "warning", message: "Attachment factor C must come from the applicable controlled UG-34 configuration; a user-entered factor is not independently code-derived." });
   issues.push({ code: "test-pressure-basis-review", field: "calculation", severity: "warning", message: "Displayed test pressures are planning values; construction-code stress ratios and component limits govern." });

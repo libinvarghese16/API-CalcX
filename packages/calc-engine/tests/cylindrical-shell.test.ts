@@ -38,16 +38,17 @@ test("matches the captured legacy API 510 cylindrical-shell golden result", () =
   approximately(result.longTermCorrosionRateMmPerYear, 0.11);
   approximately(result.shortTermCorrosionRateMmPerYear, 0.14);
   approximately(result.governingCorrosionRateMmPerYear, 0.14);
-  approximately(result.corrosionAllowanceMm, 2.9134020618556704);
-  approximately(result.remainingLifeYears, 20.8100147275405);
+  approximately(result.minimumThicknessUsedMm, 12.89);
+  approximately(result.corrosionAllowanceMm, 2.91);
+  approximately(result.remainingLifeYears, 20.78571428571431);
   approximately(result.circumferentialMawpMpa, 1.8359353330427548);
   approximately(result.longitudinalMawpMpa, 3.730255212945818);
   approximately(result.governingMawpMpa, 1.8359353330427548);
   approximately(result.hydrostaticTestPressureMpa, 2.3867159329555814);
   approximately(result.pneumaticTestPressureMpa, 2.0195288663470303);
   approximately(result.projectedThicknessMm, 15.100000000000001);
-  approximately(result.futureMawpThicknessMm, 15.100000000000001);
-  approximately(result.futureMawpMpa, 1.7553267397379742);
+  approximately(result.futureMawpThicknessMm, 14.400000000000002);
+  approximately(result.futureMawpMpa, 1.6746510152284266);
 });
 
 test("preserves a manually supplied minimum thickness", () => {
@@ -87,6 +88,7 @@ test("normalizes the future interval to the legacy 1-to-10-year range", () => {
   assert.equal(result.ok, true);
   assert.equal(result.intervalYears, 10);
   approximately(result.projectedThicknessMm, 14.4);
+  approximately(result.futureMawpThicknessMm, 13.000000000000004);
   assert.ok(result.issues.some((issue) => issue.code === "inspection-interval-normalized"));
 });
 
@@ -103,11 +105,11 @@ test("uses the long-term rate when it governs every related projection", () => {
   approximately(result.longTermCorrosionRateMmPerYear, 0.5);
   approximately(result.shortTermCorrosionRateMmPerYear, 0.2);
   approximately(result.governingCorrosionRateMmPerYear, 0.5);
-  approximately(result.corrosionAllowanceMm, 2.11340206185567);
-  approximately(result.remainingLifeYears, 4.22680412371134);
+  approximately(result.corrosionAllowanceMm, 2.1099999999999994);
+  approximately(result.remainingLifeYears, 4.219999999999999);
   approximately(result.projectedThicknessMm, 12.5);
-  approximately(result.futureMawpThicknessMm, 12.5);
-  approximately(result.futureMawpMpa, 1.4553349875930521);
+  approximately(result.futureMawpThicknessMm, 10);
+  approximately(result.futureMawpMpa, 1.166003976143141);
 });
 
 test("uses a manually shortened previous-inspection interval for the short-term rate", () => {
@@ -119,7 +121,7 @@ test("uses a manually shortened previous-inspection interval for the short-term 
   approximately(result.longTermCorrosionRateMmPerYear, 0.11);
   approximately(result.shortTermCorrosionRateMmPerYear, 0.35);
   approximately(result.governingCorrosionRateMmPerYear, 0.35);
-  approximately(result.remainingLifeYears, 8.324005891016203);
+  approximately(result.remainingLifeYears, 8.314285714285724);
   approximately(result.projectedThicknessMm, 14.05);
-  approximately(result.futureMawpThicknessMm, 14.050000000000002);
+  approximately(result.futureMawpThicknessMm, 12.300000000000004);
 });
