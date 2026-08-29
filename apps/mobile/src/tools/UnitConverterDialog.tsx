@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { EngineeringUnit, UnitSystem } from "@api-calc-pro/calc-engine";
+import type { UnitSystem } from "@api-calc-pro/calc-engine";
 import { ArrowLeftRight, Calculator, X } from "lucide-react";
 import {
   converterDefaultUnits,
@@ -9,13 +9,13 @@ import {
   formatConverterUnit,
   UNIT_CONVERTER_CATEGORIES,
 } from "./unit-converter.ts";
-import type { UnitConverterKind } from "./unit-converter.ts";
+import type { UnitConverterKind, UnitConverterUnit } from "./unit-converter.ts";
 
 export function UnitConverterDialog({ preferredUnitSystem, onClose }: { preferredUnitSystem: UnitSystem; onClose: () => void }) {
   const [kind, setKind] = useState<UnitConverterKind>("pressure");
   const initialUnits = converterDefaultUnits("pressure", preferredUnitSystem);
-  const [fromUnit, setFromUnit] = useState<EngineeringUnit>(initialUnits[0]);
-  const [toUnit, setToUnit] = useState<EngineeringUnit>(initialUnits[1]);
+  const [fromUnit, setFromUnit] = useState<UnitConverterUnit>(initialUnits[0]);
+  const [toUnit, setToUnit] = useState<UnitConverterUnit>(initialUnits[1]);
   const [value, setValue] = useState("10");
   const options = converterUnitOptions(kind);
   const numericValue = value.trim() ? Number(value) : Number.NaN;
@@ -43,7 +43,7 @@ export function UnitConverterDialog({ preferredUnitSystem, onClose }: { preferre
     <div className="modal-backdrop tool-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section className="modal-card unit-converter-modal" role="dialog" aria-modal="true" aria-labelledby="unit-converter-title">
         <div className="modal-heading">
-          <div><p className="eyebrow">Engineering tool</p><h2 id="unit-converter-title">Unit converter</h2><p>Convert field values instantly using the same unit library used by the calculators.</p></div>
+          <div><p className="eyebrow">Engineering tool</p><h2 id="unit-converter-title">Unit converter</h2><p>Convert field values with the same engineering quantity groups and factors as the master application.</p></div>
           <button className="icon-button" onClick={onClose} aria-label="Close unit converter"><X size={19} /></button>
         </div>
 
@@ -57,12 +57,12 @@ export function UnitConverterDialog({ preferredUnitSystem, onClose }: { preferre
         <div className="converter-grid">
           <label className="converter-field">
             <span>From</span>
-            <div><input aria-label="Value to convert" type="number" inputMode="decimal" value={value} onChange={(event) => setValue(event.target.value)} /><select aria-label="Source unit" value={fromUnit} onChange={(event) => setFromUnit(event.target.value as EngineeringUnit)}>{options.map((option) => <option key={option.value} value={option.value}>{formatConverterUnit(option.value, kind)}</option>)}</select></div>
+            <div><input aria-label="Value to convert" type="number" inputMode="decimal" value={value} onChange={(event) => setValue(event.target.value)} /><select aria-label="Source unit" value={fromUnit} onChange={(event) => setFromUnit(event.target.value)}>{options.map((option) => <option key={option.value} value={option.value}>{formatConverterUnit(option.value, kind)}</option>)}</select></div>
           </label>
           <button className="converter-swap" onClick={swapUnits} aria-label="Swap source and destination units"><ArrowLeftRight size={19} /></button>
           <label className="converter-field">
             <span>To</span>
-            <div><output aria-label="Converted value">{result}</output><select aria-label="Destination unit" value={toUnit} onChange={(event) => setToUnit(event.target.value as EngineeringUnit)}>{options.map((option) => <option key={option.value} value={option.value}>{formatConverterUnit(option.value, kind)}</option>)}</select></div>
+            <div><output aria-label="Converted value">{result}</output><select aria-label="Destination unit" value={toUnit} onChange={(event) => setToUnit(event.target.value)}>{options.map((option) => <option key={option.value} value={option.value}>{formatConverterUnit(option.value, kind)}</option>)}</select></div>
           </label>
         </div>
 

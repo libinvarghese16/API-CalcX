@@ -21,8 +21,9 @@ import type {
   EngineeringUnitOption,
   UnitSystem,
 } from "@api-calc-pro/calc-engine";
-import { ArrowLeft, CircleCheck, Gauge, Info, Layers3, Minus, Plus, RotateCcw, ShieldCheck, TriangleAlert } from "lucide-react";
+import { ArrowLeft, Check, CircleCheck, Clipboard, Gauge, Info, Layers3, Minus, Plus, RotateCcw, ShieldCheck, TriangleAlert } from "lucide-react";
 import { formatDisplayNumber } from "../display-precision.ts";
+import { copyShellCourseTable } from "./shell-course-copy.ts";
 
 type UnitFieldState = { value: string; unit: EngineeringUnit; quantity: EngineeringQuantity };
 type CourseUnitFieldId = "courseHeight" | "productStress" | "hydroStress" | "asBuiltThickness" | "previousThickness" | "actualThickness";
@@ -130,6 +131,7 @@ export function Api653ShellCourseCalculator({ onBack }: { onBack: () => void }) 
   const [manualServiceYears, setManualServiceYears] = useState("20");
   const [manualInspectionYears, setManualInspectionYears] = useState("5");
   const [courses, setCourses] = useState<CourseState[]>(() => [makeCourse(1), makeCourse(2), makeCourse(3)]);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
 
   const numericBuildYear = numberFrom(buildYear);
   const serviceYears = deriveYearsInService(numericBuildYear, currentYear);
@@ -226,10 +228,36 @@ export function Api653ShellCourseCalculator({ onBack }: { onBack: () => void }) 
     setManualServiceYears("20");
     setManualInspectionYears("5");
     setCourses([makeCourse(1), makeCourse(2), makeCourse(3)]);
+    setCopyState("idle");
+  };
+
+  const copyCourseTable = async () => {
+    try {
+      await copyShellCourseTable(result.courses.map((course) => ({
+        courseIndex: course.courseIndex,
+        materialSpecification: course.materialId,
+        courseHeightM: course.courseHeightMUsed,
+        heightToTopM: course.heightToTopM,
+        allowableProductStressMpa: course.productStressMpaUsed,
+        calculatedMinimumThicknessMm: course.minimumThicknessMm,
+        asBuiltThicknessMm: course.asBuiltThicknessMmUsed,
+        previousThicknessMm: course.previousThicknessMmUsed,
+        actualThicknessMm: course.actualThicknessMmUsed,
+        minimumThicknessMm: course.minimumThicknessMm,
+        corrosionAllowanceMm: course.corrosionAllowanceMm,
+        longTermCorrosionRateMmPerYear: course.longTermCorrosionRateMmPerYear,
+        shortTermCorrosionRateMmPerYear: course.shortTermCorrosionRateMmPerYear,
+        remainingLifeYears: course.remainingLifeYears,
+      })));
+      setCopyState("copied");
+      window.setTimeout(() => setCopyState("idle"), 2_500);
+    } catch {
+      setCopyState("error");
+    }
   };
 
   return <div className="calculator-page api653-shell-page">
-    <header className="calculator-header"><button className="back-button" onClick={onBack}><ArrowLeft size={16} /> API 653 library</button><div className="calculator-heading-row"><div><p className="eyebrow">API 653 · Shell integrity · Calculator 3 of 6</p><h1>Shell course assessment</h1><p>Course minimum thickness, hydrostatic and operating heights, corrosion rates, and remaining life.</p></div><div className="calculator-actions"><span className="save-state-badge"><CircleCheck size={14} /> Original-web parity</span><button className="secondary-button" onClick={reset}><RotateCcw size={16} /> Reset</button></div></div><div className="step-line" aria-label="Calculation workflow"><button className="complete"><b>1</b> Basis</button><i /><button className="complete"><b>2</b> Inspection</button><i /><button className="active"><b>3</b> Results</button></div></header>
+    <header className="calculator-header"><button className="back-button" onClick={onBack}><ArrowLeft size={16} /> API 653 library</button><div className="calculator-heading-row"><div><p className="eyebrow">API 653 · Shell integrity · Calculator 3 of 6</p><h1>Shell course assessment</h1><p>Course minimum thickness, hydrostatic and operating heights, corrosion rates, and remaining life.</p></div><div className="calculator-actions"><span className="save-state-badge"><CircleCheck size={14} /> Original-web parity</span><button className="secondary-button" onClick={() => void copyCourseTable()} disabled={!result.courses.length} aria-label="Copy all shell courses as a formatted table">{copyState === "copied" ? <Check size={16} /> : <Clipboard size={16} />} {copyState === "copied" ? "Copied" : copyState === "error" ? "Copy failed" : "Copy table"}</button><button className="secondary-button" onClick={reset}><RotateCcw size={16} /> Reset</button></div></div><div className="step-line" aria-label="Calculation workflow"><button className="complete"><b>1</b> Basis</button><i /><button className="complete"><b>2</b> Inspection</button><i /><button className="active"><b>3</b> Results</button></div></header>
 
     <div className="calculator-workspace shell-calculator-workspace"><div className="input-column">
       <section className="form-card"><div className="form-card-heading"><div><span>01</span><div><h2>Calculation basis</h2><p>Choose the same result system used by every API 653 calculator; each input still accepts its own site unit.</p></div></div><Gauge size={19} /></div><div className="form-grid">

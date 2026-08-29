@@ -723,7 +723,7 @@ function HomePage({ navigate, openCalculator, openApi570Piping, openApi571Damage
           <div className="quick-icon"><Zap size={21} /></div>
           <p className="eyebrow">Quick tool</p>
           <h2>Unit converter</h2>
-          <p>Convert pressure, temperature, length and corrosion-rate units without leaving your assessment.</p>
+          <p>Convert the complete master engineering list, from pressure and thickness to flow, torque, density, toughness, time, and more.</p>
           <div className="mini-converter">
             <div><span>Pressure</span><strong>10.00 bar</strong></div>
             <RefreshCw size={17} />
