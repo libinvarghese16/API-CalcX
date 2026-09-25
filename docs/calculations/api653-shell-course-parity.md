@@ -39,8 +39,9 @@ Rechecked on 25 September 2026 against the user-supplied `API_CALC_MASTER_FILE 3
 - The mobile selector now contains all 35 master choices in the same order and with the same visible note labels.
 - The two previously absent riveted routes are `A7, A9 or A10 (Note 1, Note 3)` and `Unknown (Note 5)`.
 - Both riveted routes use the master product-stress value of 21,000 psi, converted and rounded to 145 MPa, for lower and upper courses.
-- The supplied master does not define a separate hydrostatic-test stress for those riveted routes. Their `St` field therefore opens in highlighted manual mode instead of inventing an automatic value.
+- The protected master application defines both product stress `S` and hydrostatic-test stress `St` as 145 MPa for those two riveted routes. Both values now populate automatically; each can still be switched independently to a highlighted manual override.
 - Every `S` and `St` field has an explicit `AUTO · EDIT` control. Switching to manual retains the current recommendation as the editable starting value and immediately recalculates the shared result object.
+- The complete Shell working draft is stored under a versioned local-browser key. Geometry, year inputs, unit choices, course count, materials, stress modes, and thickness entries restore after a refresh; invalid stored data is ignored safely.
 - Catalogue order, labels, and the two 145 MPa product-stress routes are asserted with zero displayed-value tolerance. Existing numerical regression cases retain the engine tolerance of `1e-12` unless a unit-conversion test explicitly uses `1e-10`.
 
 ## Controlled Metric golden case

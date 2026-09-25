@@ -27,7 +27,7 @@ test("matches the protected three-course Shell golden case", () => {
 
   assert.equal(result.ok, true);
   assert.equal(result.engineId, "api653.shell-course");
-  assert.equal(result.engineVersion, "0.2.0-master-material-parity");
+  assert.equal(result.engineVersion, "0.2.1-riveted-hydro-parity");
   assert.equal(result.courses.length, 3);
 
   const [course1, course2, course3] = result.courses;
@@ -114,27 +114,28 @@ test("matches all 35 material specification choices in the supplied master shell
   ]);
 });
 
-test("uses the master riveted product stress and requires a controlled manual hydro stress", () => {
+test("uses the master automatic product and hydro stresses for both riveted routes", () => {
+  for (const materialId of ["A7-A9-A10-riveted", "Unknown-riveted"]) {
   const result = calculateApi653ShellAssessment({
     ...goldenInput,
     courses: [{
       ...goldenInput.courses[0]!,
-      materialId: "A7-A9-A10-riveted",
+      materialId,
       productStressMode: "auto",
-      hydroStressMode: "manual",
-      manualHydroStressMpa: 180,
+      hydroStressMode: "auto",
     }],
   });
   const course = result.courses[0];
   assert.ok(course);
 
   assert.equal(result.ok, true);
-  assert.equal(course.materialLabel, "A7, A9 or A10 (Note 1, Note 3)");
   assert.equal(course.automaticProductStressMpa, 145);
   assert.equal(course.productStressMpaUsed, 145);
-  assert.equal(course.automaticHydroStressMpa, null);
-  assert.equal(course.hydroStressMpaUsed, 180);
+  assert.equal(course.automaticHydroStressMpa, 145);
+  assert.equal(course.hydroStressMpaUsed, 145);
   approximately(course.minimumThicknessMm, 23.221825557809332);
+  approximately(course.hydrostaticTestHeightM, 17.90714285714286);
+  }
 });
 
 test("keeps hydrotest height independent of product specific gravity", () => {

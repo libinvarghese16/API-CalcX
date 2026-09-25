@@ -476,7 +476,7 @@ export interface Api653ShellCourseResultSI {
 
 export interface Api653ShellAssessmentResultSI {
   engineId: "api653.shell-course";
-  engineVersion: "0.2.0-master-material-parity";
+  engineVersion: "0.2.1-riveted-hydro-parity";
   ok: boolean;
   issues: CalculationIssue[];
   diameterMUsed: number;

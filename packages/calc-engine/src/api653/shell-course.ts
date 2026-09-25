@@ -9,7 +9,7 @@ import type {
 } from "../contracts.ts";
 
 const ENGINE_ID = "api653.shell-course" as const;
-const ENGINE_VERSION = "0.2.0-master-material-parity" as const;
+const ENGINE_VERSION = "0.2.1-riveted-hydro-parity" as const;
 
 const SHELL_MATERIALS: readonly Api653ShellMaterialRecord[] = [
   { id: "A283-C", label: "A 283-C", yieldStressMpa: 205, tensileStressMpa: 380, productStressLowerMpa: 163, productStressUpperMpa: 179, hydroStressLowerMpa: 179, hydroStressUpperMpa: 186 },
@@ -44,9 +44,9 @@ const SHELL_MATERIALS: readonly Api653ShellMaterialRecord[] = [
   { id: "G40.21 50WT g", label: "G40.21, 50WT (Note 7)", yieldStressMpa: 345, tensileStressMpa: 485, productStressLowerMpa: 207, productStressUpperMpa: 228, hydroStressLowerMpa: 228, hydroStressUpperMpa: 250 },
   { id: "G40.21 50WT h", label: "G.40.21, 50WT (Note 8)", yieldStressMpa: 345, tensileStressMpa: 450, productStressLowerMpa: 192, productStressUpperMpa: 212, hydroStressLowerMpa: 212, hydroStressUpperMpa: 232 },
   { id: "Unknown", label: "Unknown (Note 2)", yieldStressMpa: 205, tensileStressMpa: 380, productStressLowerMpa: 163, productStressUpperMpa: 179, hydroStressLowerMpa: 179, hydroStressUpperMpa: 186 },
-  { id: "A7-A9-A10-riveted", label: "A7, A9 or A10 (Note 1, Note 3)", productStressLowerMpa: 145, productStressUpperMpa: 145 },
+  { id: "A7-A9-A10-riveted", label: "A7, A9 or A10 (Note 1, Note 3)", productStressLowerMpa: 145, productStressUpperMpa: 145, hydroStressLowerMpa: 145, hydroStressUpperMpa: 145 },
   { id: "Known", label: "Known (Note 4)" },
-  { id: "Unknown-riveted", label: "Unknown (Note 5)", productStressLowerMpa: 145, productStressUpperMpa: 145 },
+  { id: "Unknown-riveted", label: "Unknown (Note 5)", productStressLowerMpa: 145, productStressUpperMpa: 145, hydroStressLowerMpa: 145, hydroStressUpperMpa: 145 },
 ] as const;
 
 function positiveIssue(field: Api653ShellCourseField, value: number, label: string): CalculationIssue | null {

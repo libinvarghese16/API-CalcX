@@ -10,6 +10,7 @@ const shellSource = readFileSync(resolve(testDirectory, "../src/api653/Api653She
 const nozzleSource = readFileSync(resolve(testDirectory, "../src/api653/Api653NozzleCalculator.tsx"), "utf8");
 const roofSource = readFileSync(resolve(testDirectory, "../src/api653/Api653RoofPlateCalculator.tsx"), "utf8");
 const other432Source = readFileSync(resolve(testDirectory, "../src/api653/Api653Other432Calculator.tsx"), "utf8");
+const shellDraftSource = readFileSync(resolve(testDirectory, "../src/api653/shell-course-draft.ts"), "utf8");
 const mobileStyles = readFileSync(resolve(testDirectory, "../src/styles.css"), "utf8");
 
 const sharedCalculatorTokens = [
@@ -74,6 +75,10 @@ test("keeps both Shell stresses explicitly editable and preserves separate S and
   assert.match(shellSource, /hydroStressMode === "manual" && course\.hydroStressMode === "auto"/);
   assert.match(shellSource, /MANUAL ONLY/);
   assert.match(shellSource, /All 35 master materials are available/);
+  assert.match(shellSource, /readApi653ShellDraft\(window\.localStorage\)/);
+  assert.match(shellSource, /writeApi653ShellDraft\(window\.localStorage, draft\)/);
+  assert.match(shellSource, /Saved locally/);
+  assert.match(shellDraftSource, /api-calc-pro\.api653-shell-draft\.v1/);
   assert.match(shellSource, /className=\{`number-control \$\{automatic \? "is-derived" : ""\} \$\{automaticMode === "manual" \? "is-manual" : ""\}`\}/);
 });
 

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   calculateApi653ShellAssessment,
   convertBetweenUnits,
@@ -23,17 +23,18 @@ import type {
 } from "@api-calc-pro/calc-engine";
 import { ArrowLeft, Check, CircleCheck, Clipboard, Gauge, Info, Layers3, Minus, Plus, RotateCcw, ShieldCheck, TriangleAlert } from "lucide-react";
 import { formatDisplayNumber } from "../display-precision.ts";
+import {
+  readApi653ShellDraft,
+  writeApi653ShellDraft,
+} from "./shell-course-draft.ts";
+import type {
+  Api653ShellDraft,
+  ShellCourseDraft as CourseState,
+  ShellCourseUnitFieldId as CourseUnitFieldId,
+  ShellCourseUnitFields as CourseUnitFields,
+  ShellUnitFieldState as UnitFieldState,
+} from "./shell-course-draft.ts";
 import { copyShellCourseTable } from "./shell-course-copy.ts";
-
-type UnitFieldState = { value: string; unit: EngineeringUnit; quantity: EngineeringQuantity };
-type CourseUnitFieldId = "courseHeight" | "productStress" | "hydroStress" | "asBuiltThickness" | "previousThickness" | "actualThickness";
-type CourseUnitFields = Record<CourseUnitFieldId, UnitFieldState>;
-type CourseState = {
-  materialId: string;
-  productStressMode: Api653ShellStressMode;
-  hydroStressMode: Api653ShellStressMode;
-  fields: CourseUnitFields;
-};
 
 const lengthUnits = listEngineeringUnitOptions("length");
 const pressureUnits = listEngineeringUnitOptions("pressure");
@@ -122,19 +123,40 @@ function lifeDisplay(value: number): string {
 }
 
 export function Api653ShellCourseCalculator({ onBack }: { onBack: () => void }) {
-  const [unitSystem, setUnitSystem] = useState<UnitSystem>("metric");
-  const [diameter, setDiameter] = useState<UnitFieldState>({ value: "30", unit: "m", quantity: "length" });
-  const [height, setHeight] = useState<UnitFieldState>({ value: "18", unit: "m", quantity: "length" });
-  const [specificGravity, setSpecificGravity] = useState("1.1");
-  const [jointEfficiency, setJointEfficiency] = useState("0.85");
-  const [buildYear, setBuildYear] = useState("2006");
-  const [previousInspectionYear, setPreviousInspectionYear] = useState("2021");
-  const [serviceYearsMode, setServiceYearsMode] = useState<AutomaticValueMode>("auto");
-  const [inspectionYearsMode, setInspectionYearsMode] = useState<AutomaticValueMode>("auto");
-  const [manualServiceYears, setManualServiceYears] = useState("20");
-  const [manualInspectionYears, setManualInspectionYears] = useState("5");
-  const [courses, setCourses] = useState<CourseState[]>(() => [makeCourse(1), makeCourse(2), makeCourse(3)]);
+  const [initialDraft] = useState(() => readApi653ShellDraft(window.localStorage));
+  const [unitSystem, setUnitSystem] = useState<UnitSystem>(initialDraft?.unitSystem ?? "metric");
+  const [diameter, setDiameter] = useState<UnitFieldState>(() => initialDraft?.diameter ?? { value: "30", unit: "m", quantity: "length" });
+  const [height, setHeight] = useState<UnitFieldState>(() => initialDraft?.height ?? { value: "18", unit: "m", quantity: "length" });
+  const [specificGravity, setSpecificGravity] = useState(initialDraft?.specificGravity ?? "1.1");
+  const [jointEfficiency, setJointEfficiency] = useState(initialDraft?.jointEfficiency ?? "0.85");
+  const [buildYear, setBuildYear] = useState(initialDraft?.buildYear ?? "2006");
+  const [previousInspectionYear, setPreviousInspectionYear] = useState(initialDraft?.previousInspectionYear ?? "2021");
+  const [serviceYearsMode, setServiceYearsMode] = useState<AutomaticValueMode>(initialDraft?.serviceYearsMode ?? "auto");
+  const [inspectionYearsMode, setInspectionYearsMode] = useState<AutomaticValueMode>(initialDraft?.inspectionYearsMode ?? "auto");
+  const [manualServiceYears, setManualServiceYears] = useState(initialDraft?.manualServiceYears ?? "20");
+  const [manualInspectionYears, setManualInspectionYears] = useState(initialDraft?.manualInspectionYears ?? "5");
+  const [courses, setCourses] = useState<CourseState[]>(() => initialDraft?.courses ?? [makeCourse(1), makeCourse(2), makeCourse(3)]);
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
+  const [draftSaveState, setDraftSaveState] = useState<"saved" | "error">("saved");
+
+  useEffect(() => {
+    const draft: Api653ShellDraft = {
+      version: 1,
+      unitSystem,
+      diameter,
+      height,
+      specificGravity,
+      jointEfficiency,
+      buildYear,
+      previousInspectionYear,
+      serviceYearsMode,
+      inspectionYearsMode,
+      manualServiceYears,
+      manualInspectionYears,
+      courses,
+    };
+    setDraftSaveState(writeApi653ShellDraft(window.localStorage, draft) ? "saved" : "error");
+  }, [buildYear, courses, diameter, height, inspectionYearsMode, jointEfficiency, manualInspectionYears, manualServiceYears, previousInspectionYear, serviceYearsMode, specificGravity, unitSystem]);
 
   const numericBuildYear = numberFrom(buildYear);
   const serviceYears = deriveYearsInService(numericBuildYear, currentYear);
@@ -265,7 +287,7 @@ export function Api653ShellCourseCalculator({ onBack }: { onBack: () => void }) 
   };
 
   return <div className="calculator-page api653-shell-page">
-    <header className="calculator-header"><button className="back-button" onClick={onBack}><ArrowLeft size={16} /> API 653 library</button><div className="calculator-heading-row"><div><p className="eyebrow">API 653 · Shell integrity · Calculator 3 of 6</p><h1>Shell course assessment</h1><p>Course minimum thickness, hydrostatic and operating heights, corrosion rates, and remaining life.</p></div><div className="calculator-actions"><span className="save-state-badge"><CircleCheck size={14} /> Original-web parity</span><button className="secondary-button" onClick={() => void copyCourseTable()} disabled={!result.courses.length} aria-label="Copy all shell courses as a formatted table">{copyState === "copied" ? <Check size={16} /> : <Clipboard size={16} />} {copyState === "copied" ? "Copied" : copyState === "error" ? "Copy failed" : "Copy table"}</button><button className="secondary-button" onClick={reset}><RotateCcw size={16} /> Reset</button></div></div><div className="step-line" aria-label="Calculation workflow"><button className="complete"><b>1</b> Basis</button><i /><button className="complete"><b>2</b> Inspection</button><i /><button className="active"><b>3</b> Results</button></div></header>
+    <header className="calculator-header"><button className="back-button" onClick={onBack}><ArrowLeft size={16} /> API 653 library</button><div className="calculator-heading-row"><div><p className="eyebrow">API 653 · Shell integrity · Calculator 3 of 6</p><h1>Shell course assessment</h1><p>Course minimum thickness, hydrostatic and operating heights, corrosion rates, and remaining life.</p></div><div className="calculator-actions"><span className="save-state-badge"><CircleCheck size={14} /> Original-web parity</span><span className="save-state-badge"><CircleCheck size={14} /> {draftSaveState === "saved" ? "Saved locally" : "Local save failed"}</span><button className="secondary-button" onClick={() => void copyCourseTable()} disabled={!result.courses.length} aria-label="Copy all shell courses as a formatted table">{copyState === "copied" ? <Check size={16} /> : <Clipboard size={16} />} {copyState === "copied" ? "Copied" : copyState === "error" ? "Copy failed" : "Copy table"}</button><button className="secondary-button" onClick={reset}><RotateCcw size={16} /> Reset</button></div></div><div className="step-line" aria-label="Calculation workflow"><button className="complete"><b>1</b> Basis</button><i /><button className="complete"><b>2</b> Inspection</button><i /><button className="active"><b>3</b> Results</button></div></header>
 
     <div className="calculator-workspace shell-calculator-workspace"><div className="input-column">
       <section className="form-card"><div className="form-card-heading"><div><span>01</span><div><h2>Calculation basis</h2><p>Choose the same result system used by every API 653 calculator; each input still accepts its own site unit.</p></div></div><Gauge size={19} /></div><div className="form-grid">
@@ -297,13 +319,13 @@ export function Api653ShellCourseCalculator({ onBack }: { onBack: () => void }) 
             <div className="shell-course-inputs"><label className="field"><span>Material specification<button type="button" title="Material selection controls the automatic S and St recommendations." aria-label={`Shell course ${index + 1} material help`}>?</button></span><select className="select-control shell-select-input" aria-label={`Shell course ${index + 1} material specification`} value={course.materialId} onChange={(event) => selectMaterial(index, event.target.value)}>{materials.map((material) => <option key={material.id} value={material.id}>{material.label}</option>)}</select><small>All 35 master materials are available. Tap AUTO · EDIT beside S or St to enter a highlighted manual value.</small></label>
               <UnitInput label={`Course ${index + 1} height`} field={course.fields.courseHeight} options={lengthUnits} help="Height of this course; preceding course heights set upper-course H to Top." onValueChange={(value) => updateCourseFieldValue(index, "courseHeight", value)} onUnitChange={(unit) => updateCourseFieldUnit(index, "courseHeight", unit)} />
               <UnitInput label={`Allowable product stress S · C${index + 1}`} field={productField} options={pressureUnits} automaticMode={course.productStressMode} automaticAvailable={courseResult.automaticProductStressMpa !== null} help={course.productStressMode === "auto" ? `${courseResult.productStressRule?.formulaLabel ?? "Material route"}; selected ${courseResult.automaticProductStressMpa ?? "unavailable"} MPa. Tap AUTO · EDIT to override.` : courseResult.automaticProductStressMpa === null ? "The master does not supply an automatic S for this route; enter the controlled manual value." : `Manual S active. Automatic recommendation: ${courseResult.automaticProductStressMpa} MPa.`} onValueChange={(value) => updateCourseFieldValue(index, "productStress", value)} onUnitChange={(unit) => updateCourseFieldUnit(index, "productStress", unit)} onModeChange={(mode) => switchStressMode(index, "product", mode, courseResult.automaticProductStressMpa)} />
-              <UnitInput label={`Hydrostatic test stress St · C${index + 1}`} field={hydroField} options={pressureUnits} automaticMode={course.hydroStressMode} automaticAvailable={courseResult.automaticHydroStressMpa !== null} help={course.hydroStressMode === "auto" ? `${courseResult.hydroStressRule?.formulaLabel ?? "Material route"}; selected ${courseResult.automaticHydroStressMpa ?? "unavailable"} MPa. Tap AUTO · EDIT to override.` : courseResult.automaticHydroStressMpa === null ? "The master does not supply an automatic St for this route; enter the controlled manual value." : `Manual St active. Automatic recommendation: ${courseResult.automaticHydroStressMpa} MPa.`} onValueChange={(value) => updateCourseFieldValue(index, "hydroStress", value)} onUnitChange={(unit) => updateCourseFieldUnit(index, "hydroStress", unit)} onModeChange={(mode) => switchStressMode(index, "hydro", mode, courseResult.automaticHydroStressMpa)} />
+              <UnitInput label={`Hydrostatic test stress St · C${index + 1}`} field={hydroField} options={pressureUnits} automaticMode={course.hydroStressMode} automaticAvailable={courseResult.automaticHydroStressMpa !== null} help={course.hydroStressMode === "auto" ? `${courseResult.hydroStressRule?.formulaLabel ?? "Master material value"}; selected ${courseResult.automaticHydroStressMpa ?? "unavailable"} MPa. Tap AUTO · EDIT to override.` : courseResult.automaticHydroStressMpa === null ? "The master does not supply an automatic St for this route; enter the controlled manual value." : `Manual St active. Automatic recommendation: ${courseResult.automaticHydroStressMpa} MPa.`} onValueChange={(value) => updateCourseFieldValue(index, "hydroStress", value)} onUnitChange={(unit) => updateCourseFieldUnit(index, "hydroStress", unit)} onModeChange={(mode) => switchStressMode(index, "hydro", mode, courseResult.automaticHydroStressMpa)} />
               <UnitInput label={`As-built thickness · C${index + 1}`} field={course.fields.asBuiltThickness} options={lengthUnits} help="Original/as-built shell course thickness for long-term corrosion rate." onValueChange={(value) => updateCourseFieldValue(index, "asBuiltThickness", value)} onUnitChange={(unit) => updateCourseFieldUnit(index, "asBuiltThickness", unit)} />
               <UnitInput label={`Previous thickness · C${index + 1}`} field={course.fields.previousThickness} options={lengthUnits} help="Measured thickness at the previous inspection." onValueChange={(value) => updateCourseFieldValue(index, "previousThickness", value)} onUnitChange={(unit) => updateCourseFieldUnit(index, "previousThickness", unit)} />
               <UnitInput label={`Current thickness · C${index + 1}`} field={course.fields.actualThickness} options={lengthUnits} help="Current measured shell course thickness used for Ht, operating H, CA, and RL." onValueChange={(value) => updateCourseFieldValue(index, "actualThickness", value)} onUnitChange={(unit) => updateCourseFieldUnit(index, "actualThickness", unit)} />
             </div>
             <div className="shell-course-results"><span><small>H to Top</small><strong>{formatHeight(courseResult.heightToTopM)} {heightUnit}</strong></span><span className={courseResult.minimumThicknessFloorApplied ? "is-warning" : ""}><small>Minimum thickness</small><strong>{formatThickness(courseResult.minimumThicknessMm)} {thicknessUnit}</strong>{courseResult.minimumThicknessFloorApplied && <em>2.50 mm floor</em>}</span><span className={courseResult.hydrostaticHeightAdequate ? "is-good" : "is-alert"}><small>Hydrostatic Ht</small><strong>{formatHeight(courseResult.hydrostaticTestHeightM)} {heightUnit}</strong><em>{courseResult.hydrostaticHeightAdequate ? "At/above top" : "Below top"}</em></span><span className={courseResult.operatingFillHeightAdequate ? "is-good" : "is-alert"}><small>Operating fill H</small><strong>{formatHeight(courseResult.operatingFillHeightM)} {heightUnit}</strong><em>{courseResult.operatingFillHeightAdequate ? "At/above top" : "Below top"}</em></span><span><small>Corrosion allowance</small><strong>{formatThickness(courseResult.corrosionAllowanceMm)} {thicknessUnit}</strong></span><span><small>Long-term rate</small><strong>{formatRate(courseResult.longTermCorrosionRateMmPerYear)} {rateUnit}</strong></span><span><small>Short-term rate</small><strong>{formatRate(courseResult.shortTermCorrosionRateMmPerYear)} {rateUnit}</strong></span><span><small>Governing rate</small><strong>{formatRate(courseResult.governingCorrosionRateMmPerYear)} {rateUnit}</strong></span></div>
-            <div className="shell-course-trace"><p><b>S:</b> {course.productStressMode === "auto" ? `${courseResult.materialLabel} ${courseResult.productStressRule?.formulaLabel ?? "automatic route"}` : "highlighted manual override"} → {formatStress(courseResult.productStressMpaUsed)} {pressureUnit}</p><p><b>St:</b> {course.hydroStressMode === "auto" ? `${courseResult.materialLabel} ${courseResult.hydroStressRule?.formulaLabel ?? "automatic route"}` : "highlighted manual override"} → {formatStress(courseResult.hydroStressMpaUsed)} {pressureUnit}</p><p><b>Tmin:</b> [4.9 × max(H − 0.3, 0) × D × G] ÷ (S × E). <b>RL:</b> (t actual − Tmin) ÷ max(CR long, CR short).</p></div>
+            <div className="shell-course-trace"><p><b>S:</b> {course.productStressMode === "auto" ? `${courseResult.materialLabel} ${courseResult.productStressRule?.formulaLabel ?? "master material value"}` : "highlighted manual override"} → {formatStress(courseResult.productStressMpaUsed)} {pressureUnit}</p><p><b>St:</b> {course.hydroStressMode === "auto" ? `${courseResult.materialLabel} ${courseResult.hydroStressRule?.formulaLabel ?? "master material value"}` : "highlighted manual override"} → {formatStress(courseResult.hydroStressMpaUsed)} {pressureUnit}</p><p><b>Tmin:</b> [4.9 × max(H − 0.3, 0) × D × G] ÷ (S × E). <b>RL:</b> (t actual − Tmin) ÷ max(CR long, CR short).</p></div>
           </article>;
         })}</div>
       </section>
