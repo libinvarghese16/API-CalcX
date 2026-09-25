@@ -88,19 +88,22 @@ function convertedField(field: UnitFieldState, nextUnit: EngineeringUnit): UnitF
   return { ...field, value, unit: nextUnit };
 }
 
-function UnitInput({ label, field, options, help, automaticMode, onValueChange, onUnitChange, onModeChange }: {
+function UnitInput({ label, field, options, help, automaticMode, automaticAvailable = true, onValueChange, onUnitChange, onModeChange }: {
   label: string;
   field: UnitFieldState;
   options: readonly EngineeringUnitOption[];
   help: string;
   automaticMode?: Api653ShellStressMode;
+  automaticAvailable?: boolean;
   onValueChange: (value: string) => void;
   onUnitChange: (unit: EngineeringUnit) => void;
   onModeChange?: (mode: Api653ShellStressMode) => void;
 }) {
   const automatic = automaticMode !== undefined;
+  const modeLabel = automaticMode === "auto" ? "AUTO · EDIT" : automaticAvailable ? "MANUAL" : "MANUAL ONLY";
+  const modeToggleDisabled = automaticMode === "manual" && !automaticAvailable;
   return <label className={`field ${automatic ? "automatic-field" : ""}`}>
-    <span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button>{automatic && <button type="button" className={`field-mode-toggle ${automaticMode}`} onClick={() => onModeChange?.(automaticMode === "auto" ? "manual" : "auto")} aria-label={`Switch ${label} to ${automaticMode === "auto" ? "manual" : "auto"} mode`}>{automaticMode}</button>}</span>
+    <span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button>{automatic && <button type="button" className={`field-mode-toggle ${automaticMode}`} disabled={modeToggleDisabled} onClick={() => onModeChange?.(automaticMode === "auto" ? "manual" : "auto")} aria-label={modeToggleDisabled ? `${label} requires a manual value` : `Switch ${label} to ${automaticMode === "auto" ? "manual" : "auto"} mode`}>{modeLabel}</button>}</span>
     <div className={`number-control ${automatic ? "is-derived" : ""} ${automaticMode === "manual" ? "is-manual" : ""}`}><input aria-label={label} type="number" inputMode="decimal" value={field.value} readOnly={automaticMode === "auto"} onChange={(event) => onValueChange(event.target.value)} /><select className="unit-picker" aria-label={`${label} unit`} value={field.unit} onChange={(event) => onUnitChange(event.target.value as EngineeringUnit)}>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
     <small>{help}</small>
   </label>;
@@ -187,15 +190,20 @@ export function Api653ShellCourseCalculator({ onBack }: { onBack: () => void }) 
     return { ...course, fields, [kind === "product" ? "productStressMode" : "hydroStressMode"]: mode };
   });
   const selectMaterial = (index: number, materialId: string) => updateCourse(index, (course) => {
-    if (materialId !== "Known") return { ...course, materialId, productStressMode: "auto", hydroStressMode: "auto" };
+    const selectedMaterial = materials.find((material) => material.id === materialId);
+    const lowerCourse = index < 2;
+    const automaticProductStress = lowerCourse ? selectedMaterial?.productStressLowerMpa : selectedMaterial?.productStressUpperMpa;
+    const automaticHydroStress = lowerCourse ? selectedMaterial?.hydroStressLowerMpa : selectedMaterial?.hydroStressUpperMpa;
+    const productStressMode: Api653ShellStressMode = typeof automaticProductStress === "number" && Number.isFinite(automaticProductStress) ? "auto" : "manual";
+    const hydroStressMode: Api653ShellStressMode = typeof automaticHydroStress === "number" && Number.isFinite(automaticHydroStress) ? "auto" : "manual";
     const courseResult = result.courses[index];
-    const productField = courseResult?.automaticProductStressMpa !== null && courseResult?.automaticProductStressMpa !== undefined
+    const productField = productStressMode === "manual" && course.productStressMode === "auto" && courseResult?.automaticProductStressMpa !== null && courseResult?.automaticProductStressMpa !== undefined
       ? { ...course.fields.productStress, value: formatInput(convertSIToUnit(courseResult.automaticProductStressMpa, "pressure", course.fields.productStress.unit)) }
       : course.fields.productStress;
-    const hydroField = courseResult?.automaticHydroStressMpa !== null && courseResult?.automaticHydroStressMpa !== undefined
+    const hydroField = hydroStressMode === "manual" && course.hydroStressMode === "auto" && courseResult?.automaticHydroStressMpa !== null && courseResult?.automaticHydroStressMpa !== undefined
       ? { ...course.fields.hydroStress, value: formatInput(convertSIToUnit(courseResult.automaticHydroStressMpa, "pressure", course.fields.hydroStress.unit)) }
       : course.fields.hydroStress;
-    return { ...course, materialId, productStressMode: "manual", hydroStressMode: "manual", fields: { ...course.fields, productStress: productField, hydroStress: hydroField } };
+    return { ...course, materialId, productStressMode, hydroStressMode, fields: { ...course.fields, productStress: productField, hydroStress: hydroField } };
   });
 
   const changeUnitSystem = (nextSystem: UnitSystem) => {
@@ -235,7 +243,7 @@ export function Api653ShellCourseCalculator({ onBack }: { onBack: () => void }) 
     try {
       await copyShellCourseTable(result.courses.map((course) => ({
         courseIndex: course.courseIndex,
-        materialSpecification: course.materialId,
+        materialSpecification: course.materialLabel,
         courseHeightM: course.courseHeightMUsed,
         heightToTopM: course.heightToTopM,
         allowableProductStressMpa: course.productStressMpaUsed,
@@ -286,10 +294,10 @@ export function Api653ShellCourseCalculator({ onBack }: { onBack: () => void }) 
           const hydroField = course.hydroStressMode === "auto" ? automaticHydroField : course.fields.hydroStress;
           const courseManual = course.productStressMode === "manual" || course.hydroStressMode === "manual";
           return <article className={`shell-course-card ${courseManual ? "has-manual" : ""}`} key={`shell-course-${index + 1}`}><div className="shell-course-header"><div><span>{String(index + 1).padStart(2, "0")}</span><div><p>Shell course {index + 1}</p><small>{index < 2 ? "Lower-two-course stress route" : "Upper-course stress route"}</small></div></div><div className="shell-course-header-result"><span>Remaining life</span><strong>{lifeDisplay(courseResult.remainingLifeYears)} yr</strong></div></div>
-            <div className="shell-course-inputs"><label className="field"><span>Material specification<button type="button" title="Material selection controls the automatic S and St recommendations." aria-label={`Shell course ${index + 1} material help`}>?</button></span><select className="select-control shell-select-input" aria-label={`Shell course ${index + 1} material specification`} value={course.materialId} onChange={(event) => selectMaterial(index, event.target.value)}>{materials.map((material) => <option key={material.id} value={material.id}>{material.label}</option>)}</select><small>Known material keeps S and St in highlighted manual mode.</small></label>
+            <div className="shell-course-inputs"><label className="field"><span>Material specification<button type="button" title="Material selection controls the automatic S and St recommendations." aria-label={`Shell course ${index + 1} material help`}>?</button></span><select className="select-control shell-select-input" aria-label={`Shell course ${index + 1} material specification`} value={course.materialId} onChange={(event) => selectMaterial(index, event.target.value)}>{materials.map((material) => <option key={material.id} value={material.id}>{material.label}</option>)}</select><small>All 35 master materials are available. Tap AUTO · EDIT beside S or St to enter a highlighted manual value.</small></label>
               <UnitInput label={`Course ${index + 1} height`} field={course.fields.courseHeight} options={lengthUnits} help="Height of this course; preceding course heights set upper-course H to Top." onValueChange={(value) => updateCourseFieldValue(index, "courseHeight", value)} onUnitChange={(unit) => updateCourseFieldUnit(index, "courseHeight", unit)} />
-              <UnitInput label={`Allowable product stress S · C${index + 1}`} field={productField} options={pressureUnits} automaticMode={course.productStressMode} help={course.productStressMode === "auto" ? `${courseResult.productStressRule?.formulaLabel ?? "Material route"}; selected ${courseResult.automaticProductStressMpa ?? "unavailable"} MPa.` : `Manual S active. Automatic recommendation: ${courseResult.automaticProductStressMpa ?? "unavailable"} MPa.`} onValueChange={(value) => updateCourseFieldValue(index, "productStress", value)} onUnitChange={(unit) => updateCourseFieldUnit(index, "productStress", unit)} onModeChange={(mode) => switchStressMode(index, "product", mode, courseResult.automaticProductStressMpa)} />
-              <UnitInput label={`Hydrostatic test stress St · C${index + 1}`} field={hydroField} options={pressureUnits} automaticMode={course.hydroStressMode} help={course.hydroStressMode === "auto" ? `${courseResult.hydroStressRule?.formulaLabel ?? "Material route"}; selected ${courseResult.automaticHydroStressMpa ?? "unavailable"} MPa.` : `Manual St active. Automatic recommendation: ${courseResult.automaticHydroStressMpa ?? "unavailable"} MPa.`} onValueChange={(value) => updateCourseFieldValue(index, "hydroStress", value)} onUnitChange={(unit) => updateCourseFieldUnit(index, "hydroStress", unit)} onModeChange={(mode) => switchStressMode(index, "hydro", mode, courseResult.automaticHydroStressMpa)} />
+              <UnitInput label={`Allowable product stress S · C${index + 1}`} field={productField} options={pressureUnits} automaticMode={course.productStressMode} automaticAvailable={courseResult.automaticProductStressMpa !== null} help={course.productStressMode === "auto" ? `${courseResult.productStressRule?.formulaLabel ?? "Material route"}; selected ${courseResult.automaticProductStressMpa ?? "unavailable"} MPa. Tap AUTO · EDIT to override.` : courseResult.automaticProductStressMpa === null ? "The master does not supply an automatic S for this route; enter the controlled manual value." : `Manual S active. Automatic recommendation: ${courseResult.automaticProductStressMpa} MPa.`} onValueChange={(value) => updateCourseFieldValue(index, "productStress", value)} onUnitChange={(unit) => updateCourseFieldUnit(index, "productStress", unit)} onModeChange={(mode) => switchStressMode(index, "product", mode, courseResult.automaticProductStressMpa)} />
+              <UnitInput label={`Hydrostatic test stress St · C${index + 1}`} field={hydroField} options={pressureUnits} automaticMode={course.hydroStressMode} automaticAvailable={courseResult.automaticHydroStressMpa !== null} help={course.hydroStressMode === "auto" ? `${courseResult.hydroStressRule?.formulaLabel ?? "Material route"}; selected ${courseResult.automaticHydroStressMpa ?? "unavailable"} MPa. Tap AUTO · EDIT to override.` : courseResult.automaticHydroStressMpa === null ? "The master does not supply an automatic St for this route; enter the controlled manual value." : `Manual St active. Automatic recommendation: ${courseResult.automaticHydroStressMpa} MPa.`} onValueChange={(value) => updateCourseFieldValue(index, "hydroStress", value)} onUnitChange={(unit) => updateCourseFieldUnit(index, "hydroStress", unit)} onModeChange={(mode) => switchStressMode(index, "hydro", mode, courseResult.automaticHydroStressMpa)} />
               <UnitInput label={`As-built thickness · C${index + 1}`} field={course.fields.asBuiltThickness} options={lengthUnits} help="Original/as-built shell course thickness for long-term corrosion rate." onValueChange={(value) => updateCourseFieldValue(index, "asBuiltThickness", value)} onUnitChange={(unit) => updateCourseFieldUnit(index, "asBuiltThickness", unit)} />
               <UnitInput label={`Previous thickness · C${index + 1}`} field={course.fields.previousThickness} options={lengthUnits} help="Measured thickness at the previous inspection." onValueChange={(value) => updateCourseFieldValue(index, "previousThickness", value)} onUnitChange={(unit) => updateCourseFieldUnit(index, "previousThickness", unit)} />
               <UnitInput label={`Current thickness · C${index + 1}`} field={course.fields.actualThickness} options={lengthUnits} help="Current measured shell course thickness used for Ht, operating H, CA, and RL." onValueChange={(value) => updateCourseFieldValue(index, "actualThickness", value)} onUnitChange={(unit) => updateCourseFieldUnit(index, "actualThickness", unit)} />

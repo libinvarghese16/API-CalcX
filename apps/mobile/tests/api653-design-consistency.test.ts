@@ -60,6 +60,23 @@ test("keeps every Other 4.3.2 automatic dependency editable, highlighted, and un
   assert.match(other432Source, /Pit dimension sum in 200 mm band/);
 });
 
+test("keeps both Shell stresses explicitly editable and preserves separate S and St state", () => {
+  assert.match(shellSource, /AUTO · EDIT/);
+  assert.match(shellSource, /Allowable product stress S · C/);
+  assert.match(shellSource, /Hydrostatic test stress St · C/);
+  assert.match(shellSource, /updateCourseFieldValue\(index, "productStress", value\)/);
+  assert.match(shellSource, /updateCourseFieldValue\(index, "hydroStress", value\)/);
+  assert.match(shellSource, /productStressMode/);
+  assert.match(shellSource, /hydroStressMode/);
+  assert.match(shellSource, /automaticAvailable=\{courseResult\.automaticProductStressMpa !== null\}/);
+  assert.match(shellSource, /automaticAvailable=\{courseResult\.automaticHydroStressMpa !== null\}/);
+  assert.match(shellSource, /productStressMode === "manual" && course\.productStressMode === "auto"/);
+  assert.match(shellSource, /hydroStressMode === "manual" && course\.hydroStressMode === "auto"/);
+  assert.match(shellSource, /MANUAL ONLY/);
+  assert.match(shellSource, /All 35 master materials are available/);
+  assert.match(shellSource, /className=\{`number-control \$\{automatic \? "is-derived" : ""\} \$\{automaticMode === "manual" \? "is-manual" : ""\}`\}/);
+});
+
 test("keeps both Roof inspection periods editable and mixed-unit aware", () => {
   assert.match(roofSource, /DerivedYearsInput label="Years in service"/);
   assert.match(roofSource, /DerivedYearsInput label="Years since previous inspection"/);

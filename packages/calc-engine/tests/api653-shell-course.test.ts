@@ -27,7 +27,7 @@ test("matches the protected three-course Shell golden case", () => {
 
   assert.equal(result.ok, true);
   assert.equal(result.engineId, "api653.shell-course");
-  assert.equal(result.engineVersion, "0.1.0-original-web-parity");
+  assert.equal(result.engineVersion, "0.2.0-master-material-parity");
   assert.equal(result.courses.length, 3);
 
   const [course1, course2, course3] = result.courses;
@@ -72,6 +72,69 @@ test("preserves lower-two-course and upper-course automatic material stress rout
   assert.equal(upper.hydroStressRule?.formulaLabel, "min(0.9Y, 0.519T)");
   approximately(upper.hydroStressRule?.rawStressMpa ?? 0, 207.6);
   assert.ok(listApi653ShellMaterials().some((material) => material.id === "A36"));
+});
+
+test("matches all 35 material specification choices in the supplied master shell dropdown", () => {
+  assert.deepEqual(listApi653ShellMaterials().map((material) => material.label), [
+    "A 283-C",
+    "A285-C",
+    "A36",
+    "A131-A, B, CS",
+    "A131-EH 36",
+    "A573-58",
+    "A573-65",
+    "A573-70",
+    "A516-55",
+    "A516-60",
+    "A516-65",
+    "A516-70",
+    "A662-B",
+    "A662-C",
+    "A537-Class 1",
+    "A537-Class 2",
+    "A633-C, D",
+    "A678-A",
+    "A678-B",
+    "A737-B",
+    "A841",
+    "A10 (Note 1)",
+    "A7 (Note 1)",
+    "A442-55 (Note 1)",
+    "A442-60 (Note 1)",
+    "G40.21, 38W",
+    "G40.21, 44W (Note 7)",
+    "G40.21, 44W (Note 8)",
+    "G40.21, 50W",
+    "G40.21, 50WT (Note 7)",
+    "G.40.21, 50WT (Note 8)",
+    "Unknown (Note 2)",
+    "A7, A9 or A10 (Note 1, Note 3)",
+    "Known (Note 4)",
+    "Unknown (Note 5)",
+  ]);
+});
+
+test("uses the master riveted product stress and requires a controlled manual hydro stress", () => {
+  const result = calculateApi653ShellAssessment({
+    ...goldenInput,
+    courses: [{
+      ...goldenInput.courses[0]!,
+      materialId: "A7-A9-A10-riveted",
+      productStressMode: "auto",
+      hydroStressMode: "manual",
+      manualHydroStressMpa: 180,
+    }],
+  });
+  const course = result.courses[0];
+  assert.ok(course);
+
+  assert.equal(result.ok, true);
+  assert.equal(course.materialLabel, "A7, A9 or A10 (Note 1, Note 3)");
+  assert.equal(course.automaticProductStressMpa, 145);
+  assert.equal(course.productStressMpaUsed, 145);
+  assert.equal(course.automaticHydroStressMpa, null);
+  assert.equal(course.hydroStressMpaUsed, 180);
+  approximately(course.minimumThicknessMm, 23.221825557809332);
 });
 
 test("keeps hydrotest height independent of product specific gravity", () => {

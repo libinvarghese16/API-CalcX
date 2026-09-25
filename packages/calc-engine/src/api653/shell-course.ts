@@ -9,10 +9,10 @@ import type {
 } from "../contracts.ts";
 
 const ENGINE_ID = "api653.shell-course" as const;
-const ENGINE_VERSION = "0.1.0-original-web-parity" as const;
+const ENGINE_VERSION = "0.2.0-master-material-parity" as const;
 
 const SHELL_MATERIALS: readonly Api653ShellMaterialRecord[] = [
-  { id: "A283-C", label: "A283-C", yieldStressMpa: 205, tensileStressMpa: 380, productStressLowerMpa: 163, productStressUpperMpa: 179, hydroStressLowerMpa: 179, hydroStressUpperMpa: 186 },
+  { id: "A283-C", label: "A 283-C", yieldStressMpa: 205, tensileStressMpa: 380, productStressLowerMpa: 163, productStressUpperMpa: 179, hydroStressLowerMpa: 179, hydroStressUpperMpa: 186 },
   { id: "A285-C", label: "A285-C", yieldStressMpa: 205, tensileStressMpa: 380, productStressLowerMpa: 163, productStressUpperMpa: 179, hydroStressLowerMpa: 179, hydroStressUpperMpa: 186 },
   { id: "A36", label: "A36", yieldStressMpa: 250, tensileStressMpa: 400, productStressLowerMpa: 172, productStressUpperMpa: 189, hydroStressLowerMpa: 189, hydroStressUpperMpa: 208 },
   { id: "A131-A,B,CS", label: "A131-A, B, CS", yieldStressMpa: 235, tensileStressMpa: 400, productStressLowerMpa: 172, productStressUpperMpa: 189, hydroStressLowerMpa: 189, hydroStressUpperMpa: 208 },
@@ -33,18 +33,20 @@ const SHELL_MATERIALS: readonly Api653ShellMaterialRecord[] = [
   { id: "A678-B", label: "A678-B", yieldStressMpa: 415, tensileStressMpa: 550, productStressLowerMpa: 236, productStressUpperMpa: 261, hydroStressLowerMpa: 261, hydroStressUpperMpa: 286 },
   { id: "A737-B", label: "A737-B", yieldStressMpa: 345, tensileStressMpa: 485, productStressLowerMpa: 207, productStressUpperMpa: 228, hydroStressLowerMpa: 228, hydroStressUpperMpa: 250 },
   { id: "A841", label: "A841", yieldStressMpa: 345, tensileStressMpa: 485, productStressLowerMpa: 207, productStressUpperMpa: 228, hydroStressLowerMpa: 228, hydroStressUpperMpa: 250 },
-  { id: "A10", label: "A10 a", yieldStressMpa: 205, tensileStressMpa: 380, productStressLowerMpa: 163, productStressUpperMpa: 179, hydroStressLowerMpa: 179, hydroStressUpperMpa: 186 },
-  { id: "A7", label: "A7 a", yieldStressMpa: 228, tensileStressMpa: 415, productStressLowerMpa: 177, productStressUpperMpa: 195, hydroStressLowerMpa: 195, hydroStressUpperMpa: 205 },
-  { id: "A442-55", label: "A442-55 a", yieldStressMpa: 205, tensileStressMpa: 380, productStressLowerMpa: 163, productStressUpperMpa: 179, hydroStressLowerMpa: 179, hydroStressUpperMpa: 186 },
-  { id: "A442-60", label: "A442-60 a", yieldStressMpa: 220, tensileStressMpa: 415, productStressLowerMpa: 176, productStressUpperMpa: 194, hydroStressLowerMpa: 194, hydroStressUpperMpa: 199 },
+  { id: "A10", label: "A10 (Note 1)", yieldStressMpa: 205, tensileStressMpa: 380, productStressLowerMpa: 163, productStressUpperMpa: 179, hydroStressLowerMpa: 179, hydroStressUpperMpa: 186 },
+  { id: "A7", label: "A7 (Note 1)", yieldStressMpa: 228, tensileStressMpa: 415, productStressLowerMpa: 177, productStressUpperMpa: 195, hydroStressLowerMpa: 195, hydroStressUpperMpa: 205 },
+  { id: "A442-55", label: "A442-55 (Note 1)", yieldStressMpa: 205, tensileStressMpa: 380, productStressLowerMpa: 163, productStressUpperMpa: 179, hydroStressLowerMpa: 179, hydroStressUpperMpa: 186 },
+  { id: "A442-60", label: "A442-60 (Note 1)", yieldStressMpa: 220, tensileStressMpa: 415, productStressLowerMpa: 176, productStressUpperMpa: 194, hydroStressLowerMpa: 194, hydroStressUpperMpa: 199 },
   { id: "G40.21 38W", label: "G40.21, 38W", yieldStressMpa: 260, tensileStressMpa: 410, productStressLowerMpa: 177, productStressUpperMpa: 195, hydroStressLowerMpa: 195, hydroStressUpperMpa: 214 },
-  { id: "G40.21 44W g", label: "G40.21, 44W g", yieldStressMpa: 300, tensileStressMpa: 450, productStressLowerMpa: 192, productStressUpperMpa: 212, hydroStressLowerMpa: 212, hydroStressUpperMpa: 232 },
-  { id: "G40.21 44W h", label: "G40.21, 44W h", yieldStressMpa: 300, tensileStressMpa: 440, productStressLowerMpa: 189, productStressUpperMpa: 208, hydroStressLowerMpa: 212, hydroStressUpperMpa: 229 },
+  { id: "G40.21 44W g", label: "G40.21, 44W (Note 7)", yieldStressMpa: 300, tensileStressMpa: 450, productStressLowerMpa: 192, productStressUpperMpa: 212, hydroStressLowerMpa: 212, hydroStressUpperMpa: 232 },
+  { id: "G40.21 44W h", label: "G40.21, 44W (Note 8)", yieldStressMpa: 300, tensileStressMpa: 440, productStressLowerMpa: 189, productStressUpperMpa: 208, hydroStressLowerMpa: 212, hydroStressUpperMpa: 229 },
   { id: "G40.21 50W", label: "G40.21, 50W", yieldStressMpa: 345, tensileStressMpa: 450, productStressLowerMpa: 192, productStressUpperMpa: 212, hydroStressLowerMpa: 212, hydroStressUpperMpa: 232 },
-  { id: "G40.21 50WT g", label: "G40.21, 50WT g", yieldStressMpa: 345, tensileStressMpa: 485, productStressLowerMpa: 207, productStressUpperMpa: 228, hydroStressLowerMpa: 228, hydroStressUpperMpa: 250 },
-  { id: "G40.21 50WT h", label: "G40.21, 50WT h", yieldStressMpa: 345, tensileStressMpa: 450, productStressLowerMpa: 192, productStressUpperMpa: 212, hydroStressLowerMpa: 212, hydroStressUpperMpa: 232 },
+  { id: "G40.21 50WT g", label: "G40.21, 50WT (Note 7)", yieldStressMpa: 345, tensileStressMpa: 485, productStressLowerMpa: 207, productStressUpperMpa: 228, hydroStressLowerMpa: 228, hydroStressUpperMpa: 250 },
+  { id: "G40.21 50WT h", label: "G.40.21, 50WT (Note 8)", yieldStressMpa: 345, tensileStressMpa: 450, productStressLowerMpa: 192, productStressUpperMpa: 212, hydroStressLowerMpa: 212, hydroStressUpperMpa: 232 },
   { id: "Unknown", label: "Unknown (Note 2)", yieldStressMpa: 205, tensileStressMpa: 380, productStressLowerMpa: 163, productStressUpperMpa: 179, hydroStressLowerMpa: 179, hydroStressUpperMpa: 186 },
-  { id: "Known", label: "Known" },
+  { id: "A7-A9-A10-riveted", label: "A7, A9 or A10 (Note 1, Note 3)", productStressLowerMpa: 145, productStressUpperMpa: 145 },
+  { id: "Known", label: "Known (Note 4)" },
+  { id: "Unknown-riveted", label: "Unknown (Note 5)", productStressLowerMpa: 145, productStressUpperMpa: 145 },
 ] as const;
 
 function positiveIssue(field: Api653ShellCourseField, value: number, label: string): CalculationIssue | null {

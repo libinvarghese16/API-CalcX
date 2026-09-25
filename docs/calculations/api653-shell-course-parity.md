@@ -30,7 +30,18 @@ The protected script also contains `updateShellLocalArea`, but the current prote
 - `CA = t actual − tmin`.
 - `RL = CA ÷ CR governing` when allowance and corrosion rate are positive. Positive allowance with a zero governing rate retains the protected infinite-life display.
 
-Lower courses 1 and 2 use the protected lower-course material values and background stress routes. Course 3 and above use the upper-course routes. Named materials provide automatic S and St values. Every automatic stress remains manually editable and highlighted. The `Known` material route starts in manual mode because no numeric recommendation is available.
+Lower courses 1 and 2 use the protected lower-course material values and background stress routes. Course 3 and above use the upper-course routes. Welded named-material routes provide automatic S and St values. Every automatic stress remains manually editable and highlighted. A stress starts in manual mode when the supplied master route has no numeric recommendation.
+
+## Master material catalogue parity update
+
+Rechecked on 25 September 2026 against the user-supplied `API_CALC_MASTER_FILE 30.01.2026.html` Shell material selector.
+
+- The mobile selector now contains all 35 master choices in the same order and with the same visible note labels.
+- The two previously absent riveted routes are `A7, A9 or A10 (Note 1, Note 3)` and `Unknown (Note 5)`.
+- Both riveted routes use the master product-stress value of 21,000 psi, converted and rounded to 145 MPa, for lower and upper courses.
+- The supplied master does not define a separate hydrostatic-test stress for those riveted routes. Their `St` field therefore opens in highlighted manual mode instead of inventing an automatic value.
+- Every `S` and `St` field has an explicit `AUTO · EDIT` control. Switching to manual retains the current recommendation as the editable starting value and immediately recalculates the shared result object.
+- Catalogue order, labels, and the two 145 MPa product-stress routes are asserted with zero displayed-value tolerance. Existing numerical regression cases retain the engine tolerance of `1e-12` unless a unit-conversion test explicitly uses `1e-10`.
 
 ## Controlled Metric golden case
 

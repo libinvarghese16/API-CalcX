@@ -633,6 +633,11 @@ button:focus-visible, input:focus-visible { outline: 3px solid color-mix(in srgb
   background: var(--warning-soft);
 }
 
+.field > span .field-mode-toggle:disabled {
+  cursor: default;
+  opacity: .82;
+}
+
 .form-note.is-manual {
   border-color: color-mix(in srgb, var(--warning) 36%, var(--line));
   color: var(--warning);
