@@ -1,4 +1,16 @@
 import type {
+  Api653AnnularPlateInputSI,
+  Api653AnnularPlateResultSI,
+  Api653BottomPlateInputSI,
+  Api653BottomPlateResultSI,
+  Api653NozzleAssessmentInputSI,
+  Api653NozzleAssessmentResultSI,
+  Api653Other432InputSI,
+  Api653Other432ResultSI,
+  Api653RoofPlateInputSI,
+  Api653RoofPlateResultSI,
+  Api653ShellAssessmentInputSI,
+  Api653ShellAssessmentResultSI,
   Api570PipingCode,
   Api570PipingInputSI,
   Api570PipingResultSI,
@@ -376,6 +388,49 @@ export interface SavedApi570Calculation {
   updatedAt: string;
 }
 
+export type Api653CalculatorId = "bottom-plate" | "annular-plate" | "shell-course" | "nozzle" | "roof-plate" | "other-4-3-2";
+
+export type Api653EngineInput =
+  | Api653BottomPlateInputSI
+  | Api653AnnularPlateInputSI
+  | Api653ShellAssessmentInputSI
+  | Api653NozzleAssessmentInputSI
+  | Api653RoofPlateInputSI
+  | Api653Other432InputSI;
+
+export type Api653ResultSnapshot =
+  | Api653BottomPlateResultSI
+  | Api653AnnularPlateResultSI
+  | Api653ShellAssessmentResultSI
+  | Api653NozzleAssessmentResultSI
+  | Api653RoofPlateResultSI
+  | Api653Other432ResultSI;
+
+export interface Api653InputSnapshot {
+  calculatorId: Api653CalculatorId;
+  unitSystem: UnitSystem;
+  /** Exact editable UI state used to reopen the record for recalculation. */
+  formState: Record<string, unknown>;
+  /** Normalized SI values supplied to the calculation engine. */
+  engineInput: Api653EngineInput;
+}
+
+export interface SavedApi653Calculation {
+  id: string;
+  projectId: string;
+  standard: "API 653";
+  calculatorId: Api653CalculatorId;
+  assetTag: string;
+  assetName: string;
+  title: string;
+  status: CalculationWorkflowStatus;
+  workflow: CalculationWorkflow;
+  inputs: Api653InputSnapshot;
+  result: Api653ResultSnapshot;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface LocalEquipment {
   id: string;
   tag: string;
@@ -395,6 +450,7 @@ export interface LocalProject {
   status: "active" | "archived";
   equipment: LocalEquipment[];
   api570Calculations: SavedApi570Calculation[];
+  api653Calculations: SavedApi653Calculation[];
   createdAt: string;
   updatedAt: string;
 }
@@ -477,6 +533,36 @@ export interface ReviewApi570CalculationInput {
 }
 
 export interface ApproveApi570CalculationInput {
+  projectId: string;
+  calculationId: string;
+  approverName: string;
+  approvalNotes?: string;
+  fingerprint: string;
+}
+
+export interface SaveApi653CalculationInput {
+  projectId: string;
+  calculationId?: string;
+  calculatorId: Api653CalculatorId;
+  assetTag: string;
+  assetName?: string;
+  title: string;
+  status: "draft";
+  preparedBy: string;
+  changeNote?: string;
+  inputs: Api653InputSnapshot;
+  result: Api653ResultSnapshot;
+}
+
+export interface ReviewApi653CalculationInput {
+  projectId: string;
+  calculationId: string;
+  reviewerName: string;
+  reviewNotes?: string;
+  fingerprint: string;
+}
+
+export interface ApproveApi653CalculationInput {
   projectId: string;
   calculationId: string;
   approverName: string;

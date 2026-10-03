@@ -23,6 +23,7 @@ import type {
 } from "@api-calc-pro/calc-engine";
 import { ArrowLeft, Check, CircleCheck, Clipboard, Gauge, Info, Layers3, Minus, Plus, RotateCcw, ShieldCheck, TriangleAlert } from "lucide-react";
 import { formatDisplayNumber } from "../display-precision.ts";
+import type { Api653InputSnapshot } from "../local-data/models.ts";
 import {
   readApi653ShellDraft,
   writeApi653ShellDraft,
@@ -35,6 +36,8 @@ import type {
   ShellUnitFieldState as UnitFieldState,
 } from "./shell-course-draft.ts";
 import { copyShellCourseTable } from "./shell-course-copy.ts";
+import { Api653RecordWorkflow } from "./Api653RecordWorkflow.tsx";
+import type { Api653CalculatorWorkflowProps, Api653WorkflowReportDefinition } from "./Api653RecordWorkflow.tsx";
 
 const lengthUnits = listEngineeringUnitOptions("length");
 const pressureUnits = listEngineeringUnitOptions("pressure");
@@ -122,8 +125,12 @@ function lifeDisplay(value: number): string {
   return value === Infinity ? "∞" : formatDisplayNumber(value);
 }
 
-export function Api653ShellCourseCalculator({ onBack }: { onBack: () => void }) {
-  const [initialDraft] = useState(() => readApi653ShellDraft(window.localStorage));
+export function Api653ShellCourseCalculator({ onBack, projects, initialCalculation, onSave, onReview, onApprove, onNeedProject, notify }: Api653CalculatorWorkflowProps & { onBack: () => void }) {
+  const [initialDraft] = useState(() => {
+    const stored = readApi653ShellDraft(window.localStorage);
+    const saved = initialCalculation?.calculatorId === "shell-course" ? initialCalculation.inputs.formState as Partial<Api653ShellDraft> : null;
+    return saved ? { ...stored, ...saved, version: 1 } as Api653ShellDraft : stored;
+  });
   const [unitSystem, setUnitSystem] = useState<UnitSystem>(initialDraft?.unitSystem ?? "metric");
   const [diameter, setDiameter] = useState<UnitFieldState>(() => initialDraft?.diameter ?? { value: "30", unit: "m", quantity: "length" });
   const [height, setHeight] = useState<UnitFieldState>(() => initialDraft?.height ?? { value: "18", unit: "m", quantity: "length" });
@@ -138,6 +145,7 @@ export function Api653ShellCourseCalculator({ onBack }: { onBack: () => void }) 
   const [courses, setCourses] = useState<CourseState[]>(() => initialDraft?.courses ?? [makeCourse(1), makeCourse(2), makeCourse(3)]);
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
   const [draftSaveState, setDraftSaveState] = useState<"saved" | "error">("saved");
+  const [recalculationRevision, setRecalculationRevision] = useState(0);
 
   useEffect(() => {
     const draft: Api653ShellDraft = {
@@ -184,7 +192,7 @@ export function Api653ShellCourseCalculator({ onBack }: { onBack: () => void }) 
       actualThicknessMm: unitValue(course.fields.actualThickness),
     })),
   }), [courses, diameter, height, jointEfficiency, specificGravity, yearsInService, yearsSincePreviousInspection]);
-  const result = useMemo(() => calculateApi653ShellAssessment(input), [input]);
+  const result = useMemo(() => calculateApi653ShellAssessment(input), [input, recalculationRevision]);
   const error = result.issues.find((issue) => issue.severity === "error");
   const warning = result.issues.find((issue) => issue.severity === "warning");
   const manualOverrideActive = serviceYearsMode === "manual" || inspectionYearsMode === "manual" || courses.some((course) => course.productStressMode === "manual" || course.hydroStressMode === "manual");
@@ -286,8 +294,40 @@ export function Api653ShellCourseCalculator({ onBack }: { onBack: () => void }) 
     }
   };
 
+  const inputSnapshot = useMemo<Api653InputSnapshot>(() => ({ calculatorId: "shell-course", unitSystem, formState: { version: 1, unitSystem, diameter, height, specificGravity, jointEfficiency, buildYear, previousInspectionYear, serviceYearsMode, inspectionYearsMode, manualServiceYears, manualInspectionYears, courses }, engineInput: input }), [buildYear, courses, diameter, height, input, inspectionYearsMode, jointEfficiency, manualInspectionYears, manualServiceYears, previousInspectionYear, serviceYearsMode, specificGravity, unitSystem]);
+  const reportDefinition: Api653WorkflowReportDefinition = {
+    reportKind: "Shell course calculation report",
+    basisTitle: "Tank and shell design basis",
+    inspectionTitle: "Course inspection history",
+    summaryLines: [
+      `Assessed shell courses: ${result.courses.length}`,
+      `Governing remaining life: ${lifeDisplay(result.minimumRemainingLifeYears)} yr`,
+      `Maximum corrosion rate: ${formatRate(result.maximumCorrosionRateMmPerYear)} ${rateUnit}`,
+      `Limiting operating fill height: ${formatHeight(result.limitingOperatingFillHeightM)} ${heightUnit}`,
+    ],
+    basisRows: [
+      { label: "Tank diameter", value: `${formatHeight(result.diameterMUsed)} ${heightUnit}` },
+      { label: "Tank height", value: `${formatHeight(result.totalHeightMUsed)} ${heightUnit}` },
+      { label: "Specific gravity", value: formatDisplayNumber(result.specificGravityUsed) },
+      { label: "Joint efficiency", value: formatDisplayNumber(result.jointEfficiencyUsed) },
+    ],
+    inspectionRows: [
+      { label: "Years in service", value: `${formatDisplayNumber(result.yearsInServiceUsed)} yr` },
+      { label: "Years since previous inspection", value: `${formatDisplayNumber(result.yearsSincePreviousInspectionUsed)} yr` },
+      { label: "Course count", value: String(result.courses.length) },
+      { label: "Governing course", value: result.governingRemainingLifeCourseIndex ? `Course ${result.governingRemainingLifeCourseIndex}` : "—" },
+    ],
+    resultRows: [
+      { label: "Governing remaining life", value: `${lifeDisplay(result.minimumRemainingLifeYears)} yr`, primary: true },
+      { label: "Governing minimum thickness", value: result.governingRemainingLifeCourseIndex ? `${formatThickness(result.courses[result.governingRemainingLifeCourseIndex - 1]?.minimumThicknessMm ?? 0)} ${thicknessUnit}` : "—", primary: true },
+      { label: "Maximum corrosion rate", value: `${formatRate(result.maximumCorrosionRateMmPerYear)} ${rateUnit}` },
+      { label: "Limiting operating fill", value: `${formatHeight(result.limitingOperatingFillHeightM)} ${heightUnit}` },
+      ...result.courses.map((course) => ({ label: `Course ${course.courseIndex}`, value: `tmin ${formatThickness(course.minimumThicknessMm)} ${thicknessUnit} · RL ${lifeDisplay(course.remainingLifeYears)} yr` })),
+    ],
+  };
+
   return <div className="calculator-page api653-shell-page">
-    <header className="calculator-header"><button className="back-button" onClick={onBack}><ArrowLeft size={16} /> API 653 library</button><div className="calculator-heading-row"><div><p className="eyebrow">API 653 · Shell integrity · Calculator 3 of 6</p><h1>Shell course assessment</h1><p>Course minimum thickness, hydrostatic and operating heights, corrosion rates, and remaining life.</p></div><div className="calculator-actions"><span className="save-state-badge"><CircleCheck size={14} /> Original-web parity</span><span className="save-state-badge"><CircleCheck size={14} /> {draftSaveState === "saved" ? "Saved locally" : "Local save failed"}</span><button className="secondary-button" onClick={() => void copyCourseTable()} disabled={!result.courses.length} aria-label="Copy all shell courses as a formatted table">{copyState === "copied" ? <Check size={16} /> : <Clipboard size={16} />} {copyState === "copied" ? "Copied" : copyState === "error" ? "Copy failed" : "Copy table"}</button><button className="secondary-button" onClick={reset}><RotateCcw size={16} /> Reset</button></div></div><div className="step-line" aria-label="Calculation workflow"><button className="complete"><b>1</b> Basis</button><i /><button className="complete"><b>2</b> Inspection</button><i /><button className="active"><b>3</b> Results</button></div></header>
+    <header className="calculator-header"><button className="back-button" onClick={onBack}><ArrowLeft size={16} /> API 653 library</button><div className="calculator-heading-row"><div><p className="eyebrow">API 653 · Shell integrity · Calculator 3 of 6</p><h1>Shell course assessment</h1><p>Course minimum thickness, hydrostatic and operating heights, corrosion rates, and remaining life.</p></div><div className="calculator-actions"><span className="save-state-badge"><CircleCheck size={14} /> Original-web parity</span><span className="save-state-badge"><CircleCheck size={14} /> {draftSaveState === "saved" ? "Saved locally" : "Local save failed"}</span><Api653RecordWorkflow calculatorId="shell-course" calculatorLabel="Shell Course" defaultAssetTag="TK-101" defaultAssetName="Storage tank" defaultTitle="API 653 shell course assessment" reportDefinition={reportDefinition} inputSnapshot={inputSnapshot} result={result} onRecalculate={() => setRecalculationRevision((value) => value + 1)} record={initialCalculation} projects={projects} onSave={onSave} onReview={onReview} onApprove={onApprove} onNeedProject={onNeedProject} notify={notify} /><button className="secondary-button" onClick={() => void copyCourseTable()} disabled={!result.courses.length} aria-label="Copy all shell courses as a formatted table">{copyState === "copied" ? <Check size={16} /> : <Clipboard size={16} />} {copyState === "copied" ? "Copied" : copyState === "error" ? "Copy failed" : "Copy table"}</button><button className="secondary-button" onClick={reset}><RotateCcw size={16} /> Reset</button></div></div><div className="step-line" aria-label="Calculation workflow"><button className="complete"><b>1</b> Basis</button><i /><button className="complete"><b>2</b> Inspection</button><i /><button className="active"><b>3</b> Results</button></div></header>
 
     <div className="calculator-workspace shell-calculator-workspace"><div className="input-column">
       <section className="form-card"><div className="form-card-heading"><div><span>01</span><div><h2>Calculation basis</h2><p>Choose the same result system used by every API 653 calculator; each input still accepts its own site unit.</p></div></div><Gauge size={19} /></div><div className="form-grid">

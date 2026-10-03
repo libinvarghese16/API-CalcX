@@ -27,6 +27,9 @@ import type {
 } from "@api-calc-pro/calc-engine";
 import { ArrowLeft, CircleCheck, Gauge, Info, Layers3, Minus, Plus, RotateCcw, ShieldCheck, TriangleAlert } from "lucide-react";
 import { formatDisplayNumber } from "../display-precision.ts";
+import type { Api653InputSnapshot } from "../local-data/models.ts";
+import { Api653RecordWorkflow } from "./Api653RecordWorkflow.tsx";
+import type { Api653CalculatorWorkflowProps, Api653WorkflowReportDefinition } from "./Api653RecordWorkflow.tsx";
 
 type UnitFieldState = { value: string; unit: EngineeringUnit; quantity: EngineeringQuantity };
 type NozzleUnitFieldId = "minimumThickness" | "pressureMinimumThickness" | "originalThickness" | "previousThickness" | "actualThickness";
@@ -110,18 +113,20 @@ function lifeDisplay(value: number | null): string {
   return value > 99 ? `>99 (${formatDisplayNumber(value)} yr)` : formatDisplayNumber(value);
 }
 
-export function Api653NozzleCalculator({ onBack }: { onBack: () => void }) {
-  const [unitSystem, setUnitSystem] = useState<UnitSystem>("metric");
-  const [material, setMaterial] = useState<Api653NozzleMaterial>("carbon steel");
-  const [operatingTemperature, setOperatingTemperature] = useState<UnitFieldState>({ value: "200", unit: "C", quantity: "temperature" });
-  const [pressureClass, setPressureClass] = useState<Api653NozzlePressureClass>("300");
-  const [buildYear, setBuildYear] = useState("2006");
-  const [previousInspectionYear, setPreviousInspectionYear] = useState("2021");
-  const [serviceYearsMode, setServiceYearsMode] = useState<AutomaticValueMode>("auto");
-  const [inspectionYearsMode, setInspectionYearsMode] = useState<AutomaticValueMode>("auto");
-  const [manualServiceYears, setManualServiceYears] = useState("20");
-  const [manualInspectionYears, setManualInspectionYears] = useState("5");
-  const [nozzles, setNozzles] = useState<NozzleState[]>(() => Array.from({ length: 7 }, (_, index) => makeNozzle(index + 1)));
+export function Api653NozzleCalculator({ onBack, projects, initialCalculation, onSave, onReview, onApprove, onNeedProject, notify }: Api653CalculatorWorkflowProps & { onBack: () => void }) {
+  const savedState = (initialCalculation?.inputs.formState ?? {}) as Partial<{ unitSystem: UnitSystem; material: Api653NozzleMaterial; operatingTemperature: UnitFieldState; pressureClass: Api653NozzlePressureClass; buildYear: string; previousInspectionYear: string; serviceYearsMode: AutomaticValueMode; inspectionYearsMode: AutomaticValueMode; manualServiceYears: string; manualInspectionYears: string; nozzles: NozzleState[] }>;
+  const [unitSystem, setUnitSystem] = useState<UnitSystem>(savedState.unitSystem ?? "metric");
+  const [material, setMaterial] = useState<Api653NozzleMaterial>(savedState.material ?? "carbon steel");
+  const [operatingTemperature, setOperatingTemperature] = useState<UnitFieldState>(savedState.operatingTemperature ?? { value: "200", unit: "C", quantity: "temperature" });
+  const [pressureClass, setPressureClass] = useState<Api653NozzlePressureClass>(savedState.pressureClass ?? "300");
+  const [buildYear, setBuildYear] = useState(savedState.buildYear ?? "2006");
+  const [previousInspectionYear, setPreviousInspectionYear] = useState(savedState.previousInspectionYear ?? "2021");
+  const [serviceYearsMode, setServiceYearsMode] = useState<AutomaticValueMode>(savedState.serviceYearsMode ?? "auto");
+  const [inspectionYearsMode, setInspectionYearsMode] = useState<AutomaticValueMode>(savedState.inspectionYearsMode ?? "auto");
+  const [manualServiceYears, setManualServiceYears] = useState(savedState.manualServiceYears ?? "20");
+  const [manualInspectionYears, setManualInspectionYears] = useState(savedState.manualInspectionYears ?? "5");
+  const [nozzles, setNozzles] = useState<NozzleState[]>(() => savedState.nozzles ?? Array.from({ length: 7 }, (_, index) => makeNozzle(index + 1)));
+  const [recalculationRevision, setRecalculationRevision] = useState(0);
 
   const numericBuildYear = numberFrom(buildYear);
   const serviceYears = deriveYearsInService(numericBuildYear, currentYear);
@@ -146,7 +151,7 @@ export function Api653NozzleCalculator({ onBack }: { onBack: () => void }) {
       actualThicknessMm: unitValue(nozzle.fields.actualThickness),
     })),
   }), [material, nozzles, operatingTemperature, pressureClass, yearsInService, yearsSincePreviousInspection]);
-  const result = useMemo(() => calculateApi653NozzleAssessment(input), [input]);
+  const result = useMemo(() => calculateApi653NozzleAssessment(input), [input, recalculationRevision]);
   const error = result.issues.find((issue) => issue.severity === "error");
   const warning = result.issues.find((issue) => issue.severity === "warning");
   const manualOverrideActive = serviceYearsMode === "manual" || inspectionYearsMode === "manual" || nozzles.some((nozzle) => nozzle.minimumThicknessMode === "manual");
@@ -180,8 +185,35 @@ export function Api653NozzleCalculator({ onBack }: { onBack: () => void }) {
     setNozzles(Array.from({ length: 7 }, (_, index) => makeNozzle(index + 1)));
   };
 
+  const inputSnapshot = useMemo<Api653InputSnapshot>(() => ({ calculatorId: "nozzle", unitSystem, formState: { unitSystem, material, operatingTemperature, pressureClass, buildYear, previousInspectionYear, serviceYearsMode, inspectionYearsMode, manualServiceYears, manualInspectionYears, nozzles }, engineInput: input }), [buildYear, input, inspectionYearsMode, manualInspectionYears, manualServiceYears, material, nozzles, operatingTemperature, pressureClass, previousInspectionYear, serviceYearsMode, unitSystem]);
+  const governingNozzle = result.minimumRemainingLifeNozzleIndex ? result.nozzles[result.minimumRemainingLifeNozzleIndex - 1] : null;
+  const reportDefinition: Api653WorkflowReportDefinition = {
+    reportKind: "Tank nozzle calculation report",
+    basisTitle: "Nozzle material and rating basis",
+    inspectionTitle: "Nozzle inspection history",
+    summaryLines: [`Assessed nozzles: ${result.assessedNozzleCount}`, `Minimum remaining life: ${lifeDisplay(result.minimumRemainingLifeYears)} yr`, `Maximum corrosion rate: ${formatRate(result.maximumCorrosionRateMmPerYear)} ${rateUnit}`],
+    basisRows: [
+      { label: "Material", value: result.materialLabel },
+      { label: "Operating temperature", value: `${formatTemperature(result.operatingTemperatureCUsed)} ${temperatureUnit}` },
+      { label: "Pressure class", value: `Class ${result.pressureClass}` },
+      { label: "Nozzles entered", value: String(nozzles.length) },
+    ],
+    inspectionRows: [
+      { label: "Years in service", value: `${formatDisplayNumber(result.yearsInServiceUsed)} yr` },
+      { label: "Years since previous inspection", value: `${formatDisplayNumber(result.yearsSincePreviousInspectionUsed)} yr` },
+      { label: "Assessed nozzles", value: String(result.assessedNozzleCount) },
+      { label: "Governing nozzle", value: result.minimumRemainingLifeNozzleIndex ? `Nozzle ${result.minimumRemainingLifeNozzleIndex}` : "—" },
+    ],
+    resultRows: [
+      { label: "Minimum remaining life", value: `${lifeDisplay(result.minimumRemainingLifeYears)} yr`, primary: true },
+      { label: "Governing minimum thickness", value: governingNozzle ? `${formatThickness(governingNozzle.minimumThicknessMmUsed)} ${thicknessUnit}` : "—", primary: true },
+      { label: "Maximum corrosion rate", value: `${formatRate(result.maximumCorrosionRateMmPerYear)} ${rateUnit}` },
+      ...result.nozzles.filter((item) => item.active).map((item) => ({ label: `Nozzle ${item.nozzleIndex} · ${item.detail || item.nominalPipeSizeIn}`, value: `tmin ${formatThickness(item.minimumThicknessMmUsed)} ${thicknessUnit} · RL ${lifeDisplay(item.remainingLifeYears)} yr` })),
+    ],
+  };
+
   return <div className="calculator-page api653-nozzle-page">
-    <header className="calculator-header"><button className="back-button" onClick={onBack}><ArrowLeft size={16} /> API 653 library</button><div className="calculator-heading-row"><div><p className="eyebrow">API 653 · Nozzle integrity · Calculator 4 of 6</p><h1>Nozzle assessment</h1><p>Automatic structural minimum, measured wall, corrosion rates, and remaining life for each tank nozzle.</p></div><div className="calculator-actions"><span className="save-state-badge"><CircleCheck size={14} /> Original-web parity</span><button className="secondary-button" onClick={reset}><RotateCcw size={16} /> Reset</button></div></div><div className="step-line" aria-label="Calculation workflow"><button className="complete"><b>1</b> Basis</button><i /><button className="complete"><b>2</b> Inspection</button><i /><button className="active"><b>3</b> Results</button></div></header>
+    <header className="calculator-header"><button className="back-button" onClick={onBack}><ArrowLeft size={16} /> API 653 library</button><div className="calculator-heading-row"><div><p className="eyebrow">API 653 · Nozzle integrity · Calculator 4 of 6</p><h1>Nozzle assessment</h1><p>Automatic structural minimum, measured wall, corrosion rates, and remaining life for each tank nozzle.</p></div><div className="calculator-actions"><span className="save-state-badge"><CircleCheck size={14} /> Original-web parity</span><Api653RecordWorkflow calculatorId="nozzle" calculatorLabel="Nozzle" defaultAssetTag="TK-101" defaultAssetName="Storage tank" defaultTitle="API 653 nozzle assessment" reportDefinition={reportDefinition} inputSnapshot={inputSnapshot} result={result} onRecalculate={() => setRecalculationRevision((value) => value + 1)} record={initialCalculation} projects={projects} onSave={onSave} onReview={onReview} onApprove={onApprove} onNeedProject={onNeedProject} notify={notify} /><button className="secondary-button" onClick={reset}><RotateCcw size={16} /> Reset</button></div></div><div className="step-line" aria-label="Calculation workflow"><button className="complete"><b>1</b> Basis</button><i /><button className="complete"><b>2</b> Inspection</button><i /><button className="active"><b>3</b> Results</button></div></header>
 
     <div className="calculator-workspace shell-calculator-workspace"><div className="input-column">
       <section className="form-card"><div className="form-card-heading"><div><span>01</span><div><h2>Calculation basis</h2><p>Choose the same result system used by every API 653 calculator; each input still accepts its own site unit.</p></div></div><Gauge size={19} /></div><div className="form-grid">

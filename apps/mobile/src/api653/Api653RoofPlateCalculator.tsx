@@ -20,6 +20,9 @@ import type {
 } from "@api-calc-pro/calc-engine";
 import { ArrowLeft, CircleCheck, Gauge, Info, RotateCcw, ShieldCheck, TriangleAlert, Wrench } from "lucide-react";
 import { formatDisplayNumber } from "../display-precision.ts";
+import type { Api653InputSnapshot } from "../local-data/models.ts";
+import { Api653RecordWorkflow } from "./Api653RecordWorkflow.tsx";
+import type { Api653CalculatorWorkflowProps, Api653WorkflowReportDefinition } from "./Api653RecordWorkflow.tsx";
 
 type UnitFieldState = { value: string; unit: EngineeringUnit; quantity: EngineeringQuantity };
 type RoofFieldId = "originalThickness" | "previousThickness" | "actualThickness" | "minimumThickness";
@@ -62,24 +65,27 @@ function DerivedYearsInput({ label, mode, value, help, onChange, onModeChange }:
   return <label className="field automatic-field"><span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button><button type="button" className={`field-mode-toggle ${mode}`} onClick={() => onModeChange(mode === "auto" ? "manual" : "auto")} aria-label={`Switch ${label} to ${mode === "auto" ? "manual" : "auto"} mode`}>{mode}</button></span><div className={`number-control is-derived ${mode === "manual" ? "is-manual" : ""}`}><input aria-label={label} type="number" inputMode="numeric" value={value} readOnly={mode === "auto"} onChange={(event) => onChange(event.target.value)} /><b>yr</b></div><small>{help}</small></label>;
 }
 
-export function Api653RoofPlateCalculator({ onBack }: { onBack: () => void }) {
-  const [unitSystem, setUnitSystem] = useState<UnitSystem>("metric");
-  const [buildYear, setBuildYear] = useState("2006");
-  const [previousInspectionYear, setPreviousInspectionYear] = useState("2021");
-  const [serviceYearsMode, setServiceYearsMode] = useState<AutomaticValueMode>("auto");
-  const [inspectionYearsMode, setInspectionYearsMode] = useState<AutomaticValueMode>("auto");
-  const [manualServiceYears, setManualServiceYears] = useState("20");
-  const [manualInspectionYears, setManualInspectionYears] = useState("5");
-  const [roofType, setRoofType] = useState<Api653RoofPlateInputSI["roofType"]>("supported-cone");
-  const [minimumThicknessBasis, setMinimumThicknessBasis] = useState<Api653RoofPlateInputSI["minimumThicknessBasis"]>("api653-2.2mm-area-average");
-  const [areaAverageConfirmed, setAreaAverageConfirmed] = useState(true);
-  const [holesPresent, setHolesPresent] = useState(false);
-  const [fields, setFields] = useState<RoofFields>({
+export function Api653RoofPlateCalculator({ onBack, projects, initialCalculation, onSave, onReview, onApprove, onNeedProject, notify }: Api653CalculatorWorkflowProps & { onBack: () => void }) {
+  const defaultFields: RoofFields = {
     originalThickness: { value: "6", unit: "mm", quantity: "length" },
     previousThickness: { value: "5.5", unit: "mm", quantity: "length" },
     actualThickness: { value: "5", unit: "mm", quantity: "length" },
     minimumThickness: { value: "2.2", unit: "mm", quantity: "length" },
-  });
+  };
+  const savedState = (initialCalculation?.inputs.formState ?? {}) as Partial<{ unitSystem: UnitSystem; buildYear: string; previousInspectionYear: string; serviceYearsMode: AutomaticValueMode; inspectionYearsMode: AutomaticValueMode; manualServiceYears: string; manualInspectionYears: string; roofType: Api653RoofPlateInputSI["roofType"]; minimumThicknessBasis: Api653RoofPlateInputSI["minimumThicknessBasis"]; areaAverageConfirmed: boolean; holesPresent: boolean; fields: RoofFields }>;
+  const [unitSystem, setUnitSystem] = useState<UnitSystem>(savedState.unitSystem ?? "metric");
+  const [buildYear, setBuildYear] = useState(savedState.buildYear ?? "2006");
+  const [previousInspectionYear, setPreviousInspectionYear] = useState(savedState.previousInspectionYear ?? "2021");
+  const [serviceYearsMode, setServiceYearsMode] = useState<AutomaticValueMode>(savedState.serviceYearsMode ?? "auto");
+  const [inspectionYearsMode, setInspectionYearsMode] = useState<AutomaticValueMode>(savedState.inspectionYearsMode ?? "auto");
+  const [manualServiceYears, setManualServiceYears] = useState(savedState.manualServiceYears ?? "20");
+  const [manualInspectionYears, setManualInspectionYears] = useState(savedState.manualInspectionYears ?? "5");
+  const [roofType, setRoofType] = useState<Api653RoofPlateInputSI["roofType"]>(savedState.roofType ?? "supported-cone");
+  const [minimumThicknessBasis, setMinimumThicknessBasis] = useState<Api653RoofPlateInputSI["minimumThicknessBasis"]>(savedState.minimumThicknessBasis ?? "api653-2.2mm-area-average");
+  const [areaAverageConfirmed, setAreaAverageConfirmed] = useState(savedState.areaAverageConfirmed ?? true);
+  const [holesPresent, setHolesPresent] = useState(savedState.holesPresent ?? false);
+  const [fields, setFields] = useState<RoofFields>(savedState.fields ?? defaultFields);
+  const [recalculationRevision, setRecalculationRevision] = useState(0);
   const numericBuildYear = numberFrom(buildYear);
   const serviceYears = deriveYearsInService(numericBuildYear, currentYear);
   const inspectionYears = deriveYearsSincePreviousInspection(numberFrom(previousInspectionYear), numericBuildYear, currentYear);
@@ -97,7 +103,7 @@ export function Api653RoofPlateCalculator({ onBack }: { onBack: () => void }) {
     yearsInService,
     yearsSincePreviousInspection,
   }), [areaAverageConfirmed, fields, holesPresent, minimumThicknessBasis, roofType, yearsInService, yearsSincePreviousInspection]);
-  const result = useMemo(() => calculateApi653RoofPlate(input), [input]);
+  const result = useMemo(() => calculateApi653RoofPlate(input), [input, recalculationRevision]);
   const error = result.issues.find((issue) => issue.severity === "error");
   const warning = result.issues.find((issue) => issue.severity === "warning");
   const manualOverrideActive = serviceYearsMode === "manual" || inspectionYearsMode === "manual";
@@ -122,8 +128,36 @@ export function Api653RoofPlateCalculator({ onBack }: { onBack: () => void }) {
     setFields({ originalThickness: { value: "6", unit: "mm", quantity: "length" }, previousThickness: { value: "5.5", unit: "mm", quantity: "length" }, actualThickness: { value: "5", unit: "mm", quantity: "length" }, minimumThickness: { value: "2.2", unit: "mm", quantity: "length" } });
   };
 
+  const inputSnapshot = useMemo<Api653InputSnapshot>(() => ({ calculatorId: "roof-plate", unitSystem, formState: { unitSystem, buildYear, previousInspectionYear, serviceYearsMode, inspectionYearsMode, manualServiceYears, manualInspectionYears, roofType, minimumThicknessBasis, areaAverageConfirmed, holesPresent, fields }, engineInput: input }), [areaAverageConfirmed, buildYear, fields, holesPresent, input, inspectionYearsMode, manualInspectionYears, manualServiceYears, minimumThicknessBasis, previousInspectionYear, roofType, serviceYearsMode, unitSystem]);
+  const reportDefinition: Api653WorkflowReportDefinition = {
+    reportKind: "Roof plate calculation report",
+    basisTitle: "Roof and minimum-thickness basis",
+    inspectionTitle: "Roof inspection history",
+    summaryLines: [`Minimum required thickness: ${formatLength(result.minimumThicknessMmUsed)} ${lengthUnit}`, `Governing corrosion rate: ${formatRate(result.governingCorrosionRateMmPerYear)} ${rateUnit}`, `Remaining life: ${lifeDisplay} yr`],
+    basisRows: [
+      { label: "Roof type", value: result.roofType },
+      { label: "Minimum basis", value: result.minimumThicknessBasis },
+      { label: "Area average confirmed", value: result.areaAverageConfirmed ? "Yes" : "No" },
+      { label: "Holes present", value: result.holesPresent ? "Yes" : "No" },
+    ],
+    inspectionRows: [
+      { label: "Original thickness", value: `${formatLength(result.originalThicknessMmUsed)} ${lengthUnit}` },
+      { label: "Previous thickness", value: `${formatLength(result.previousThicknessMmUsed)} ${lengthUnit}` },
+      { label: "Current thickness", value: `${formatLength(result.actualThicknessMmUsed)} ${lengthUnit}` },
+      { label: "Years in service", value: `${formatDisplayNumber(result.yearsInServiceUsed)} yr` },
+    ],
+    resultRows: [
+      { label: "Remaining life", value: `${lifeDisplay} yr`, primary: true },
+      { label: "Minimum required thickness", value: `${formatLength(result.minimumThicknessMmUsed)} ${lengthUnit}`, primary: true },
+      { label: "Corrosion allowance", value: `${formatLength(result.corrosionAllowanceMm)} ${lengthUnit}` },
+      { label: "Long-term corrosion rate", value: `${formatRate(result.longTermCorrosionRateMmPerYear)} ${rateUnit}` },
+      { label: "Short-term corrosion rate", value: `${formatRate(result.shortTermCorrosionRateMmPerYear)} ${rateUnit}` },
+      { label: "Governing corrosion rate", value: `${formatRate(result.governingCorrosionRateMmPerYear)} ${rateUnit}` },
+    ],
+  };
+
   return <div className="calculator-page api653-roof-page">
-    <header className="calculator-header"><button className="back-button" onClick={onBack}><ArrowLeft size={16} /> API 653 library</button><div className="calculator-heading-row"><div><p className="eyebrow">API 653 · Roof integrity · Calculator 5 of 6</p><h1>Roof plate remaining life</h1><p>Roof thickness loss, long- and short-term corrosion rates, corrosion allowance, and remaining life.</p></div><div className="calculator-actions"><span className="save-state-badge"><CircleCheck size={14} /> Original-web parity</span><button className="secondary-button" onClick={reset}><RotateCcw size={16} /> Reset</button></div></div><div className="step-line" aria-label="Calculation workflow"><button className="complete"><b>1</b> Basis</button><i /><button className="complete"><b>2</b> Inspection</button><i /><button className="active"><b>3</b> Results</button></div></header>
+    <header className="calculator-header"><button className="back-button" onClick={onBack}><ArrowLeft size={16} /> API 653 library</button><div className="calculator-heading-row"><div><p className="eyebrow">API 653 · Roof integrity · Calculator 5 of 6</p><h1>Roof plate remaining life</h1><p>Roof thickness loss, long- and short-term corrosion rates, corrosion allowance, and remaining life.</p></div><div className="calculator-actions"><span className="save-state-badge"><CircleCheck size={14} /> Original-web parity</span><Api653RecordWorkflow calculatorId="roof-plate" calculatorLabel="Roof Plate" defaultAssetTag="TK-101" defaultAssetName="Storage tank" defaultTitle="API 653 roof plate assessment" reportDefinition={reportDefinition} inputSnapshot={inputSnapshot} result={result} onRecalculate={() => setRecalculationRevision((value) => value + 1)} record={initialCalculation} projects={projects} onSave={onSave} onReview={onReview} onApprove={onApprove} onNeedProject={onNeedProject} notify={notify} /><button className="secondary-button" onClick={reset}><RotateCcw size={16} /> Reset</button></div></div><div className="step-line" aria-label="Calculation workflow"><button className="complete"><b>1</b> Basis</button><i /><button className="complete"><b>2</b> Inspection</button><i /><button className="active"><b>3</b> Results</button></div></header>
 
     <div className="calculator-workspace"><div className="input-column">
       <section className="form-card"><div className="form-card-heading"><div><span>01</span><div><h2>Calculation basis</h2><p>Set the project minimum and choose the result unit system.</p></div></div><Wrench size={19} /></div><div className="form-grid">

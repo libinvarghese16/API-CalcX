@@ -8,10 +8,9 @@ import {
   api570EngineIdForCalculator,
   type StoragePort,
 } from "../src/local-data/project-repository.ts";
-import { createCalculationFingerprint } from "../src/local-data/calculation-workflow.ts";
-import { createApi570CalculationFingerprint } from "../src/local-data/calculation-workflow.ts";
-import { calculateApi570Piping, calculateApi570Tube } from "@api-calc-pro/calc-engine";
-import type { Api510InputSnapshot, Api510ResultSnapshot, Api570CalculatorId, Api570PipingInputSnapshot, Api570TubeInputSnapshot } from "../src/local-data/models.ts";
+import { createApi570CalculationFingerprint, createApi653CalculationFingerprint, createCalculationFingerprint } from "../src/local-data/calculation-workflow.ts";
+import { calculateApi570Piping, calculateApi570Tube, calculateApi653BottomPlate } from "@api-calc-pro/calc-engine";
+import type { Api510InputSnapshot, Api510ResultSnapshot, Api570CalculatorId, Api570PipingInputSnapshot, Api570TubeInputSnapshot, Api653InputSnapshot } from "../src/local-data/models.ts";
 
 class MemoryStorage implements StoragePort {
   values = new Map<string, string>();
@@ -247,6 +246,19 @@ function api570Fingerprint(calculation: ReturnType<LocalProjectRepository["saveA
   });
 }
 
+const api653EngineInput = {
+  originalThicknessMm: 8, previousThicknessMm: 7.4, bottomRemainingThicknessMm: 7, previousInternalPittingDepthMm: 0, currentInternalPittingDepthMm: 0,
+  minimumThicknessBasis: "table-4.4-standard" as const, reducedMinimumCriteriaConfirmed: false, manualMinimumThicknessMm: 2.54, projectionYears: 10,
+  undersideCorrosionRateMode: "auto" as const, manualUndersideCorrosionRateMmPerYear: 0.08, topSideCorrosionRateMode: "auto" as const, manualTopSideCorrosionRateMmPerYear: 0.08,
+  lowerShellMinimumThicknessMm: 6, criticalZoneActualThicknessMm: 4, yearsInService: 20, yearsSincePreviousInspection: 5,
+};
+const api653InputSnapshot: Api653InputSnapshot = { calculatorId: "bottom-plate", unitSystem: "metric", formState: { buildYear: "2006", fields: { actualThickness: { value: "7", unit: "mm", quantity: "length" } } }, engineInput: api653EngineInput };
+const api653ResultSnapshot = calculateApi653BottomPlate(api653EngineInput);
+const saveApi653Input = (projectId: string, overrides: Partial<Parameters<LocalProjectRepository["saveApi653Calculation"]>[0]> = {}) => ({ projectId, calculatorId: "bottom-plate" as const, assetTag: "TK-101", assetName: "Crude storage tank", title: "API 653 bottom assessment", status: "draft" as const, preparedBy: "Tank preparer", inputs: api653InputSnapshot, result: api653ResultSnapshot, ...overrides });
+function api653Fingerprint(calculation: ReturnType<LocalProjectRepository["saveApi653Calculation"]>) {
+  return createApi653CalculationFingerprint({ projectId: calculation.projectId, assetTag: calculation.assetTag, assetName: calculation.assetName, title: calculation.title, inputs: calculation.inputs, result: calculation.result });
+}
+
 test("creates and reloads a project from local storage", () => {
   const { repository, storage } = createRepository();
   const project = repository.createProject({ name: "North process unit", client: "Example Energy", site: "Unit 2" });
@@ -299,6 +311,22 @@ test("saves, reloads and reopens an exact API 570 tube snapshot", () => {
   assert.equal(reloaded?.inputs.engineInput.outsideDiameterMm, 50.8);
   assert.equal(reloaded?.result.engineId, "api570.tube");
   assert.equal(reloaded?.result.requiredThicknessMm, api570TubeResultSnapshot.requiredThicknessMm);
+});
+
+test("saves, reloads, reviews, approves, and reopens an exact API 653 snapshot", () => {
+  const { repository, storage } = createRepository();
+  const project = repository.createProject({ name: "Tank integrity project" });
+  const saved = repository.saveApi653Calculation(saveApi653Input(project.id));
+  const reviewed = repository.reviewApi653Calculation({ projectId: project.id, calculationId: saved.id, reviewerName: "Tank reviewer", reviewNotes: "Checked MRT basis.", fingerprint: api653Fingerprint(saved) });
+  const approved = repository.approveApi653Calculation({ projectId: project.id, calculationId: reviewed.id, approverName: "Tank approver", approvalNotes: "Approved locally.", fingerprint: api653Fingerprint(reviewed) });
+  const reloaded = new LocalProjectRepository(storage).getProject(project.id)?.api653Calculations[0];
+
+  assert.equal(approved.status, "approved");
+  assert.equal(reloaded?.standard, "API 653");
+  assert.equal(reloaded?.calculatorId, "bottom-plate");
+  assert.equal(reloaded?.inputs.formState.buildYear, "2006");
+  assert.equal(reloaded?.result.engineId, "api653.bottom-plate");
+  assert.deepEqual(reloaded?.workflow.history.map((event) => event.type), ["saved", "reviewed", "approved"]);
 });
 
 test("maps all 11 API 570 calculator records to their protected engine IDs", () => {

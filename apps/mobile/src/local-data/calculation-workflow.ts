@@ -3,6 +3,8 @@ import type {
   Api510ResultSnapshot,
   Api570InputSnapshot,
   Api570ResultSnapshot,
+  Api653InputSnapshot,
+  Api653ResultSnapshot,
 } from "./models.ts";
 
 export interface CalculationFingerprintInput {
@@ -54,4 +56,25 @@ export function createApi570CalculationFingerprint(input: Api570CalculationFinge
     result: input.result,
   });
   return `acp570-${fnv1a(serialized)}-${serialized.length}`;
+}
+
+export interface Api653CalculationFingerprintInput {
+  projectId: string;
+  assetTag: string;
+  assetName: string;
+  title: string;
+  inputs: Api653InputSnapshot;
+  result: Api653ResultSnapshot;
+}
+
+export function createApi653CalculationFingerprint(input: Api653CalculationFingerprintInput): string {
+  const serialized = JSON.stringify({
+    projectId: input.projectId,
+    assetTag: input.assetTag.trim().toUpperCase(),
+    assetName: input.assetName.trim(),
+    title: input.title.trim(),
+    inputs: input.inputs,
+    result: input.result,
+  });
+  return `acp653-${fnv1a(serialized)}-${serialized.length}`;
 }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, CircleCheck, Clipboard, FileText, HardDrive, ShieldCheck, TriangleAlert, X } from "lucide-react";
+import { Calculator, Check, CircleCheck, Clipboard, FileText, HardDrive, ShieldCheck, TriangleAlert, X } from "lucide-react";
 import { formatDisplayNumber } from "../display-precision.ts";
 import { createApi570CalculationFingerprint } from "../local-data/calculation-workflow.ts";
 import type {
@@ -213,6 +213,7 @@ export function Api570RecordWorkflow({ calculatorId, calculatorLabel, defaultAss
 
   return (
     <>
+      <button className="secondary-button" onClick={() => notify(result.ok ? "All linked API 570 results are current." : result.issues.find((issue) => issue.severity === "error")?.message ?? "Review the calculation inputs.")}><Calculator size={16} /> Recalculate</button>
       <span className={`save-state-badge ${dirty ? "is-dirty" : "is-saved"}`}>{dirty ? <TriangleAlert size={14} /> : <CircleCheck size={14} />}{record ? dirty ? "Unsaved changes" : `${record.status} · R${record.workflow.revision}` : "Not saved"}</span>
       <button className="secondary-button" onClick={openSave}><HardDrive size={16} /> {record ? "Update record" : "Save draft"}</button>
       <button className="secondary-button" onClick={openReview}><ShieldCheck size={16} /> Review</button>

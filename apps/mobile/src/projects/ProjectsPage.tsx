@@ -16,21 +16,25 @@ import {
   X,
 } from "lucide-react";
 
-import type { Api570CalculatorId, CreateProjectInput, LocalProject, SavedApi510Calculation, SavedApi570Calculation } from "../local-data/models.ts";
+import type { Api570CalculatorId, Api653CalculatorId, CreateProjectInput, LocalProject, SavedApi510Calculation, SavedApi570Calculation, SavedApi653Calculation } from "../local-data/models.ts";
 
 interface ProjectsPageProps {
   projects: LocalProject[];
   onCreateProject: (input: CreateProjectInput) => LocalProject;
   onOpenCalculation: (calculation: SavedApi510Calculation) => void;
   onOpenApi570Calculation: (calculation: SavedApi570Calculation) => void;
+  onOpenApi653Calculation: (calculation: SavedApi653Calculation) => void;
   onDuplicateCalculation: (projectId: string, equipmentId: string, calculationId: string) => void;
   onDeleteCalculation: (projectId: string, equipmentId: string, calculationId: string) => void;
   onDuplicateApi570Calculation: (projectId: string, calculationId: string) => void;
   onDeleteApi570Calculation: (projectId: string, calculationId: string) => void;
+  onDuplicateApi653Calculation: (projectId: string, calculationId: string) => void;
+  onDeleteApi653Calculation: (projectId: string, calculationId: string) => void;
   onArchiveProject: (projectId: string, archived: boolean) => void;
   onDeleteProject: (projectId: string) => void;
   onStartCalculation: () => void;
   onStartApi570Calculation: () => void;
+  onStartApi653Calculation: () => void;
   onExportProject: (projectId: string) => void;
   notify: (message: string) => void;
 }
@@ -64,6 +68,14 @@ const api570CalculatorLabels: Record<Api570CalculatorId, string> = {
   "tension-test": "Tension test",
   "soil-resistivity": "Soil resistivity",
 };
+const api653CalculatorLabels: Record<Api653CalculatorId, string> = {
+  "bottom-plate": "Bottom plate remaining life",
+  "annular-plate": "Annular plate remaining life",
+  "shell-course": "Shell course assessment",
+  nozzle: "Nozzle assessment",
+  "roof-plate": "Roof plate remaining life",
+  "other-4-3-2": "Other 4.3.2 calculations",
+};
 
 function api570CalculatorLabel(calculation: SavedApi570Calculation): string {
   return api570CalculatorLabels[calculation.calculatorId];
@@ -74,14 +86,18 @@ export function ProjectsPage({
   onCreateProject,
   onOpenCalculation,
   onOpenApi570Calculation,
+  onOpenApi653Calculation,
   onDuplicateCalculation,
   onDeleteCalculation,
   onDuplicateApi570Calculation,
   onDeleteApi570Calculation,
+  onDuplicateApi653Calculation,
+  onDeleteApi653Calculation,
   onArchiveProject,
   onDeleteProject,
   onStartCalculation,
   onStartApi570Calculation,
+  onStartApi653Calculation,
   onExportProject,
   notify,
 }: ProjectsPageProps) {
@@ -94,11 +110,11 @@ export function ProjectsPage({
   const [description, setDescription] = useState("");
   const selectedProject = projects.find((project) => project.id === selectedProjectId) ?? null;
   const activeProjects = projects.filter((project) => project.status === "active");
-  const calculationCount = projects.reduce((projectTotal, project) => projectTotal + project.equipment.reduce((equipmentTotal, equipment) => equipmentTotal + equipment.calculations.length, 0) + project.api570Calculations.length, 0);
+  const calculationCount = projects.reduce((projectTotal, project) => projectTotal + project.equipment.reduce((equipmentTotal, equipment) => equipmentTotal + equipment.calculations.length, 0) + project.api570Calculations.length + project.api653Calculations.length, 0);
   const filteredProjects = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     if (!normalized) return projects;
-    return projects.filter((project) => `${project.name} ${project.client} ${project.site} ${project.equipment.map((item) => item.tag).join(" ")} ${project.api570Calculations.map((item) => item.assetTag).join(" ")}`.toLowerCase().includes(normalized));
+    return projects.filter((project) => `${project.name} ${project.client} ${project.site} ${project.equipment.map((item) => item.tag).join(" ")} ${project.api570Calculations.map((item) => item.assetTag).join(" ")} ${project.api653Calculations.map((item) => item.assetTag).join(" ")}`.toLowerCase().includes(normalized));
   }, [projects, query]);
 
   const submitProject = () => {
@@ -138,10 +154,13 @@ export function ProjectsPage({
             project={selectedProject}
             onOpenCalculation={onOpenCalculation}
             onOpenApi570Calculation={onOpenApi570Calculation}
+            onOpenApi653Calculation={onOpenApi653Calculation}
             onDuplicateCalculation={onDuplicateCalculation}
             onDeleteCalculation={onDeleteCalculation}
             onDuplicateApi570Calculation={onDuplicateApi570Calculation}
             onDeleteApi570Calculation={onDeleteApi570Calculation}
+            onDuplicateApi653Calculation={onDuplicateApi653Calculation}
+            onDeleteApi653Calculation={onDeleteApi653Calculation}
             onArchiveProject={onArchiveProject}
             onDeleteProject={() => {
               if (!window.confirm(`Delete “${selectedProject.name}” and all of its local calculations? This cannot be undone.`)) return;
@@ -150,6 +169,7 @@ export function ProjectsPage({
             }}
             onStartCalculation={onStartCalculation}
             onStartApi570Calculation={onStartApi570Calculation}
+            onStartApi653Calculation={onStartApi653Calculation}
             onExportProject={onExportProject}
           />
         ) : (
@@ -160,8 +180,8 @@ export function ProjectsPage({
             {filteredProjects.length > 0 ? (
               <div className="project-grid">
                 {filteredProjects.map((project, index) => {
-                  const equipmentCount = project.equipment.length + new Set(project.api570Calculations.map((calculation) => calculation.assetTag)).size;
-                  const latestEquipment = project.api570Calculations[0]?.assetTag ?? project.equipment[0]?.tag ?? "No equipment yet";
+                  const equipmentCount = project.equipment.length + new Set([...project.api570Calculations, ...project.api653Calculations].map((calculation) => calculation.assetTag)).size;
+                  const latestEquipment = project.api653Calculations[0]?.assetTag ?? project.api570Calculations[0]?.assetTag ?? project.equipment[0]?.tag ?? "No equipment yet";
                   return (
                     <button className="project-card" key={project.id} onClick={() => setSelectedProjectId(project.id)}>
                       <div className={`project-illustration project-${(index % 3) + 1}`}><FolderOpen size={26} /></div>
@@ -198,18 +218,22 @@ export function ProjectsPage({
   );
 }
 
-function ProjectWorkspace({ project, onOpenCalculation, onOpenApi570Calculation, onDuplicateCalculation, onDeleteCalculation, onDuplicateApi570Calculation, onDeleteApi570Calculation, onArchiveProject, onDeleteProject, onStartCalculation, onStartApi570Calculation, onExportProject }: {
+function ProjectWorkspace({ project, onOpenCalculation, onOpenApi570Calculation, onOpenApi653Calculation, onDuplicateCalculation, onDeleteCalculation, onDuplicateApi570Calculation, onDeleteApi570Calculation, onDuplicateApi653Calculation, onDeleteApi653Calculation, onArchiveProject, onDeleteProject, onStartCalculation, onStartApi570Calculation, onStartApi653Calculation, onExportProject }: {
   project: LocalProject;
   onOpenCalculation: (calculation: SavedApi510Calculation) => void;
   onOpenApi570Calculation: (calculation: SavedApi570Calculation) => void;
+  onOpenApi653Calculation: (calculation: SavedApi653Calculation) => void;
   onDuplicateCalculation: (projectId: string, equipmentId: string, calculationId: string) => void;
   onDeleteCalculation: (projectId: string, equipmentId: string, calculationId: string) => void;
   onDuplicateApi570Calculation: (projectId: string, calculationId: string) => void;
   onDeleteApi570Calculation: (projectId: string, calculationId: string) => void;
+  onDuplicateApi653Calculation: (projectId: string, calculationId: string) => void;
+  onDeleteApi653Calculation: (projectId: string, calculationId: string) => void;
   onArchiveProject: (projectId: string, archived: boolean) => void;
   onDeleteProject: () => void;
   onStartCalculation: () => void;
   onStartApi570Calculation: () => void;
+  onStartApi653Calculation: () => void;
   onExportProject: (projectId: string) => void;
 }) {
   return (
@@ -219,7 +243,7 @@ function ProjectWorkspace({ project, onOpenCalculation, onOpenApi570Calculation,
         <div><button className="secondary-button" onClick={() => onExportProject(project.id)}><Download size={16} /> Export JSON</button><button className="secondary-button" onClick={() => onArchiveProject(project.id, project.status !== "archived")}><Archive size={16} /> {project.status === "archived" ? "Restore" : "Archive"}</button><button className="danger-button" onClick={onDeleteProject}><Trash2 size={16} /> Delete</button></div>
       </div>
       {project.description ? <p className="project-description">{project.description}</p> : null}
-      <div className="project-workspace-heading"><div><p className="eyebrow">Calculation history</p><h3>API 510 and API 570 project records</h3></div><div className="project-heading-actions"><button className="secondary-button" onClick={onStartCalculation}><Plus size={17} /> API 510</button><button className="primary-button" onClick={onStartApi570Calculation}><Plus size={17} /> API 570</button></div></div>
+      <div className="project-workspace-heading"><div><p className="eyebrow">Calculation history</p><h3>API 510, API 570, and API 653 project records</h3></div><div className="project-heading-actions"><button className="secondary-button" onClick={onStartCalculation}><Plus size={17} /> API 510</button><button className="secondary-button" onClick={onStartApi570Calculation}><Plus size={17} /> API 570</button><button className="primary-button" onClick={onStartApi653Calculation}><Plus size={17} /> API 653</button></div></div>
 
       {project.equipment.map((equipment) => (
         <section className="equipment-record" key={equipment.id}>
@@ -247,7 +271,17 @@ function ProjectWorkspace({ project, onOpenCalculation, onOpenApi570Calculation,
         </article>)}</div>
       </section> : null}
 
-      {!project.equipment.length && !project.api570Calculations.length ? <div className="empty-state project-empty"><Calculator size={29} /><h2>No saved calculations yet</h2><p>Start an API 510 or API 570 calculation and save it under this project.</p><div className="project-heading-actions"><button className="secondary-button" onClick={onStartCalculation}><Plus size={17} /> API 510</button><button className="primary-button" onClick={onStartApi570Calculation}><Plus size={17} /> API 570</button></div></div> : null}
+      {project.api653Calculations.length ? <section className="equipment-record api653-project-records">
+        <div className="equipment-heading"><div><span>API 653</span><h3>Storage tanks</h3><p>Saved bottom, annular, shell, nozzle, roof, and local thin-area calculations</p></div><strong>{project.api653Calculations.length} record{project.api653Calculations.length === 1 ? "" : "s"}</strong></div>
+        <div className="calculation-record-list">{project.api653Calculations.slice().sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)).map((calculation) => <article className="calculation-record" key={calculation.id}>
+          <div className="calculation-record-icon"><FileText size={18} /></div>
+          <div><strong>{calculation.title}</strong><span>{calculation.assetTag} · {api653CalculatorLabels[calculation.calculatorId]} · {calculation.inputs.unitSystem === "metric" ? "Metric" : "U.S. customary"}</span><small>Updated {formatUpdated(calculation.updatedAt)} · Revision {calculation.workflow.revision}</small></div>
+          <span className={`record-status ${calculation.status}`}>{calculation.status}</span>
+          <div className="calculation-record-actions"><button onClick={() => onOpenApi653Calculation(calculation)}>Open <ChevronRight size={16} /></button><button aria-label={`Duplicate ${calculation.title}`} title="Duplicate" onClick={() => onDuplicateApi653Calculation(project.id, calculation.id)}><Copy size={16} /></button><button aria-label={`Delete ${calculation.title}`} title="Delete" onClick={() => { if (window.confirm(`Delete “${calculation.title}” from this device?`)) onDeleteApi653Calculation(project.id, calculation.id); }}><Trash2 size={16} /></button></div>
+        </article>)}</div>
+      </section> : null}
+
+      {!project.equipment.length && !project.api570Calculations.length && !project.api653Calculations.length ? <div className="empty-state project-empty"><Calculator size={29} /><h2>No saved calculations yet</h2><p>Start an API 510, API 570, or API 653 calculation and save it under this project.</p><div className="project-heading-actions"><button className="secondary-button" onClick={onStartCalculation}><Plus size={17} /> API 510</button><button className="secondary-button" onClick={onStartApi570Calculation}><Plus size={17} /> API 570</button><button className="primary-button" onClick={onStartApi653Calculation}><Plus size={17} /> API 653</button></div></div> : null}
     </div>
   );
 }

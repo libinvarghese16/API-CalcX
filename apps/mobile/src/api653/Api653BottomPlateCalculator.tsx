@@ -25,6 +25,9 @@ import type {
 } from "@api-calc-pro/calc-engine";
 import { ArrowLeft, CircleCheck, Gauge, Info, RotateCcw, ShieldCheck, TriangleAlert, Wrench } from "lucide-react";
 import { formatDisplayNumber } from "../display-precision.ts";
+import type { Api653InputSnapshot } from "../local-data/models.ts";
+import { Api653RecordWorkflow } from "./Api653RecordWorkflow.tsx";
+import type { Api653CalculatorWorkflowProps, Api653WorkflowReportDefinition } from "./Api653RecordWorkflow.tsx";
 
 type UnitFieldId = "tankDiameter" | "liquidHeight" | "firstShellThickness" | "calculatedStress" | "originalThickness" | "previousThickness" | "actualThickness" | "minimumThickness" | "internalPitting" | "undersideRate" | "topSideRate" | "lowerShellMinimum" | "criticalZoneActual";
 type UnitFieldState = { value: string; unit: EngineeringUnit; quantity: EngineeringQuantity };
@@ -124,25 +127,29 @@ function AutomaticUnitInput({ label, field, options, mode, help, onValueChange, 
   return <label className="field automatic-field"><span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button><button type="button" className={`field-mode-toggle ${mode}`} onClick={() => onModeChange(mode === "auto" ? "manual" : "auto")} aria-label={`Switch ${label} to ${mode === "auto" ? "manual" : "auto"} mode`}>{mode}</button></span><div className={`number-control is-derived ${mode === "manual" ? "is-manual" : ""}`}><input aria-label={label} type="number" inputMode="decimal" value={field.value} readOnly={mode === "auto"} onChange={(event) => onValueChange(event.target.value)} /><select className="unit-picker" aria-label={`${label} unit`} value={field.unit} onChange={(event) => onUnitChange(event.target.value as EngineeringUnit)}>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div><small>{help}</small></label>;
 }
 
-export function Api653PlateRemainingLifeCalculator({ onBack, variant }: { onBack: () => void; variant: Api653PlateVariant }) {
+type PlateWorkflowProps = Api653CalculatorWorkflowProps & { onBack: () => void; variant: Api653PlateVariant };
+
+export function Api653PlateRemainingLifeCalculator({ onBack, variant, projects, initialCalculation, onSave, onReview, onApprove, onNeedProject, notify }: PlateWorkflowProps) {
   const isAnnular = variant === "annular";
-  const [unitSystem, setUnitSystem] = useState<UnitSystem>("metric");
-  const [fields, setFields] = useState<UnitFieldMap>(() => initialUnitFields(variant));
-  const [specificGravity, setSpecificGravity] = useState("0.9");
-  const [calculatedStressMode, setCalculatedStressMode] = useState<AutomaticValueMode>("auto");
-  const [minimumThicknessMode, setMinimumThicknessMode] = useState<AutomaticValueMode>("auto");
-  const [bottomMinimumBasis, setBottomMinimumBasis] = useState<Api653BottomMinimumThicknessBasis>("table-4.4-standard");
-  const [reducedMinimumCriteriaConfirmed, setReducedMinimumCriteriaConfirmed] = useState(false);
-  const [projectionYears, setProjectionYears] = useState("10");
-  const [undersideRateMode, setUndersideRateMode] = useState<Api653BottomCorrosionRateMode>("auto");
-  const [topSideRateMode, setTopSideRateMode] = useState<Api653BottomCorrosionRateMode>("auto");
-  const [highSpecificGravityBasisConfirmed, setHighSpecificGravityBasisConfirmed] = useState(false);
-  const [buildYear, setBuildYear] = useState("2006");
-  const [previousInspectionYear, setPreviousInspectionYear] = useState("2021");
-  const [serviceYearsMode, setServiceYearsMode] = useState<AutomaticValueMode>("auto");
-  const [inspectionYearsMode, setInspectionYearsMode] = useState<AutomaticValueMode>("auto");
-  const [manualServiceYears, setManualServiceYears] = useState("20");
-  const [manualInspectionYears, setManualInspectionYears] = useState("5");
+  const savedState = (initialCalculation?.inputs.formState ?? {}) as Partial<{ unitSystem: UnitSystem; fields: UnitFieldMap; specificGravity: string; calculatedStressMode: AutomaticValueMode; minimumThicknessMode: AutomaticValueMode; bottomMinimumBasis: Api653BottomMinimumThicknessBasis; reducedMinimumCriteriaConfirmed: boolean; projectionYears: string; undersideRateMode: Api653BottomCorrosionRateMode; topSideRateMode: Api653BottomCorrosionRateMode; highSpecificGravityBasisConfirmed: boolean; buildYear: string; previousInspectionYear: string; serviceYearsMode: AutomaticValueMode; inspectionYearsMode: AutomaticValueMode; manualServiceYears: string; manualInspectionYears: string }>;
+  const [unitSystem, setUnitSystem] = useState<UnitSystem>(savedState.unitSystem ?? "metric");
+  const [fields, setFields] = useState<UnitFieldMap>(() => savedState.fields ?? initialUnitFields(variant));
+  const [specificGravity, setSpecificGravity] = useState(savedState.specificGravity ?? "0.9");
+  const [calculatedStressMode, setCalculatedStressMode] = useState<AutomaticValueMode>(savedState.calculatedStressMode ?? "auto");
+  const [minimumThicknessMode, setMinimumThicknessMode] = useState<AutomaticValueMode>(savedState.minimumThicknessMode ?? "auto");
+  const [bottomMinimumBasis, setBottomMinimumBasis] = useState<Api653BottomMinimumThicknessBasis>(savedState.bottomMinimumBasis ?? "table-4.4-standard");
+  const [reducedMinimumCriteriaConfirmed, setReducedMinimumCriteriaConfirmed] = useState(savedState.reducedMinimumCriteriaConfirmed ?? false);
+  const [projectionYears, setProjectionYears] = useState(savedState.projectionYears ?? "10");
+  const [undersideRateMode, setUndersideRateMode] = useState<Api653BottomCorrosionRateMode>(savedState.undersideRateMode ?? "auto");
+  const [topSideRateMode, setTopSideRateMode] = useState<Api653BottomCorrosionRateMode>(savedState.topSideRateMode ?? "auto");
+  const [highSpecificGravityBasisConfirmed, setHighSpecificGravityBasisConfirmed] = useState(savedState.highSpecificGravityBasisConfirmed ?? false);
+  const [buildYear, setBuildYear] = useState(savedState.buildYear ?? "2006");
+  const [previousInspectionYear, setPreviousInspectionYear] = useState(savedState.previousInspectionYear ?? "2021");
+  const [serviceYearsMode, setServiceYearsMode] = useState<AutomaticValueMode>(savedState.serviceYearsMode ?? "auto");
+  const [inspectionYearsMode, setInspectionYearsMode] = useState<AutomaticValueMode>(savedState.inspectionYearsMode ?? "auto");
+  const [manualServiceYears, setManualServiceYears] = useState(savedState.manualServiceYears ?? "20");
+  const [manualInspectionYears, setManualInspectionYears] = useState(savedState.manualInspectionYears ?? "5");
+  const [recalculationRevision, setRecalculationRevision] = useState(0);
 
   const numericBuildYear = numberFrom(buildYear);
   const serviceYears = deriveYearsInService(numericBuildYear, currentYear);
@@ -204,8 +211,8 @@ export function Api653PlateRemainingLifeCalculator({ onBack, variant }: { onBack
     yearsInService,
     yearsSincePreviousInspection,
   }), [calculatedStressMode, fields, highSpecificGravityBasisConfirmed, minimumThicknessMode, specificGravity, yearsInService, yearsSincePreviousInspection]);
-  const bottomResult = useMemo(() => calculateApi653BottomPlate(bottomInput), [bottomInput]);
-  const annularResult = useMemo(() => calculateApi653AnnularPlate(annularInput), [annularInput]);
+  const bottomResult = useMemo(() => calculateApi653BottomPlate(bottomInput), [bottomInput, recalculationRevision]);
+  const annularResult = useMemo(() => calculateApi653AnnularPlate(annularInput), [annularInput, recalculationRevision]);
   const result = isAnnular ? annularResult : bottomResult;
   const error = result.issues.find((issue) => issue.severity === "error");
   const warning = result.issues.find((issue) => issue.severity === "warning");
@@ -291,8 +298,48 @@ export function Api653PlateRemainingLifeCalculator({ onBack, variant }: { onBack
     completionText: "Review minimum thickness, corrosion rates, and remaining life before use.",
   };
 
+  const calculatorId = isAnnular ? "annular-plate" : "bottom-plate";
+  const inputSnapshot = useMemo<Api653InputSnapshot>(() => ({
+    calculatorId,
+    unitSystem,
+    formState: { unitSystem, fields, specificGravity, calculatedStressMode, minimumThicknessMode, bottomMinimumBasis, reducedMinimumCriteriaConfirmed, projectionYears, undersideRateMode, topSideRateMode, highSpecificGravityBasisConfirmed, buildYear, previousInspectionYear, serviceYearsMode, inspectionYearsMode, manualServiceYears, manualInspectionYears },
+    engineInput: isAnnular ? annularInput : bottomInput,
+  }), [annularInput, bottomInput, bottomMinimumBasis, buildYear, calculatedStressMode, calculatorId, fields, highSpecificGravityBasisConfirmed, inspectionYearsMode, isAnnular, manualInspectionYears, manualServiceYears, minimumThicknessMode, previousInspectionYear, projectionYears, reducedMinimumCriteriaConfirmed, serviceYearsMode, specificGravity, topSideRateMode, undersideRateMode, unitSystem]);
+  const reportDefinition: Api653WorkflowReportDefinition = {
+    reportKind: isAnnular ? "Annular plate calculation report" : "Bottom plate calculation report",
+    basisTitle: isAnnular ? "Tank and annular basis" : "Bottom MRT basis",
+    inspectionTitle: "Thickness and inspection history",
+    summaryLines: [
+      `Minimum required thickness: ${formatOutput(result.minimumThicknessMmUsed, "length", unitSystem)} ${lengthUnit}`,
+      `Governing corrosion rate: ${formatOutput(result.governingCorrosionRateMmPerYear, "rate", unitSystem, true)} ${rateUnit}`,
+      `Remaining life: ${isAnnular ? formatDisplayNumber(annularResult.remainingLifeYears) : bottomLifeDisplay} yr`,
+    ],
+    basisRows: isAnnular ? [
+      { label: "Tank diameter", value: `${formatDisplayNumber(annularResult.diameterMUsed)} m` },
+      { label: "Liquid height", value: `${formatDisplayNumber(annularResult.liquidHeightMUsed)} m` },
+      { label: "Calculated shell stress", value: `${formatDisplayNumber(annularResult.calculatedStressMpa)} MPa` },
+    ] : [
+      { label: "Minimum basis", value: bottomResult.minimumThicknessBasis },
+      { label: "Projection interval", value: `${formatDisplayNumber(bottomResult.projectionYearsUsed)} yr` },
+      { label: "Critical-zone status", value: bottomResult.criticalZoneAssessmentComplete ? bottomResult.criticalZoneAdequate ? "Adequate" : "Below minimum" : "Not assessed" },
+    ],
+    inspectionRows: [
+      { label: "Original thickness", value: `${formatOutput(result.originalThicknessMmUsed, "length", unitSystem)} ${lengthUnit}` },
+      { label: "Previous thickness", value: `${formatOutput(result.previousThicknessMmUsed, "length", unitSystem)} ${lengthUnit}` },
+      { label: "Current thickness", value: `${formatOutput(isAnnular ? annularResult.actualThicknessMmUsed : bottomResult.bottomRemainingThicknessMmUsed, "length", unitSystem)} ${lengthUnit}` },
+      { label: "Years in service", value: `${formatDisplayNumber(result.yearsInServiceUsed)} yr` },
+    ],
+    resultRows: [
+      { label: "Remaining life", value: `${isAnnular ? formatDisplayNumber(annularResult.remainingLifeYears) : bottomLifeDisplay} yr`, primary: true },
+      { label: "Minimum required thickness", value: `${formatOutput(result.minimumThicknessMmUsed, "length", unitSystem)} ${lengthUnit}`, primary: true },
+      { label: "Governing thickness", value: `${formatOutput(result.governingThicknessMm, "length", unitSystem)} ${lengthUnit}` },
+      { label: "Available thickness", value: `${formatOutput(result.availableThicknessMm, "length", unitSystem)} ${lengthUnit}` },
+      { label: "Governing corrosion rate", value: `${formatOutput(result.governingCorrosionRateMmPerYear, "rate", unitSystem, true)} ${rateUnit}` },
+    ],
+  };
+
   return <div className={`calculator-page api653-${variant}-page`}>
-    <header className="calculator-header"><button className="back-button" onClick={onBack}><ArrowLeft size={16} /> API 653 library</button><div className="calculator-heading-row"><div><p className="eyebrow">{copy.eyebrow}</p><h1>{copy.title}</h1><p>{copy.description}</p></div><div className="calculator-actions"><span className="save-state-badge"><CircleCheck size={14} /> {isAnnular ? "Original-web parity" : "Audited MRT route"}</span><button className="secondary-button" onClick={reset}><RotateCcw size={16} /> Reset</button></div></div><div className="step-line" aria-label="Calculation workflow"><button className="complete"><b>1</b> Basis</button><i /><button className="complete"><b>2</b> Inspection</button><i /><button className="active"><b>3</b> Results</button></div></header>
+    <header className="calculator-header"><button className="back-button" onClick={onBack}><ArrowLeft size={16} /> API 653 library</button><div className="calculator-heading-row"><div><p className="eyebrow">{copy.eyebrow}</p><h1>{copy.title}</h1><p>{copy.description}</p></div><div className="calculator-actions"><span className="save-state-badge"><CircleCheck size={14} /> {isAnnular ? "Original-web parity" : "Audited MRT route"}</span><Api653RecordWorkflow calculatorId={calculatorId} calculatorLabel={isAnnular ? "Annular Plate" : "Bottom Plate"} defaultAssetTag="TK-101" defaultAssetName="Storage tank" defaultTitle={isAnnular ? "API 653 annular plate assessment" : "API 653 bottom plate assessment"} reportDefinition={reportDefinition} inputSnapshot={inputSnapshot} result={result} onRecalculate={() => setRecalculationRevision((value) => value + 1)} record={initialCalculation} projects={projects} onSave={onSave} onReview={onReview} onApprove={onApprove} onNeedProject={onNeedProject} notify={notify} /><button className="secondary-button" onClick={reset}><RotateCcw size={16} /> Reset</button></div></div><div className="step-line" aria-label="Calculation workflow"><button className="complete"><b>1</b> Basis</button><i /><button className="complete"><b>2</b> Inspection</button><i /><button className="active"><b>3</b> Results</button></div></header>
 
     <div className="calculator-workspace"><div className="input-column">
       <section className="form-card">
@@ -400,6 +447,6 @@ export function Api653PlateRemainingLifeCalculator({ onBack, variant }: { onBack
   </div>;
 }
 
-export function Api653BottomPlateCalculator({ onBack }: { onBack: () => void }) {
-  return <Api653PlateRemainingLifeCalculator onBack={onBack} variant="bottom" />;
+export function Api653BottomPlateCalculator(props: Api653CalculatorWorkflowProps & { onBack: () => void }) {
+  return <Api653PlateRemainingLifeCalculator {...props} variant="bottom" />;
 }

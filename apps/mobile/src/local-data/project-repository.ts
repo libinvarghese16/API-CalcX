@@ -1,16 +1,21 @@
 import type {
+  ApproveApi653CalculationInput,
   ApproveApi570CalculationInput,
   ApproveCalculationInput,
+  Api653CalculatorId,
   Api570CalculatorId,
   CalculationWorkflow,
   CreateProjectInput,
   LocalEquipment,
   LocalProject,
   LocalWorkspaceV1,
+  ReviewApi653CalculationInput,
   ReviewApi570CalculationInput,
   ReviewCalculationInput,
+  SaveApi653CalculationInput,
   SaveApi570CalculationInput,
   SaveCalculationInput,
+  SavedApi653Calculation,
   SavedApi570Calculation,
   SavedApi510Calculation,
   WorkspaceBackupEnvelopeV1,
@@ -18,7 +23,7 @@ import type {
   WorkspaceBackupSummary,
   WorkspaceImportResult,
 } from "./models.ts";
-import { createApi570CalculationFingerprint, createCalculationFingerprint } from "./calculation-workflow.ts";
+import { createApi570CalculationFingerprint, createApi653CalculationFingerprint, createCalculationFingerprint } from "./calculation-workflow.ts";
 
 export const WORKSPACE_STORAGE_KEY = "api-calc-pro.local-workspace.v1";
 export const WORKSPACE_RECOVERY_KEY = "api-calc-pro.local-workspace.recovery";
@@ -51,12 +56,25 @@ const api570EngineIdByCalculator: Record<Api570CalculatorId, string> = {
   "soil-resistivity": "api570.support.soil-resistivity",
 };
 
+const api653EngineIdByCalculator: Record<Api653CalculatorId, string> = {
+  "bottom-plate": "api653.bottom-plate",
+  "annular-plate": "api653.annular-plate",
+  "shell-course": "api653.shell-course",
+  nozzle: "api653.nozzle",
+  "roof-plate": "api653.roof-plate",
+  "other-4-3-2": "api653.other-4-3-2",
+};
+
 export function api570EngineIdForCalculator(calculatorId: Api570CalculatorId): string {
   return api570EngineIdByCalculator[calculatorId];
 }
 
 function isApi570CalculatorId(value: unknown): value is Api570CalculatorId {
   return typeof value === "string" && Object.hasOwn(api570EngineIdByCalculator, value);
+}
+
+function isApi653CalculatorId(value: unknown): value is Api653CalculatorId {
+  return typeof value === "string" && Object.hasOwn(api653EngineIdByCalculator, value);
 }
 
 function isSavedCalculation(value: unknown): value is SavedApi510Calculation {
@@ -83,6 +101,26 @@ function isSavedApi570Calculation(value: unknown): value is SavedApi570Calculati
     && typeof calculation.projectId === "string"
     && calculation.standard === "API 570"
     && isApi570CalculatorId(calculatorId)
+    && typeof calculation.assetTag === "string"
+    && typeof calculation.assetName === "string"
+    && typeof calculation.title === "string"
+    && (["draft", "reviewed", "approved"] as string[]).includes(String(calculation.status))
+    && isWorkflow(calculation.workflow)
+    && Boolean(calculation.inputs && typeof calculation.inputs === "object" && calculation.inputs.calculatorId === calculatorId)
+    && Boolean(calculation.result && typeof calculation.result === "object" && calculation.result.engineId === expectedEngineId)
+    && typeof calculation.createdAt === "string"
+    && typeof calculation.updatedAt === "string";
+}
+
+function isSavedApi653Calculation(value: unknown): value is SavedApi653Calculation {
+  if (!value || typeof value !== "object") return false;
+  const calculation = value as Partial<SavedApi653Calculation>;
+  const calculatorId = calculation.calculatorId;
+  const expectedEngineId = isApi653CalculatorId(calculatorId) ? api653EngineIdByCalculator[calculatorId] : "";
+  return typeof calculation.id === "string"
+    && typeof calculation.projectId === "string"
+    && calculation.standard === "API 653"
+    && isApi653CalculatorId(calculatorId)
     && typeof calculation.assetTag === "string"
     && typeof calculation.assetName === "string"
     && typeof calculation.title === "string"
@@ -138,6 +176,7 @@ function isProject(value: unknown): value is LocalProject {
     && Array.isArray(project.equipment)
     && project.equipment.every(isEquipment)
     && (project.api570Calculations === undefined || (Array.isArray(project.api570Calculations) && project.api570Calculations.every(isSavedApi570Calculation)))
+    && (project.api653Calculations === undefined || (Array.isArray(project.api653Calculations) && project.api653Calculations.every(isSavedApi653Calculation)))
     && typeof project.createdAt === "string"
     && typeof project.updatedAt === "string";
 }
@@ -149,6 +188,7 @@ function parseWorkspace(raw: string): LocalWorkspaceV1 | null {
     const workspace = value as LocalWorkspaceV1;
     workspace.projects.forEach((project) => {
       project.api570Calculations ??= [];
+      project.api653Calculations ??= [];
       project.equipment.forEach((equipment) => {
         equipment.calculations = equipment.calculations.map((calculation) => normalizeCalculation(calculation, project.id, equipment));
       });
@@ -163,7 +203,8 @@ function backupSummary(envelope: WorkspaceBackupEnvelopeV1): WorkspaceBackupSumm
   const equipmentCount = envelope.projects.reduce((total, project) => total + project.equipment.length, 0);
   const calculationCount = envelope.projects.reduce((projectTotal, project) => projectTotal
     + project.equipment.reduce((equipmentTotal, equipment) => equipmentTotal + equipment.calculations.length, 0)
-    + project.api570Calculations.length, 0);
+    + project.api570Calculations.length
+    + project.api653Calculations.length, 0);
   return {
     scope: envelope.scope,
     exportedAt: envelope.exportedAt,
@@ -219,7 +260,8 @@ function mergeBackup(workspace: LocalWorkspaceV1, importedProjects: LocalProject
       result.addedProjects += 1;
       result.addedEquipment += importedProject.equipment.length;
       result.addedCalculations += importedProject.equipment.reduce((total, equipment) => total + equipment.calculations.length, 0)
-        + importedProject.api570Calculations.length;
+        + importedProject.api570Calculations.length
+        + importedProject.api653Calculations.length;
       return;
     }
     result.matchedProjects += 1;
@@ -247,6 +289,14 @@ function mergeBackup(workspace: LocalWorkspaceV1, importedProjects: LocalProject
         return;
       }
       existingProject.api570Calculations.push(clone(importedCalculation));
+      result.addedCalculations += 1;
+    });
+    importedProject.api653Calculations.forEach((importedCalculation) => {
+      if (existingProject.api653Calculations.some((calculation) => calculation.id === importedCalculation.id)) {
+        result.duplicateCalculations += 1;
+        return;
+      }
+      existingProject.api653Calculations.push(clone(importedCalculation));
       result.addedCalculations += 1;
     });
     existingProject.updatedAt = [existingProject.updatedAt, importedProject.updatedAt].sort().at(-1) ?? existingProject.updatedAt;
@@ -307,6 +357,17 @@ function normalizeCalculation(calculation: SavedApi510Calculation, projectId: st
 
 function api570CalculationFingerprint(calculation: SavedApi570Calculation): string {
   return createApi570CalculationFingerprint({
+    projectId: calculation.projectId,
+    assetTag: calculation.assetTag,
+    assetName: calculation.assetName,
+    title: calculation.title,
+    inputs: calculation.inputs,
+    result: calculation.result,
+  });
+}
+
+function api653CalculationFingerprint(calculation: SavedApi653Calculation): string {
+  return createApi653CalculationFingerprint({
     projectId: calculation.projectId,
     assetTag: calculation.assetTag,
     assetName: calculation.assetName,
@@ -379,6 +440,7 @@ export class LocalProjectRepository {
       status: "active",
       equipment: [],
       api570Calculations: [],
+      api653Calculations: [],
       createdAt: timestamp,
       updatedAt: timestamp,
     };
@@ -616,6 +678,124 @@ export class LocalProjectRepository {
     return clone(calculation);
   }
 
+  saveApi653Calculation(input: SaveApi653CalculationInput): SavedApi653Calculation {
+    const assetTag = input.assetTag.trim().toUpperCase();
+    if (!assetTag) throw new Error("Tank or equipment tag is required.");
+    if (!input.title.trim()) throw new Error("Calculation title is required.");
+    if (!input.preparedBy.trim()) throw new Error("Preparer name is required.");
+    const workspace = this.read();
+    const project = this.requireProject(workspace, input.projectId);
+    const timestamp = this.now();
+    let calculation = input.calculationId
+      ? project.api653Calculations.find((candidate) => candidate.id === input.calculationId)
+      : undefined;
+    if (input.calculationId && !calculation) throw new Error("Saved API 653 calculation was not found.");
+    if (calculation && calculation.calculatorId !== input.calculatorId) throw new Error("The saved API 653 record belongs to a different calculator.");
+    if (input.inputs.calculatorId !== input.calculatorId) throw new Error("The API 653 input snapshot does not match the selected calculator.");
+    if (input.result.engineId !== api653EngineIdByCalculator[input.calculatorId]) throw new Error("The API 653 result does not match the selected calculator.");
+
+    if (calculation) {
+      const previousFingerprint = api653CalculationFingerprint(calculation);
+      const nextFingerprint = createApi653CalculationFingerprint({
+        projectId: project.id,
+        assetTag,
+        assetName: input.assetName?.trim() || calculation.assetName,
+        title: input.title,
+        inputs: input.inputs,
+        result: input.result,
+      });
+      const createsRevision = previousFingerprint !== nextFingerprint && calculation.status !== "draft";
+      calculation.assetTag = assetTag;
+      calculation.assetName = input.assetName?.trim() || calculation.assetName;
+      calculation.title = input.title.trim();
+      if (createsRevision) {
+        calculation.status = "draft";
+        calculation.workflow.revision += 1;
+        calculation.workflow.reviewedBy = undefined;
+        calculation.workflow.reviewNotes = undefined;
+        calculation.workflow.reviewedAt = undefined;
+        calculation.workflow.reviewedFingerprint = undefined;
+        calculation.workflow.approvedBy = undefined;
+        calculation.workflow.approvalNotes = undefined;
+        calculation.workflow.approvedAt = undefined;
+        calculation.workflow.approvedFingerprint = undefined;
+        calculation.workflow.history.push({
+          id: this.createId(), type: "revised", status: "draft", revision: calculation.workflow.revision,
+          actor: input.preparedBy.trim(),
+          note: input.changeNote?.trim() || "API 653 calculation content changed after review or approval.",
+          timestamp, fingerprint: nextFingerprint,
+        });
+      }
+      calculation.workflow.preparedBy = input.preparedBy.trim();
+      calculation.inputs = clone(input.inputs);
+      calculation.result = clone(input.result);
+      calculation.updatedAt = timestamp;
+    } else {
+      calculation = {
+        id: this.createId(), projectId: project.id, standard: "API 653", calculatorId: input.calculatorId,
+        assetTag, assetName: input.assetName?.trim() || "Storage tank", title: input.title.trim(), status: "draft",
+        workflow: { revision: 1, preparedBy: input.preparedBy.trim(), history: [] },
+        inputs: clone(input.inputs), result: clone(input.result), createdAt: timestamp, updatedAt: timestamp,
+      };
+      calculation.workflow.history.push({
+        id: this.createId(), type: "saved", status: "draft", revision: 1, actor: calculation.workflow.preparedBy,
+        note: input.changeNote?.trim() || "Initial local API 653 calculation record saved.",
+        timestamp, fingerprint: api653CalculationFingerprint(calculation),
+      });
+      project.api653Calculations.push(calculation);
+    }
+    project.updatedAt = timestamp;
+    this.write(workspace);
+    return clone(calculation);
+  }
+
+  reviewApi653Calculation(input: ReviewApi653CalculationInput): SavedApi653Calculation {
+    const reviewerName = input.reviewerName.trim();
+    if (!reviewerName) throw new Error("Reviewer name is required.");
+    const workspace = this.read();
+    const { project, calculation } = this.requireApi653Calculation(workspace, input.projectId, input.calculationId);
+    const fingerprint = api653CalculationFingerprint(calculation);
+    if (input.fingerprint !== fingerprint) throw new Error("The API 653 calculation changed after review opened. Review the latest values again.");
+    if (!calculation.result.ok) throw new Error("A calculation with engine errors cannot be reviewed.");
+    if (calculation.status !== "draft") throw new Error("Only a draft calculation can move to Reviewed.");
+    const timestamp = this.now();
+    calculation.status = "reviewed";
+    calculation.workflow.reviewedBy = reviewerName;
+    calculation.workflow.reviewNotes = input.reviewNotes?.trim() ?? "";
+    calculation.workflow.reviewedAt = timestamp;
+    calculation.workflow.reviewedFingerprint = fingerprint;
+    calculation.workflow.approvedBy = undefined;
+    calculation.workflow.approvalNotes = undefined;
+    calculation.workflow.approvedAt = undefined;
+    calculation.workflow.approvedFingerprint = undefined;
+    calculation.workflow.history.push({ id: this.createId(), type: "reviewed", status: "reviewed", revision: calculation.workflow.revision, actor: reviewerName, note: calculation.workflow.reviewNotes || "API 653 inputs, units, results and trace reviewed locally.", timestamp, fingerprint });
+    calculation.updatedAt = timestamp;
+    project.updatedAt = timestamp;
+    this.write(workspace);
+    return clone(calculation);
+  }
+
+  approveApi653Calculation(input: ApproveApi653CalculationInput): SavedApi653Calculation {
+    const approverName = input.approverName.trim();
+    if (!approverName) throw new Error("Approver name is required.");
+    const workspace = this.read();
+    const { project, calculation } = this.requireApi653Calculation(workspace, input.projectId, input.calculationId);
+    const fingerprint = api653CalculationFingerprint(calculation);
+    if (input.fingerprint !== fingerprint || calculation.workflow.reviewedFingerprint !== fingerprint) throw new Error("The reviewed API 653 calculation is no longer current. Return it to review before approval.");
+    if (calculation.status !== "reviewed") throw new Error("Only a Reviewed calculation can move to Approved.");
+    const timestamp = this.now();
+    calculation.status = "approved";
+    calculation.workflow.approvedBy = approverName;
+    calculation.workflow.approvalNotes = input.approvalNotes?.trim() ?? "";
+    calculation.workflow.approvedAt = timestamp;
+    calculation.workflow.approvedFingerprint = fingerprint;
+    calculation.workflow.history.push({ id: this.createId(), type: "approved", status: "approved", revision: calculation.workflow.revision, actor: approverName, note: calculation.workflow.approvalNotes || "Local API 653 report workflow approval recorded.", timestamp, fingerprint });
+    calculation.updatedAt = timestamp;
+    project.updatedAt = timestamp;
+    this.write(workspace);
+    return clone(calculation);
+  }
+
   reviewApi570Calculation(input: ReviewApi570CalculationInput): SavedApi570Calculation {
     const reviewerName = input.reviewerName.trim();
     if (!reviewerName) throw new Error("Reviewer name is required.");
@@ -707,6 +887,31 @@ export class LocalProjectRepository {
     const nextCalculations = project.api570Calculations.filter((candidate) => candidate.id !== calculationId);
     if (nextCalculations.length === project.api570Calculations.length) throw new Error("Saved API 570 calculation was not found.");
     project.api570Calculations = nextCalculations;
+    project.updatedAt = this.now();
+    this.write(workspace);
+  }
+
+  duplicateApi653Calculation(projectId: string, calculationId: string): SavedApi653Calculation {
+    const workspace = this.read();
+    const { project, calculation: source } = this.requireApi653Calculation(workspace, projectId, calculationId);
+    const timestamp = this.now();
+    const duplicate: SavedApi653Calculation = {
+      ...clone(source), id: this.createId(), title: `${source.title} copy`, status: "draft",
+      workflow: { revision: 1, preparedBy: source.workflow.preparedBy, history: [] }, createdAt: timestamp, updatedAt: timestamp,
+    };
+    duplicate.workflow.history.push({ id: this.createId(), type: "saved", status: "draft", revision: 1, actor: duplicate.workflow.preparedBy, note: `Created as a draft copy of ${source.title}.`, timestamp, fingerprint: api653CalculationFingerprint(duplicate) });
+    project.api653Calculations.push(duplicate);
+    project.updatedAt = timestamp;
+    this.write(workspace);
+    return clone(duplicate);
+  }
+
+  deleteApi653Calculation(projectId: string, calculationId: string): void {
+    const workspace = this.read();
+    const project = this.requireProject(workspace, projectId);
+    const nextCalculations = project.api653Calculations.filter((candidate) => candidate.id !== calculationId);
+    if (nextCalculations.length === project.api653Calculations.length) throw new Error("Saved API 653 calculation was not found.");
+    project.api653Calculations = nextCalculations;
     project.updatedAt = this.now();
     this.write(workspace);
   }
@@ -865,6 +1070,13 @@ export class LocalProjectRepository {
     const project = this.requireProject(workspace, projectId);
     const calculation = project.api570Calculations.find((candidate) => candidate.id === calculationId);
     if (!calculation) throw new Error("Saved API 570 calculation was not found.");
+    return { project, calculation };
+  }
+
+  private requireApi653Calculation(workspace: LocalWorkspaceV1, projectId: string, calculationId: string) {
+    const project = this.requireProject(workspace, projectId);
+    const calculation = project.api653Calculations.find((candidate) => candidate.id === calculationId);
+    if (!calculation) throw new Error("Saved API 653 calculation was not found.");
     return { project, calculation };
   }
 }

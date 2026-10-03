@@ -23,6 +23,9 @@ import type {
 } from "@api-calc-pro/calc-engine";
 import { ArrowLeft, CircleCheck, Gauge, Info, RotateCcw, ShieldCheck, TriangleAlert, Wrench } from "lucide-react";
 import { formatDisplayNumber } from "../display-precision.ts";
+import type { Api653InputSnapshot } from "../local-data/models.ts";
+import { Api653RecordWorkflow } from "./Api653RecordWorkflow.tsx";
+import type { Api653CalculatorWorkflowProps, Api653WorkflowReportDefinition } from "./Api653RecordWorkflow.tsx";
 
 type UnitFieldState = { value: string; unit: EngineeringUnit; quantity: EngineeringQuantity };
 type InputFieldId = "diameter" | "leastThickness" | "minimumThickness" | "corrosionAllowance" | "profile1" | "profile2" | "profile3" | "profile4" | "profile5" | "pitRemaining" | "pitSum";
@@ -115,20 +118,22 @@ function initialDerived(): DerivedFields {
   };
 }
 
-export function Api653Other432Calculator({ onBack }: { onBack: () => void }) {
-  const [unitSystem, setUnitSystem] = useState<UnitSystem>("metric");
-  const [buildYear, setBuildYear] = useState("2006");
-  const [previousInspectionYear, setPreviousInspectionYear] = useState("2021");
-  const [serviceYearsMode, setServiceYearsMode] = useState<AutomaticValueMode>("auto");
-  const [inspectionYearsMode, setInspectionYearsMode] = useState<AutomaticValueMode>("auto");
-  const [manualServiceYears, setManualServiceYears] = useState("20");
-  const [manualInspectionYears, setManualInspectionYears] = useState("5");
-  const [fields, setFields] = useState<InputFields>(initialInputs);
-  const [derivedFields, setDerivedFields] = useState<DerivedFields>(initialDerived);
-  const [criticalLengthMode, setCriticalLengthMode] = useState<AutomaticValueMode>("auto");
-  const [averageThicknessMode, setAverageThicknessMode] = useState<AutomaticValueMode>("auto");
-  const [adjustedMinimumMode, setAdjustedMinimumMode] = useState<AutomaticValueMode>("auto");
-  const [adjustedSixtyMode, setAdjustedSixtyMode] = useState<AutomaticValueMode>("auto");
+export function Api653Other432Calculator({ onBack, projects, initialCalculation, onSave, onReview, onApprove, onNeedProject, notify }: Api653CalculatorWorkflowProps & { onBack: () => void }) {
+  const savedState = (initialCalculation?.inputs.formState ?? {}) as Partial<{ unitSystem: UnitSystem; buildYear: string; previousInspectionYear: string; serviceYearsMode: AutomaticValueMode; inspectionYearsMode: AutomaticValueMode; manualServiceYears: string; manualInspectionYears: string; fields: InputFields; derivedFields: DerivedFields; criticalLengthMode: AutomaticValueMode; averageThicknessMode: AutomaticValueMode; adjustedMinimumMode: AutomaticValueMode; adjustedSixtyMode: AutomaticValueMode }>;
+  const [unitSystem, setUnitSystem] = useState<UnitSystem>(savedState.unitSystem ?? "metric");
+  const [buildYear, setBuildYear] = useState(savedState.buildYear ?? "2006");
+  const [previousInspectionYear, setPreviousInspectionYear] = useState(savedState.previousInspectionYear ?? "2021");
+  const [serviceYearsMode, setServiceYearsMode] = useState<AutomaticValueMode>(savedState.serviceYearsMode ?? "auto");
+  const [inspectionYearsMode, setInspectionYearsMode] = useState<AutomaticValueMode>(savedState.inspectionYearsMode ?? "auto");
+  const [manualServiceYears, setManualServiceYears] = useState(savedState.manualServiceYears ?? "20");
+  const [manualInspectionYears, setManualInspectionYears] = useState(savedState.manualInspectionYears ?? "5");
+  const [fields, setFields] = useState<InputFields>(savedState.fields ?? initialInputs);
+  const [derivedFields, setDerivedFields] = useState<DerivedFields>(savedState.derivedFields ?? initialDerived);
+  const [criticalLengthMode, setCriticalLengthMode] = useState<AutomaticValueMode>(savedState.criticalLengthMode ?? "auto");
+  const [averageThicknessMode, setAverageThicknessMode] = useState<AutomaticValueMode>(savedState.averageThicknessMode ?? "auto");
+  const [adjustedMinimumMode, setAdjustedMinimumMode] = useState<AutomaticValueMode>(savedState.adjustedMinimumMode ?? "auto");
+  const [adjustedSixtyMode, setAdjustedSixtyMode] = useState<AutomaticValueMode>(savedState.adjustedSixtyMode ?? "auto");
+  const [recalculationRevision, setRecalculationRevision] = useState(0);
 
   const numericBuildYear = numberFrom(buildYear);
   const serviceYears = deriveYearsInService(numericBuildYear, currentYear);
@@ -155,7 +160,7 @@ export function Api653Other432Calculator({ onBack }: { onBack: () => void }) {
     manualAdjustedSixtyPercentMm: toMm(derivedFields.adjustedSixty),
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [fields, derivedFields, criticalLengthMode, averageThicknessMode, adjustedMinimumMode, adjustedSixtyMode]);
-  const result = useMemo(() => calculateApi653Other432(input), [input]);
+  const result = useMemo(() => calculateApi653Other432(input), [input, recalculationRevision]);
 
   const automaticValues: Record<DerivedFieldId, number> = {
     criticalLength: result.automaticCriticalLengthMm,
@@ -196,9 +201,36 @@ export function Api653Other432Calculator({ onBack }: { onBack: () => void }) {
   const pitDetail = result.pitStatus === "optional" ? "Provide both pit values only when the pit screen is required." : result.pitStatus === "pending" ? "Enter tmin and both pit values to complete the optional screen." : `Clause (a): ${formatLength(result.deepestPitRemainingThicknessMmUsed ?? 0)} ${lengthUnit} ${result.pitCheckAPass ? "≥" : "<"} ${formatLength(pitLimit)} ${lengthUnit}; clause (b): ${formatLength(result.pitDimensionSumMmUsed ?? 0)} ${lengthUnit} ${result.pitCheckBPass ? "≤" : ">"} ${formatLength(50)} ${lengthUnit}.`;
   const error = result.issues.find((issue) => issue.severity === "error");
   const overallDetail = result.overallStatus === "pass" ? result.pitStatus === "pass" ? "Core criteria and both pit clauses pass." : "Core criteria pass; pit screening is not fully evaluated." : result.overallStatus === "fail" ? "One or more evaluated acceptance checks are below the required limit." : "Complete the required thickness profile and threshold inputs.";
+  const inputSnapshot = useMemo<Api653InputSnapshot>(() => ({ calculatorId: "other-4-3-2", unitSystem, formState: { unitSystem, buildYear, previousInspectionYear, serviceYearsMode, inspectionYearsMode, manualServiceYears, manualInspectionYears, fields, derivedFields, criticalLengthMode, averageThicknessMode, adjustedMinimumMode, adjustedSixtyMode }, engineInput: input }), [adjustedMinimumMode, adjustedSixtyMode, averageThicknessMode, buildYear, criticalLengthMode, derivedFields, fields, input, inspectionYearsMode, manualInspectionYears, manualServiceYears, previousInspectionYear, serviceYearsMode, unitSystem]);
+  const reportDefinition: Api653WorkflowReportDefinition = {
+    reportKind: "Local thin-area calculation report",
+    basisTitle: "Local thin-area assessment basis",
+    inspectionTitle: "Thickness profile and inspection context",
+    summaryLines: [`Overall status: ${result.overallStatus.toUpperCase()}`, `Critical length: ${formatLength(result.criticalLengthMmUsed)} ${lengthUnit}`, `Average thickness: ${formatLength(result.averageThicknessMmUsed)} ${lengthUnit}`],
+    basisRows: [
+      { label: "Tank diameter", value: `${formatDisplayNumber(result.diameterMUsed)} m` },
+      { label: "Minimum required thickness", value: `${formatLength(result.minimumRequiredThicknessMmUsed)} ${lengthUnit}` },
+      { label: "Corrosion allowance", value: `${formatLength(result.corrosionAllowanceMmUsed)} ${lengthUnit}` },
+      { label: "Critical length", value: `${formatLength(result.criticalLengthMmUsed)} ${lengthUnit}` },
+    ],
+    inspectionRows: [
+      { label: "Least measured thickness", value: `${formatLength(result.leastThicknessMmUsed)} ${lengthUnit}` },
+      { label: "Profile points", value: result.profileThicknessesMmUsed.map((value) => formatLength(value)).join(", ") + ` ${lengthUnit}` },
+      { label: "Profile complete", value: result.hasAllProfilePoints ? "Yes" : "No" },
+      { label: "Pit screen", value: result.pitStatus },
+    ],
+    resultRows: [
+      { label: "Overall status", value: result.overallStatus.toUpperCase(), primary: true },
+      { label: "Minimum required thickness", value: `${formatLength(result.minimumRequiredThicknessMmUsed)} ${lengthUnit}`, primary: true },
+      { label: "Average thickness", value: `${formatLength(result.averageThicknessMmUsed)} ${lengthUnit}` },
+      { label: "Adjusted minimum", value: `${formatLength(result.adjustedMinimumMmUsed)} ${lengthUnit}` },
+      { label: "Adjusted 60% threshold", value: `${formatLength(result.adjustedSixtyPercentMmUsed)} ${lengthUnit}` },
+      { label: "Core checks", value: `${result.check1Status} / ${result.check2Status}` },
+    ],
+  };
 
   return <div className="calculator-page api653-other432-page">
-    <header className="calculator-header"><button className="back-button" onClick={onBack}><ArrowLeft size={16} /> API 653 library</button><div className="calculator-heading-row"><div><p className="eyebrow">API 653 · Local thin area · Calculator 6 of 6</p><h1>Other 4.3.2 calculations</h1><p>Critical length, five-point thickness profile, adjusted acceptance thresholds, and optional pit screening.</p></div><div className="calculator-actions"><span className="save-state-badge"><CircleCheck size={14} /> Original-web parity</span><button className="secondary-button" onClick={reset}><RotateCcw size={16} /> Reset</button></div></div><div className="step-line" aria-label="Calculation workflow"><button className="complete"><b>1</b> Basis</button><i /><button className="complete"><b>2</b> Profile</button><i /><button className="active"><b>3</b> Results</button></div></header>
+    <header className="calculator-header"><button className="back-button" onClick={onBack}><ArrowLeft size={16} /> API 653 library</button><div className="calculator-heading-row"><div><p className="eyebrow">API 653 · Local thin area · Calculator 6 of 6</p><h1>Other 4.3.2 calculations</h1><p>Critical length, five-point thickness profile, adjusted acceptance thresholds, and optional pit screening.</p></div><div className="calculator-actions"><span className="save-state-badge"><CircleCheck size={14} /> Original-web parity</span><Api653RecordWorkflow calculatorId="other-4-3-2" calculatorLabel="Other 4.3.2" defaultAssetTag="TK-101" defaultAssetName="Storage tank" defaultTitle="API 653 local thin-area assessment" reportDefinition={reportDefinition} inputSnapshot={inputSnapshot} result={result} onRecalculate={() => setRecalculationRevision((value) => value + 1)} record={initialCalculation} projects={projects} onSave={onSave} onReview={onReview} onApprove={onApprove} onNeedProject={onNeedProject} notify={notify} /><button className="secondary-button" onClick={reset}><RotateCcw size={16} /> Reset</button></div></div><div className="step-line" aria-label="Calculation workflow"><button className="complete"><b>1</b> Basis</button><i /><button className="complete"><b>2</b> Profile</button><i /><button className="active"><b>3</b> Results</button></div></header>
 
     <div className="calculator-workspace"><div className="input-column">
       <section className="form-card"><div className="form-card-heading"><div><span>01</span><div><h2>Calculation basis</h2><p>Set the tank geometry, required thickness, allowance, and global result units.</p></div></div><Wrench size={19} /></div><div className="form-grid">

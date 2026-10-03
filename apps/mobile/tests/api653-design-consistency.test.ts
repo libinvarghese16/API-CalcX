@@ -44,9 +44,24 @@ test("keeps all six API 653 calculators on the shared structure", () => {
   assert.doesNotMatch(nozzleSource, /<table/);
   assert.ok(roofSource.indexOf("Calculation basis") < roofSource.indexOf("Design and inspection data"));
   assert.doesNotMatch(roofSource, /system-switch|<table/);
-  assert.ok(other432Source.indexOf("Calculation basis") < other432Source.indexOf("Design and inspection data"));
-  assert.ok(other432Source.indexOf("Design and inspection data") < other432Source.indexOf("Thickness profile"));
+  assert.ok(other432Source.lastIndexOf("Calculation basis") < other432Source.lastIndexOf("Design and inspection data"));
+  assert.ok(other432Source.lastIndexOf("Design and inspection data") < other432Source.lastIndexOf("Thickness profile"));
   assert.doesNotMatch(other432Source, /system-switch|<table|<img|image-preview|reference-trigger/i);
+});
+
+test("gives every API 653 calculator the shared report, review, save, and recalculation workflow", () => {
+  for (const [name, source] of [
+    ["Bottom/Annular", bottomAndAnnularSource],
+    ["Shell", shellSource],
+    ["Nozzle", nozzleSource],
+    ["Roof", roofSource],
+    ["Other 4.3.2", other432Source],
+  ] as const) {
+    assert.match(source, /Api653RecordWorkflow/, `${name} must render the shared record workflow`);
+    assert.match(source, /inputSnapshot/, `${name} must preserve editable inputs for reopening`);
+    assert.match(source, /reportDefinition/, `${name} must define a structured report`);
+    assert.match(source, /setRecalculationRevision/, `${name} must expose an explicit recalculation action`);
+  }
 });
 
 test("keeps every Other 4.3.2 automatic dependency editable, highlighted, and unit-aware", () => {

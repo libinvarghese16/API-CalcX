@@ -41,7 +41,7 @@ import { FieldHelpDialog } from "./help/FieldHelpDialog.tsx";
 import type { FieldHelpContent } from "./help/FieldHelpDialog.tsx";
 import { createCalculationFingerprint } from "./local-data/calculation-workflow.ts";
 import { LocalProjectRepository } from "./local-data/project-repository.ts";
-import type { Api510InputSnapshot, Api570CalculatorId, ApproveApi570CalculationInput, ApproveCalculationInput, CalculationWorkflow, CalculationWorkflowStatus, CreateProjectInput, LocalEquipment, LocalProject, PressureVesselComponent, ReviewApi570CalculationInput, ReviewCalculationInput, SaveApi570CalculationInput, SaveCalculationInput, SavedApi510Calculation, SavedApi570Calculation, WorkspaceBackupPreview, WorkspaceImportResult } from "./local-data/models.ts";
+import type { Api510InputSnapshot, Api570CalculatorId, Api653CalculatorId, ApproveApi570CalculationInput, ApproveApi653CalculationInput, ApproveCalculationInput, CalculationWorkflow, CalculationWorkflowStatus, CreateProjectInput, LocalEquipment, LocalProject, PressureVesselComponent, ReviewApi570CalculationInput, ReviewApi653CalculationInput, ReviewCalculationInput, SaveApi570CalculationInput, SaveApi653CalculationInput, SaveCalculationInput, SavedApi510Calculation, SavedApi570Calculation, SavedApi653Calculation, WorkspaceBackupPreview, WorkspaceImportResult } from "./local-data/models.ts";
 import { resolveNativeBackAction } from "./native/native-navigation.ts";
 import { ProjectsPage } from "./projects/ProjectsPage.tsx";
 import { Api510ReportPreview } from "./reports/Api510ReportPreview.tsx";
@@ -117,6 +117,14 @@ const api570PageByCalculator: Record<Api570CalculatorId, Page> = {
   "fillet-weld": "api570-fillet-weld",
   "tension-test": "api570-tension-test",
   "soil-resistivity": "api570-soil-resistivity",
+};
+const api653PageByCalculator: Record<Api653CalculatorId, Page> = {
+  "bottom-plate": "api653-bottom",
+  "annular-plate": "api653-annular",
+  "shell-course": "api653-shell",
+  nozzle: "api653-nozzles",
+  "roof-plate": "api653-roof",
+  "other-4-3-2": "api653-other-4-3-2",
 };
 type NavigationPage = Exclude<Page, "calculator" | "api570-piping" | "api570-tube" | "api570-header" | "api570-support" | "api570-pressure-design" | "api570-valve-fittings" | "api570-hydro-test" | "api570-flange-hydro-test" | "api570-pneumatic-test" | "api570-fillet-weld" | "api570-tension-test" | "api570-soil-resistivity" | "api653-bottom" | "api653-annular" | "api653-shell" | "api653-nozzles" | "api653-roof" | "api653-other-4-3-2" | "api571-damage-mechanisms">;
 type Theme = "light" | "dark";
@@ -244,6 +252,7 @@ function App() {
   const [projects, setProjects] = useState<LocalProject[]>(() => projectRepository.listProjects());
   const [activeCalculation, setActiveCalculation] = useState<SavedApi510Calculation | null>(null);
   const [activeApi570Calculation, setActiveApi570Calculation] = useState<SavedApi570Calculation | null>(null);
+  const [activeApi653Calculation, setActiveApi653Calculation] = useState<SavedApi653Calculation | null>(null);
   const [newCalculationComponent, setNewCalculationComponent] = useState<PressureVesselComponent>("cylindrical");
   const [theme, setTheme] = useState<Theme>(() => {
     const stored = window.localStorage.getItem("acp-preview-theme");
@@ -359,6 +368,14 @@ function App() {
     setActiveApi570Calculation(calculation);
     navigate(api570PageByCalculator[calculation.calculatorId]);
   };
+  const openNewApi653Calculator = (calculatorId: Api653CalculatorId) => {
+    setActiveApi653Calculation(null);
+    navigate(api653PageByCalculator[calculatorId]);
+  };
+  const openSavedApi653Calculation = (calculation: SavedApi653Calculation) => {
+    setActiveApi653Calculation(calculation);
+    navigate(api653PageByCalculator[calculation.calculatorId]);
+  };
   const createProject = (input: CreateProjectInput) => {
     const project = projectRepository.createProject(input);
     refreshProjects();
@@ -400,6 +417,24 @@ function App() {
     setActiveApi570Calculation(calculation);
     return calculation;
   };
+  const saveApi653Calculation = (input: SaveApi653CalculationInput) => {
+    const calculation = projectRepository.saveApi653Calculation(input);
+    refreshProjects();
+    setActiveApi653Calculation(calculation);
+    return calculation;
+  };
+  const reviewApi653Calculation = (input: ReviewApi653CalculationInput) => {
+    const calculation = projectRepository.reviewApi653Calculation(input);
+    refreshProjects();
+    setActiveApi653Calculation(calculation);
+    return calculation;
+  };
+  const approveApi653Calculation = (input: ApproveApi653CalculationInput) => {
+    const calculation = projectRepository.approveApi653Calculation(input);
+    refreshProjects();
+    setActiveApi653Calculation(calculation);
+    return calculation;
+  };
   const api570RecordProps = {
     onNeedProject: () => navigate("projects"),
     notify: showPrototypeNotice,
@@ -408,6 +443,15 @@ function App() {
     onSave: saveApi570Calculation,
     onReview: reviewApi570Calculation,
     onApprove: approveApi570Calculation,
+  };
+  const api653RecordProps = {
+    onNeedProject: () => navigate("projects"),
+    notify: showPrototypeNotice,
+    projects: accessibleProjects,
+    initialCalculation: activeApi653Calculation,
+    onSave: saveApi653Calculation,
+    onReview: reviewApi653Calculation,
+    onApprove: approveApi653Calculation,
   };
   const exportBackup = (projectId?: string) => {
     try {
@@ -547,17 +591,17 @@ function App() {
         ) : page === "api570-soil-resistivity" ? (
           <Suspense fallback={<div className="page-wrap"><div className="empty-state"><Gauge size={28} /><h2>Loading Soil Resistivity calculator</h2></div></div>}><Api570SoilResistivityCalculator key={activeApi570Calculation?.calculatorId === "soil-resistivity" ? activeApi570Calculation.id : "new-api570-soil-resistivity"} onBack={() => navigate("api570-support")} {...api570RecordProps} /></Suspense>
         ) : page === "api653-bottom" ? (
-          <Suspense fallback={<div className="page-wrap"><div className="empty-state"><Gauge size={28} /><h2>Loading Bottom Plate calculator</h2></div></div>}><Api653BottomPlateCalculator onBack={() => navigate("calculators")} /></Suspense>
+          <Suspense fallback={<div className="page-wrap"><div className="empty-state"><Gauge size={28} /><h2>Loading Bottom Plate calculator</h2></div></div>}><Api653BottomPlateCalculator key={activeApi653Calculation?.calculatorId === "bottom-plate" ? activeApi653Calculation.id : "new-api653-bottom"} onBack={() => navigate("calculators")} {...api653RecordProps} /></Suspense>
         ) : page === "api653-annular" ? (
-          <Suspense fallback={<div className="page-wrap"><div className="empty-state"><Gauge size={28} /><h2>Loading Annular Plate calculator</h2></div></div>}><Api653AnnularPlateCalculator onBack={() => navigate("calculators")} /></Suspense>
+          <Suspense fallback={<div className="page-wrap"><div className="empty-state"><Gauge size={28} /><h2>Loading Annular Plate calculator</h2></div></div>}><Api653AnnularPlateCalculator key={activeApi653Calculation?.calculatorId === "annular-plate" ? activeApi653Calculation.id : "new-api653-annular"} onBack={() => navigate("calculators")} {...api653RecordProps} /></Suspense>
         ) : page === "api653-shell" ? (
-          <Suspense fallback={<div className="page-wrap"><div className="empty-state"><Gauge size={28} /><h2>Loading Shell Course calculator</h2></div></div>}><Api653ShellCourseCalculator onBack={() => navigate("calculators")} /></Suspense>
+          <Suspense fallback={<div className="page-wrap"><div className="empty-state"><Gauge size={28} /><h2>Loading Shell Course calculator</h2></div></div>}><Api653ShellCourseCalculator key={activeApi653Calculation?.calculatorId === "shell-course" ? activeApi653Calculation.id : "new-api653-shell"} onBack={() => navigate("calculators")} {...api653RecordProps} /></Suspense>
         ) : page === "api653-nozzles" ? (
-          <Suspense fallback={<div className="page-wrap"><div className="empty-state"><Gauge size={28} /><h2>Loading Nozzle calculator</h2></div></div>}><Api653NozzleCalculator onBack={() => navigate("calculators")} /></Suspense>
+          <Suspense fallback={<div className="page-wrap"><div className="empty-state"><Gauge size={28} /><h2>Loading Nozzle calculator</h2></div></div>}><Api653NozzleCalculator key={activeApi653Calculation?.calculatorId === "nozzle" ? activeApi653Calculation.id : "new-api653-nozzle"} onBack={() => navigate("calculators")} {...api653RecordProps} /></Suspense>
         ) : page === "api653-roof" ? (
-          <Suspense fallback={<div className="page-wrap"><div className="empty-state"><Gauge size={28} /><h2>Loading Roof Plate calculator</h2></div></div>}><Api653RoofPlateCalculator onBack={() => navigate("calculators")} /></Suspense>
+          <Suspense fallback={<div className="page-wrap"><div className="empty-state"><Gauge size={28} /><h2>Loading Roof Plate calculator</h2></div></div>}><Api653RoofPlateCalculator key={activeApi653Calculation?.calculatorId === "roof-plate" ? activeApi653Calculation.id : "new-api653-roof"} onBack={() => navigate("calculators")} {...api653RecordProps} /></Suspense>
         ) : page === "api653-other-4-3-2" ? (
-          <Suspense fallback={<div className="page-wrap"><div className="empty-state"><Gauge size={28} /><h2>Loading Other 4.3.2 calculator</h2></div></div>}><Api653Other432Calculator onBack={() => navigate("calculators")} /></Suspense>
+          <Suspense fallback={<div className="page-wrap"><div className="empty-state"><Gauge size={28} /><h2>Loading Other 4.3.2 calculator</h2></div></div>}><Api653Other432Calculator key={activeApi653Calculation?.calculatorId === "other-4-3-2" ? activeApi653Calculation.id : "new-api653-other"} onBack={() => navigate("calculators")} {...api653RecordProps} /></Suspense>
         ) : page === "api571-damage-mechanisms" ? (
           <Suspense fallback={<div className="page-wrap"><div className="empty-state"><BookOpenText size={28} /><h2>Loading damage mechanisms</h2></div></div>}><Api571DamageMechanisms onBack={() => navigate("calculators")} /></Suspense>
         ) : (
@@ -581,12 +625,12 @@ function App() {
                 openApi570Tube={openNewApi570Tube}
                 openApi570Header={() => openNewApi570Calculator("header")}
                 openApi570Support={() => navigate("api570-support")}
-                openApi653Bottom={() => navigate("api653-bottom")}
-                openApi653Annular={() => navigate("api653-annular")}
-                openApi653Shell={() => navigate("api653-shell")}
-                openApi653Nozzles={() => navigate("api653-nozzles")}
-                openApi653Roof={() => navigate("api653-roof")}
-                openApi653Other432={() => navigate("api653-other-4-3-2")}
+                openApi653Bottom={() => openNewApi653Calculator("bottom-plate")}
+                openApi653Annular={() => openNewApi653Calculator("annular-plate")}
+                openApi653Shell={() => openNewApi653Calculator("shell-course")}
+                openApi653Nozzles={() => openNewApi653Calculator("nozzle")}
+                openApi653Roof={() => openNewApi653Calculator("roof-plate")}
+                openApi653Other432={() => openNewApi653Calculator("other-4-3-2")}
                 openApi571DamageMechanisms={() => navigate("api571-damage-mechanisms")}
                 notify={showPrototypeNotice}
                 guestMode={isGuestAccess}
@@ -599,6 +643,7 @@ function App() {
                 onCreateProject={createProject}
                 onOpenCalculation={openSavedCalculation}
                 onOpenApi570Calculation={openSavedApi570Calculation}
+                onOpenApi653Calculation={openSavedApi653Calculation}
                 onDuplicateCalculation={(projectId, equipmentId, calculationId) => {
                   projectRepository.duplicateCalculation(projectId, equipmentId, calculationId);
                   refreshProjects();
@@ -619,6 +664,16 @@ function App() {
                   refreshProjects();
                   showPrototypeNotice("API 570 calculation deleted from this device.");
                 }}
+                onDuplicateApi653Calculation={(projectId, calculationId) => {
+                  projectRepository.duplicateApi653Calculation(projectId, calculationId);
+                  refreshProjects();
+                  showPrototypeNotice("API 653 calculation duplicated as a local draft.");
+                }}
+                onDeleteApi653Calculation={(projectId, calculationId) => {
+                  projectRepository.deleteApi653Calculation(projectId, calculationId);
+                  refreshProjects();
+                  showPrototypeNotice("API 653 calculation deleted from this device.");
+                }}
                 onArchiveProject={(projectId, archived) => {
                   projectRepository.setProjectArchived(projectId, archived);
                   refreshProjects();
@@ -631,11 +686,12 @@ function App() {
                 }}
                 onStartCalculation={() => openNewCalculation()}
                 onStartApi570Calculation={openNewApi570Piping}
+                onStartApi653Calculation={() => openNewApi653Calculator("bottom-plate")}
                 onExportProject={(projectId) => exportBackup(projectId)}
                 notify={showPrototypeNotice}
               />
             )}
-            {page === "reports" && <ReportsPage projects={projects} notify={showPrototypeNotice} onOpenCalculation={openSavedCalculation} onApproveCalculation={approveCalculation} />}
+            {page === "reports" && <ReportsPage projects={projects} notify={showPrototypeNotice} onOpenCalculation={openSavedCalculation} onOpenApi570Calculation={openSavedApi570Calculation} onOpenApi653Calculation={openSavedApi653Calculation} onApproveCalculation={approveCalculation} />}
             {page === "account" && <AccountPage projects={projects} theme={theme} preferredUnitSystem={preferredUnitSystem} authentication={authentication} notify={showPrototypeNotice} onThemeChange={setTheme} onPreferredUnitSystemChange={setPreferredUnitSystem} onExportWorkspace={() => exportBackup()} onPreviewBackup={previewBackup} onImportBackup={importBackup} />}
           </div>
         )}
@@ -872,14 +928,17 @@ function CalculatorsPage({
 
 type LocalReportRecord = { project: LocalProject; equipment: LocalEquipment; calculation: SavedApi510Calculation };
 
-function ReportsPage({ projects, notify, onOpenCalculation, onApproveCalculation }: { projects: LocalProject[]; notify: (message: string) => void; onOpenCalculation: (calculation: SavedApi510Calculation) => void; onApproveCalculation: (input: ApproveCalculationInput) => SavedApi510Calculation }) {
+function ReportsPage({ projects, notify, onOpenCalculation, onOpenApi570Calculation, onOpenApi653Calculation, onApproveCalculation }: { projects: LocalProject[]; notify: (message: string) => void; onOpenCalculation: (calculation: SavedApi510Calculation) => void; onOpenApi570Calculation: (calculation: SavedApi570Calculation) => void; onOpenApi653Calculation: (calculation: SavedApi653Calculation) => void; onApproveCalculation: (input: ApproveCalculationInput) => SavedApi510Calculation }) {
   const [selectedRecord, setSelectedRecord] = useState<LocalReportRecord | null>(null);
   const reportRecords = useMemo<LocalReportRecord[]>(() => projects
     .flatMap((project) => project.equipment.flatMap((equipment) => equipment.calculations.map((calculation) => ({ project, equipment, calculation }))))
     .sort((left, right) => right.calculation.updatedAt.localeCompare(left.calculation.updatedAt)), [projects]);
-  const reviewedCount = reportRecords.filter((record) => record.calculation.status === "reviewed" || record.calculation.status === "approved").length;
-  const approvedCount = reportRecords.filter((record) => record.calculation.status === "approved").length;
-  const latestReport = reportRecords[0];
+  const api570ReportRecords = useMemo(() => projects.flatMap((project) => project.api570Calculations.map((calculation) => ({ project, calculation }))), [projects]);
+  const api653ReportRecords = useMemo(() => projects.flatMap((project) => project.api653Calculations.map((calculation) => ({ project, calculation }))), [projects]);
+  const allWorkflowRecords = [...reportRecords.map((record) => ({ standard: "API 510" as const, tag: record.equipment.tag, updatedAt: record.calculation.updatedAt, status: record.calculation.status })), ...api570ReportRecords.map((record) => ({ standard: "API 570" as const, tag: record.calculation.assetTag, updatedAt: record.calculation.updatedAt, status: record.calculation.status })), ...api653ReportRecords.map((record) => ({ standard: "API 653" as const, tag: record.calculation.assetTag, updatedAt: record.calculation.updatedAt, status: record.calculation.status }))];
+  const reviewedCount = allWorkflowRecords.filter((record) => record.status === "reviewed" || record.status === "approved").length;
+  const approvedCount = allWorkflowRecords.filter((record) => record.status === "approved").length;
+  const latestReport = allWorkflowRecords.slice().sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
   const selectedModel = selectedRecord ? createApi510ReportModel({
     projectName: selectedRecord.project.name,
     client: selectedRecord.project.client,
@@ -924,20 +983,22 @@ function ReportsPage({ projects, notify, onOpenCalculation, onApproveCalculation
   return (
     <>
       <div className="summary-grid">
-        <SummaryCard icon={FileText} label="Report previews" value={String(reportRecords.length).padStart(2, "0")} note="Generated from local calculation records" />
-        <SummaryCard icon={CircleCheck} label="Reviewed" value={String(reviewedCount).padStart(2, "0")} note={`${approvedCount} approved · ${reportRecords.length - reviewedCount} draft`} />
-        <SummaryCard icon={History} label="Latest record" value={latestReport?.equipment.tag ?? "—"} note={latestReport ? new Date(latestReport.calculation.updatedAt).toLocaleDateString() : "No local reports yet"} />
+        <SummaryCard icon={FileText} label="Report previews" value={String(allWorkflowRecords.length).padStart(2, "0")} note="Generated from local calculation records" />
+        <SummaryCard icon={CircleCheck} label="Reviewed" value={String(reviewedCount).padStart(2, "0")} note={`${approvedCount} approved · ${allWorkflowRecords.length - reviewedCount} draft`} />
+        <SummaryCard icon={History} label="Latest record" value={latestReport?.tag ?? "—"} note={latestReport ? new Date(latestReport.updatedAt).toLocaleDateString() : "No local reports yet"} />
       </div>
       <section className="section-block">
-        <div className="section-heading"><div><p className="eyebrow">Generated locally</p><h2>Saved API 510 reports</h2></div><span className="text-report-badge"><FileText size={15} /> Screen and text only</span></div>
-        {reportRecords.length ? <div className="report-table" role="table" aria-label="Saved API 510 reports">
+        <div className="section-heading"><div><p className="eyebrow">Generated locally</p><h2>Saved API 510, API 570, and API 653 reports</h2></div><span className="text-report-badge"><FileText size={15} /> Screen and text only</span></div>
+        {allWorkflowRecords.length ? <div className="report-table" role="table" aria-label="Saved engineering reports">
           <div className="report-head" role="row"><span>Report</span><span>Equipment</span><span>Status</span><span>Updated</span><span /></div>
           {reportRecords.map((record) => (
             <button className="report-row" role="row" key={record.calculation.id} onClick={() => setSelectedRecord(record)}>
               <span><FileText size={18} /><strong>{record.calculation.title}</strong></span><span>{record.equipment.tag}</span><span><small className={record.calculation.status}>{record.calculation.status}</small></span><span>{new Date(record.calculation.updatedAt).toLocaleDateString()}</span><span><ChevronRight size={18} /></span>
             </button>
           ))}
-        </div> : <div className="empty-card report-empty"><FileText size={28} /><h3>No saved reports yet</h3><p>Save an API 510 calculation to create a structured local report preview.</p></div>}
+          {api570ReportRecords.map((record) => <button className="report-row" role="row" key={record.calculation.id} onClick={() => onOpenApi570Calculation(record.calculation)}><span><FileText size={18} /><strong>{record.calculation.title}</strong></span><span>{record.calculation.assetTag} · API 570</span><span><small className={record.calculation.status}>{record.calculation.status}</small></span><span>{new Date(record.calculation.updatedAt).toLocaleDateString()}</span><span><ChevronRight size={18} /></span></button>)}
+          {api653ReportRecords.map((record) => <button className="report-row" role="row" key={record.calculation.id} onClick={() => onOpenApi653Calculation(record.calculation)}><span><FileText size={18} /><strong>{record.calculation.title}</strong></span><span>{record.calculation.assetTag} · API 653</span><span><small className={record.calculation.status}>{record.calculation.status}</small></span><span>{new Date(record.calculation.updatedAt).toLocaleDateString()}</span><span><ChevronRight size={18} /></span></button>)}
+        </div> : <div className="empty-card report-empty"><FileText size={28} /><h3>No saved reports yet</h3><p>Save any API 510, API 570, or API 653 calculation to create a structured local report preview.</p></div>}
       </section>
       {selectedModel ? <Api510ReportPreview model={selectedModel} onClose={() => setSelectedRecord(null)} onOpenCalculation={() => { const calculation = selectedRecord?.calculation; setSelectedRecord(null); if (calculation) onOpenCalculation(calculation); }} onApprove={approveSelectedReport} notify={notify} /> : null}
     </>
