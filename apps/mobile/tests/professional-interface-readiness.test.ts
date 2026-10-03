@@ -84,6 +84,12 @@ test("keeps shared calculator input and output boxes dimensionally consistent", 
   assert.match(styles, /\.result-primary-value strong \{[^}]*white-space: nowrap[^}]*overflow-wrap: normal/);
 });
 
-test("opens the API 653 storage-tank workspace on the first home-card click", () => {
-  assert.match(appSource, /module\.code === "API 653" \? navigate\("api653-bottom"\)/);
+test("opens each home engineering module as a calculation list before any calculator", () => {
+  assert.match(appSource, /onClick=\{\(\) => openModuleLibrary\(module\.code\)\}/);
+  assert.match(appSource, /setModuleLibraryFocus\(moduleCode\)/);
+  assert.match(appSource, /id="api510-calculator-library"/);
+  assert.match(appSource, /id="api570-calculator-library"/);
+  assert.match(appSource, /id="api653-calculator-library"/);
+  assert.match(appSource, /navigate\("api571-damage-mechanisms"\)/);
+  assert.doesNotMatch(appSource, /module\.code === "API 653" \? navigate\("api653-bottom"\)/);
 });

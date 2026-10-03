@@ -128,8 +128,9 @@ const api653PageByCalculator: Record<Api653CalculatorId, Page> = {
 };
 type NavigationPage = Exclude<Page, "calculator" | "api570-piping" | "api570-tube" | "api570-header" | "api570-support" | "api570-pressure-design" | "api570-valve-fittings" | "api570-hydro-test" | "api570-flange-hydro-test" | "api570-pneumatic-test" | "api570-fillet-weld" | "api570-tension-test" | "api570-soil-resistivity" | "api653-bottom" | "api653-annular" | "api653-shell" | "api653-nozzles" | "api653-roof" | "api653-other-4-3-2" | "api571-damage-mechanisms">;
 type Theme = "light" | "dark";
+type ModuleCode = "API 510" | "API 570" | "API 653" | "API 571";
 type Module = {
-  code: string;
+  code: ModuleCode;
   title: string;
   description: string;
   count: string;
@@ -253,6 +254,7 @@ function App() {
   const [activeCalculation, setActiveCalculation] = useState<SavedApi510Calculation | null>(null);
   const [activeApi570Calculation, setActiveApi570Calculation] = useState<SavedApi570Calculation | null>(null);
   const [activeApi653Calculation, setActiveApi653Calculation] = useState<SavedApi653Calculation | null>(null);
+  const [moduleLibraryFocus, setModuleLibraryFocus] = useState<ModuleCode | null>(null);
   const [newCalculationComponent, setNewCalculationComponent] = useState<PressureVesselComponent>("cylindrical");
   const [theme, setTheme] = useState<Theme>(() => {
     const stored = window.localStorage.getItem("acp-preview-theme");
@@ -315,6 +317,30 @@ function App() {
     setMobileMenu(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  const openModuleLibrary = (moduleCode: ModuleCode) => {
+    setSearch("");
+    if (moduleCode === "API 571") {
+      setModuleLibraryFocus(null);
+      navigate("api571-damage-mechanisms");
+      return;
+    }
+    setModuleLibraryFocus(moduleCode);
+    navigate("calculators");
+  };
+
+  const openAllCalculatorLibraries = () => {
+    setModuleLibraryFocus(null);
+    setSearch("");
+    navigate("calculators");
+  };
+
+  useEffect(() => {
+    if (page !== "calculators" || !moduleLibraryFocus) return undefined;
+    const sectionId = moduleLibraryFocus === "API 510" ? "api510-calculator-library" : moduleLibraryFocus === "API 570" ? "api570-calculator-library" : "api653-calculator-library";
+    const frame = window.requestAnimationFrame(() => document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [moduleLibraryFocus, page]);
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return undefined;
@@ -614,7 +640,7 @@ function App() {
               </div>
             </section>
 
-            {page === "home" && <HomePage navigate={navigate} openCalculator={() => openNewCalculation()} openApi570Piping={openNewApi570Piping} openApi571DamageMechanisms={() => navigate("api571-damage-mechanisms")} recentCalculations={recentSavedCalculations} onOpenSaved={openSavedCalculation} notify={showPrototypeNotice} preferredUnitSystem={preferredUnitSystem} />}
+            {page === "home" && <HomePage openCalculator={() => openNewCalculation()} openModuleLibrary={openModuleLibrary} openAllCalculatorLibraries={openAllCalculatorLibraries} recentCalculations={recentSavedCalculations} onOpenSaved={openSavedCalculation} preferredUnitSystem={preferredUnitSystem} />}
             {page === "calculators" && (
               <CalculatorsPage
                 search={search}
@@ -635,6 +661,7 @@ function App() {
                 notify={showPrototypeNotice}
                 guestMode={isGuestAccess}
                 onSignIn={() => setGuestAccess(false)}
+                focusedModule={moduleLibraryFocus}
               />
             )}
             {page === "projects" && (
@@ -723,7 +750,7 @@ function App() {
   );
 }
 
-function HomePage({ navigate, openCalculator, openApi570Piping, openApi571DamageMechanisms, recentCalculations, onOpenSaved, notify, preferredUnitSystem }: { navigate: (page: Page) => void; openCalculator: () => void; openApi570Piping: () => void; openApi571DamageMechanisms: () => void; recentCalculations: RecentSavedCalculation[]; onOpenSaved: (calculation: SavedApi510Calculation) => void; notify: (message: string) => void; preferredUnitSystem: UnitSystem }) {
+function HomePage({ openCalculator, openModuleLibrary, openAllCalculatorLibraries, recentCalculations, onOpenSaved, preferredUnitSystem }: { openCalculator: () => void; openModuleLibrary: (moduleCode: ModuleCode) => void; openAllCalculatorLibraries: () => void; recentCalculations: RecentSavedCalculation[]; onOpenSaved: (calculation: SavedApi510Calculation) => void; preferredUnitSystem: UnitSystem }) {
   const [converterOpen, setConverterOpen] = useState(false);
   return (
     <>
@@ -739,7 +766,7 @@ function HomePage({ navigate, openCalculator, openApi570Piping, openApi571Damage
               <button className="light-button" onClick={openCalculator}>
                 Continue API 510 <ChevronRight size={17} />
               </button>
-              <button className="ghost-light-button" onClick={() => navigate("calculators")}>Browse library</button>
+              <button className="ghost-light-button" onClick={openAllCalculatorLibraries}>Browse library</button>
             </div>
           </div>
           <div className="hero-visual" aria-label="Engineering vessel and piping blueprint">
@@ -751,10 +778,10 @@ function HomePage({ navigate, openCalculator, openApi570Piping, openApi571Damage
       <section className="section-block">
         <div className="section-heading">
           <div><p className="eyebrow">Version 1 scope</p><h2>Engineering modules</h2></div>
-          <button className="text-button" onClick={() => navigate("calculators")}>View all <ChevronRight size={17} /></button>
+          <button className="text-button" onClick={openAllCalculatorLibraries}>View all <ChevronRight size={17} /></button>
         </div>
         <div className="module-grid compact">
-          {modules.map((module) => <ModuleCard key={module.code} module={module} onClick={() => module.code === "API 510" ? openCalculator() : module.code === "API 570" ? openApi570Piping() : module.code === "API 653" ? navigate("api653-bottom") : module.code === "API 571" ? openApi571DamageMechanisms() : notify(modulePreviewNotice(module.code))} />)}
+          {modules.map((module) => <ModuleCard key={module.code} module={module} onClick={() => openModuleLibrary(module.code)} />)}
         </div>
       </section>
 
@@ -828,6 +855,7 @@ function CalculatorsPage({
   notify,
   guestMode,
   onSignIn,
+  focusedModule,
 }: {
   search: string;
   setSearch: (value: string) => void;
@@ -847,6 +875,7 @@ function CalculatorsPage({
   notify: (message: string) => void;
   guestMode: boolean;
   onSignIn: () => void;
+  focusedModule: ModuleCode | null;
 }) {
   const visibleApi510Calculators = guestMode ? [] : filterApi510Calculators(search);
   const visibleApi570Workspaces = filterApi570MobileWorkspaces(search);
@@ -872,7 +901,7 @@ function CalculatorsPage({
       </div>
       {visibleModules.length === 0 && visibleApi510Calculators.length === 0 && visibleApi570Workspaces.length === 0 && visibleApi653Workspaces.length === 0 && <div className="empty-state"><Search size={28} /><h2>No calculators found</h2><p>Try a code number, equipment type, geometry or result name.</p></div>}
 
-      {!guestMode ? <section className="section-block library-section" id="api510-calculator-library">
+      {!guestMode ? <section className={`section-block library-section ${focusedModule === "API 510" ? "is-module-focus" : ""}`} id="api510-calculator-library">
         <div className="section-heading">
           <div><p className="eyebrow">Pressure vessel calculations</p><h2>API 510 geometry calculators</h2></div>
         </div>
@@ -888,7 +917,7 @@ function CalculatorsPage({
         </div> : <div className="empty-state api510-library-empty"><Search size={24} /><h3>No API 510 geometry matched</h3><p>Try shell, head, cone, sphere, crown radius or flat.</p></div>}
       </section> : null}
 
-      <section className="section-block library-section" id="api570-calculator-library">
+      <section className={`section-block library-section ${focusedModule === "API 570" ? "is-module-focus" : ""}`} id="api570-calculator-library">
         <div className="section-heading">
           <div><p className="eyebrow">Piping system calculations</p><h2>API 570 calculators</h2></div>
         </div>
@@ -907,7 +936,7 @@ function CalculatorsPage({
         </div> : <div className="empty-state api510-library-empty"><Search size={24} /><h3>No API 570 workspace matched</h3><p>Try piping, tube, header, MAWP, remaining life or pressure test.</p></div>}
       </section>
 
-      {!guestMode ? <section className="section-block library-section" id="api653-calculator-library">
+      {!guestMode ? <section className={`section-block library-section ${focusedModule === "API 653" ? "is-module-focus" : ""}`} id="api653-calculator-library">
         <div className="section-heading">
           <div><p className="eyebrow">Storage tank calculations</p><h2>API 653 calculators</h2></div>
         </div>
