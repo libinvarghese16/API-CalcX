@@ -194,6 +194,8 @@ export interface Api570PipingInputSnapshot {
   inspectionYearsMode: AutomaticValueMode;
   manualServiceYears: string;
   manualInspectionYears: string;
+  nominalPipeSizeIn?: string;
+  structuralMinimumMode?: AutomaticValueMode;
   minimumMode: AutomaticValueMode;
   qualityFactor: string;
   weldFactor: string;

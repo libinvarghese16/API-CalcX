@@ -22,6 +22,8 @@ export type CylindricalShellField =
 
 export type Api570PipingField =
   | "pipingCode"
+  | "nominalPipeSizeIn"
+  | "designTemperatureC"
   | "outsideDiameterMm"
   | "designPressureMpa"
   | "allowableStressMpa"
@@ -699,6 +701,8 @@ export type Api570PipingCode =
 
 export interface Api570PipingInputSI {
   pipingCode: Api570PipingCode;
+  nominalPipeSizeIn?: number;
+  designTemperatureC?: number;
   outsideDiameterMm: number;
   designPressureMpa: number;
   allowableStressMpa: number;
@@ -722,7 +726,7 @@ export interface Api570PipingInputSI {
 
 export interface Api570PipingResultSI {
   engineId: "api570.piping";
-  engineVersion: "0.3.0-fca-projection";
+  engineVersion: "0.4.0-api574-nps-minimum";
   ok: boolean;
   issues: CalculationIssue[];
   pipingCode: Api570PipingCode;
@@ -731,6 +735,10 @@ export interface Api570PipingResultSI {
   intervalYears: number;
   pressureDesignThicknessMm: number;
   requiredThicknessMm: number;
+  nominalPipeSizeInUsed: number;
+  api574StructuralColumnThicknessMm: number;
+  api574AlertColumnThicknessMm: number;
+  structuralMinimumBasis: "api574-structural" | "api574-alert" | "manual" | "unavailable";
   structuralMinimumThicknessMm: number;
   automaticMinimumThicknessMm: number;
   minimumThicknessUsedMm: number;

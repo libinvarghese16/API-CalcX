@@ -46,6 +46,12 @@ type UnitFieldMap = Record<UnitFieldId, UnitFieldState>;
 const pressureUnits = listEngineeringUnitOptions("pressure");
 const lengthUnits = listEngineeringUnitOptions("length");
 const temperatureUnits = listEngineeringUnitOptions("temperature");
+const api574NominalPipeSizes = ["0.5", "0.75", "1", "1.5", "2", "3", "4", "6", "8", "10", "12", "14", "16", "18", "20", "22", "24", "26", "30", "36"] as const;
+
+function nominalPipeSizeLabel(value: string): string {
+  const labels: Record<string, string> = { "0.5": "1/2", "0.75": "3/4", "1.5": "1 1/2" };
+  return labels[value] ?? value;
+}
 
 function initialUnitFields(snapshot?: Api570PipingInputSnapshot): UnitFieldMap {
   if (snapshot) return Object.fromEntries(Object.entries(snapshot.fields).map(([fieldId, field]) => [fieldId, { ...field }])) as UnitFieldMap;
@@ -161,6 +167,8 @@ export function Api570PipingCalculator({ onBack, onNeedProject, notify, projects
   const [inspectionYearsMode, setInspectionYearsMode] = useState<AutomaticValueMode>(initialInputs?.inspectionYearsMode ?? "auto");
   const [manualServiceYears, setManualServiceYears] = useState(initialInputs?.manualServiceYears ?? "20");
   const [manualInspectionYears, setManualInspectionYears] = useState(initialInputs?.manualInspectionYears ?? "5");
+  const [nominalPipeSizeIn, setNominalPipeSizeIn] = useState(initialInputs?.nominalPipeSizeIn ?? "12");
+  const [structuralMinimumMode, setStructuralMinimumMode] = useState<AutomaticValueMode>(initialInputs?.structuralMinimumMode ?? "auto");
   const [minimumMode, setMinimumMode] = useState<AutomaticValueMode>(initialInputs?.minimumMode ?? "auto");
   const [qualityFactor, setQualityFactor] = useState(initialInputs?.qualityFactor ?? "0.85");
   const [weldFactor, setWeldFactor] = useState(initialInputs?.weldFactor ?? "1");
@@ -210,6 +218,8 @@ export function Api570PipingCalculator({ onBack, onNeedProject, notify, projects
 
   const baseInput = useMemo<Api570PipingInputSI>(() => ({
     pipingCode,
+    nominalPipeSizeIn: numberFrom(nominalPipeSizeIn),
+    designTemperatureC,
     outsideDiameterMm: unitValue(fields.outsideDiameter),
     designPressureMpa: unitValue(fields.designPressure),
     allowableStressMpa: resolvedStressMpa,
@@ -224,12 +234,13 @@ export function Api570PipingCalculator({ onBack, onNeedProject, notify, projects
     originalThicknessMm: unitValue(fields.originalThickness),
     previousThicknessMm: unitValue(fields.previousThickness),
     actualThicknessMm: unitValue(fields.actualThickness),
-    structuralMinimumThicknessMm: fields.structuralMinimum.value.trim() ? unitValue(fields.structuralMinimum) : undefined,
+    structuralMinimumThicknessMm: structuralMinimumMode === "manual" && fields.structuralMinimum.value.trim() ? unitValue(fields.structuralMinimum) : undefined,
     yearsInService,
     yearsSincePreviousInspection: yearsSinceInspection,
     nextInspectionYears: numberFrom(intervalYears, 5),
-  }), [designFactor, fields, hydrogenFactor, hydrogenMaterialFactor, intervalYears, pipingCode, qualityFactor, resolvedStressMpa, temperatureFactor, weldFactor, yCoefficient, yearsInService, yearsSinceInspection]);
+  }), [designFactor, designTemperatureC, fields, hydrogenFactor, hydrogenMaterialFactor, intervalYears, nominalPipeSizeIn, pipingCode, qualityFactor, resolvedStressMpa, structuralMinimumMode, temperatureFactor, weldFactor, yCoefficient, yearsInService, yearsSinceInspection]);
   const automaticResult = useMemo(() => calculateApi570Piping(baseInput), [baseInput]);
+  const structuralAutomaticResult = useMemo(() => calculateApi570Piping({ ...baseInput, structuralMinimumThicknessMm: undefined }), [baseInput]);
   const result = useMemo(() => calculateApi570Piping(minimumMode === "manual"
     ? { ...baseInput, minimumThicknessMm: unitValue(fields.manualMinimum) }
     : baseInput), [baseInput, fields.manualMinimum, minimumMode]);
@@ -246,6 +257,8 @@ export function Api570PipingCalculator({ onBack, onNeedProject, notify, projects
     inspectionYearsMode,
     manualServiceYears,
     manualInspectionYears,
+    nominalPipeSizeIn,
+    structuralMinimumMode,
     minimumMode,
     qualityFactor,
     weldFactor,
@@ -259,7 +272,7 @@ export function Api570PipingCalculator({ onBack, onNeedProject, notify, projects
     gradeKey,
     stressMode,
     engineInput: minimumMode === "manual" ? { ...baseInput, minimumThicknessMm: unitValue(fields.manualMinimum) } : baseInput,
-  }), [baseInput, buildYear, designFactor, fields, gradeKey, hydrogenFactor, hydrogenMaterialFactor, inspectionYearsMode, intervalYears, manualInspectionYears, manualServiceYears, materialSpec, minimumMode, pipingCode, previousInspectionYear, qualityFactor, serviceYearsMode, stressMode, temperatureFactor, unitSystem, weldFactor, yCoefficient]);
+  }), [baseInput, buildYear, designFactor, fields, gradeKey, hydrogenFactor, hydrogenMaterialFactor, inspectionYearsMode, intervalYears, manualInspectionYears, manualServiceYears, materialSpec, minimumMode, nominalPipeSizeIn, pipingCode, previousInspectionYear, qualityFactor, serviceYearsMode, stressMode, structuralMinimumMode, temperatureFactor, unitSystem, weldFactor, yCoefficient]);
 
   const changeStressMode = (mode: AutomaticValueMode) => {
     if (mode === "manual" && stressResolution.allowableStressMpa !== null) {
@@ -275,6 +288,13 @@ export function Api570PipingCalculator({ onBack, onNeedProject, notify, projects
     }
     setMinimumMode(mode);
   };
+  const changeStructuralMinimumMode = (mode: AutomaticValueMode) => {
+    if (mode === "manual" && !fields.structuralMinimum.value.trim()) {
+      const display = convertBetweenUnits(structuralAutomaticResult.structuralMinimumThicknessMm, "length", "mm", fields.structuralMinimum.unit);
+      updateFieldValue("structuralMinimum", formatInput(display, "length"));
+    }
+    setStructuralMinimumMode(mode);
+  };
   const changeServiceMode = (mode: AutomaticValueMode) => {
     if (mode === "manual" && serviceYears.yearsInService !== null) setManualServiceYears(String(serviceYears.yearsInService));
     setServiceYearsMode(mode);
@@ -286,7 +306,7 @@ export function Api570PipingCalculator({ onBack, onNeedProject, notify, projects
   const reset = () => {
     setUnitSystem("metric"); setFields(initialUnitFields()); setPipingCode("b31.3"); setBuildYear("2006"); setPreviousInspectionYear("2021");
     setMaterialSpec(DEFAULT_API570_MATERIAL_SPEC); setGradeKey(DEFAULT_API570_MATERIAL_GRADE); setStressMode("auto");
-    setServiceYearsMode("auto"); setInspectionYearsMode("auto"); setMinimumMode("auto"); setManualServiceYears("20"); setManualInspectionYears("5");
+    setServiceYearsMode("auto"); setInspectionYearsMode("auto"); setNominalPipeSizeIn("12"); setStructuralMinimumMode("auto"); setMinimumMode("auto"); setManualServiceYears("20"); setManualInspectionYears("5");
     setQualityFactor("0.85"); setWeldFactor("1"); setYCoefficient("0.4"); setDesignFactor("1"); setTemperatureFactor("1");
     setHydrogenMaterialFactor("1"); setHydrogenFactor("1"); setIntervalYears("5");
   };
@@ -342,7 +362,8 @@ export function Api570PipingCalculator({ onBack, onNeedProject, notify, projects
               <UnitInput label="Original thickness" field={fields.originalThickness} options={lengthUnits} help="Original or nominal recorded wall thickness." onValueChange={(value) => updateFieldValue("originalThickness", value)} onUnitChange={(unit) => updateFieldUnit("originalThickness", unit)} />
               <UnitInput label="Previous measured thickness" field={fields.previousThickness} options={lengthUnits} help="Representative thickness at the previous inspection." onValueChange={(value) => updateFieldValue("previousThickness", value)} onUnitChange={(unit) => updateFieldUnit("previousThickness", unit)} />
               <UnitInput label="Current measured thickness" field={fields.actualThickness} options={lengthUnits} help="Current controlling CML/TML wall thickness." onValueChange={(value) => updateFieldValue("actualThickness", value)} onUnitChange={(unit) => updateFieldUnit("actualThickness", unit)} />
-              <UnitInput label="Structural minimum thickness" field={fields.structuralMinimum} options={lengthUnits} help="Optional manual engineering input. No copied API 574 structural table is bundled." onValueChange={(value) => updateFieldValue("structuralMinimum", value)} onUnitChange={(unit) => updateFieldUnit("structuralMinimum", unit)} />
+              <label className="field"><span>Nominal pipe size NPS<button type="button" title="NPS drives the API RP 574 Table 5 structural/alert minimum lookup." aria-label="Nominal pipe size NPS help">?</button></span><select className="select-control native-select" aria-label="Nominal pipe size NPS" value={nominalPipeSizeIn} onChange={(event) => setNominalPipeSizeIn(event.target.value)}>{api574NominalPipeSizes.map((size) => <option key={size} value={size}>NPS {nominalPipeSizeLabel(size)}</option>)}</select><small>Used for the protected master-site API RP 574 Table 5 lookup; NPS above 24 uses the master route's conservative maximum.</small></label>
+              <label className="field automatic-field"><span>API 574 selected minimum<button type="button" title="Automatic mode selects the more conservative of the structural-minimum and minimum-alert values for the chosen NPS." aria-label="API 574 selected minimum help">?</button><button type="button" className={`field-mode-toggle ${structuralMinimumMode}`} onClick={() => changeStructuralMinimumMode(structuralMinimumMode === "auto" ? "manual" : "auto")} aria-label={`Switch API 574 selected minimum to ${structuralMinimumMode === "auto" ? "manual" : "auto"} mode`}>{structuralMinimumMode}</button></span><div className={`number-control is-derived ${structuralMinimumMode === "manual" ? "is-manual" : ""}`}><input type="number" inputMode="decimal" value={structuralMinimumMode === "auto" ? formatInput(convertBetweenUnits(structuralAutomaticResult.structuralMinimumThicknessMm, "length", "mm", fields.structuralMinimum.unit), "length") : fields.structuralMinimum.value} readOnly={structuralMinimumMode === "auto"} onChange={(event) => updateFieldValue("structuralMinimum", event.target.value)} /><select className="unit-picker" aria-label="API 574 selected minimum unit" value={fields.structuralMinimum.unit} onChange={(event) => updateFieldUnit("structuralMinimum", event.target.value as EngineeringUnit)}>{lengthUnits.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div><small>{structuralMinimumMode === "auto" ? `Auto-selected from NPS ${nominalPipeSizeLabel(nominalPipeSizeIn)}: max(structural ${formatOutput(structuralAutomaticResult.api574StructuralColumnThicknessMm, "length", unitSystem)} ${lengthUnit}, alert ${formatOutput(structuralAutomaticResult.api574AlertColumnThicknessMm, "length", unitSystem)} ${lengthUnit}).` : "Manual controlled-value override is active and highlighted."}</small></label>
               <label className="field automatic-field"><span>Minimum thickness used<button type="button" title="Auto uses the greater of pressure-required and entered structural minimum." aria-label="Minimum thickness used help">?</button><button type="button" className={`field-mode-toggle ${minimumMode}`} onClick={() => changeMinimumMode(minimumMode === "auto" ? "manual" : "auto")} aria-label={`Switch Minimum thickness used to ${minimumMode === "auto" ? "manual" : "auto"} mode`}>{minimumMode}</button></span><div className={`number-control is-derived ${minimumMode === "manual" ? "is-manual" : ""}`}><input type="number" inputMode="decimal" value={minimumMode === "auto" ? formatInput(convertBetweenUnits(automaticResult.automaticMinimumThicknessMm, "length", "mm", fields.manualMinimum.unit), "length") : fields.manualMinimum.value} readOnly={minimumMode === "auto"} onChange={(event) => updateFieldValue("manualMinimum", event.target.value)} /><select className="unit-picker" aria-label="Minimum thickness used unit" value={fields.manualMinimum.unit} onChange={(event) => updateFieldUnit("manualMinimum", event.target.value as EngineeringUnit)}>{lengthUnits.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div><small>{minimumMode === "auto" ? "Automatically uses max(pressure required, structural minimum)." : "Manual override is active and highlighted."}</small></label>
               <label className="field"><span>Future service interval</span><select className="select-control native-select" value={intervalYears} onChange={(event) => setIntervalYears(event.target.value)}>{Array.from({ length: 20 }, (_, index) => index + 1).map((year) => <option key={year} value={year}>{year} years</option>)}</select><small>Protected API 570 workflow range: 1 to 20 years.</small></label>
             </div>
@@ -356,12 +377,12 @@ export function Api570PipingCalculator({ onBack, onNeedProject, notify, projects
           <section className="result-card">
             <div className="result-card-top"><Gauge size={17} /> Calculation results <small>{result.ok ? "Calculated" : "Check inputs"}</small></div>
             <div className="result-primary-grid"><div className="result-primary"><p>Remaining life</p><div className="result-primary-value"><strong>{formatDisplayNumber(result.remainingLifeYears)}</strong><span>yr</span></div></div><div className="result-primary"><p>Required thickness</p><div className="result-primary-value"><strong>{formatOutput(result.requiredThicknessMm, "length", unitSystem)}</strong><span>{lengthUnit}</span></div></div></div>
-            <div className="result-comparison"><span>Calculated required thickness<strong>{formatOutput(result.requiredThicknessMm, "length", unitSystem)} {lengthUnit}</strong></span><span>Structural minimum<strong>{formatOutput(result.structuralMinimumThicknessMm, "length", unitSystem)} {lengthUnit}</strong></span></div>
+            <div className="result-comparison"><span>Calculated required thickness<strong>{formatOutput(result.requiredThicknessMm, "length", unitSystem)} {lengthUnit}</strong></span><span>API 574 selected minimum<strong>{formatOutput(result.structuralMinimumThicknessMm, "length", unitSystem)} {lengthUnit}</strong></span></div>
             <div className="result-comparison"><span>Governing minimum used<strong>{formatOutput(result.minimumThicknessUsedMm, "length", unitSystem)} {lengthUnit}</strong></span><span>Current thickness<strong>{formatOutput(unitValue(fields.actualThickness), "length", unitSystem)} {lengthUnit}</strong></span></div>
             <div className="result-comparison"><span>Current MAWP<strong>{formatOutput(result.governingMawpMpa, "pressure", unitSystem)} {pressureUnit}</strong></span><span>Governing corrosion rate<strong>{formatOutput(result.governingCorrosionRateMmPerYear, "rate", unitSystem)} {rateUnit}</strong></span></div>
             <div className={`result-status ${result.ok ? warning ? "is-manual" : "is-valid" : ""}`}>{result.ok && !warning ? <CircleCheck size={18} /> : <TriangleAlert size={18} />}<div><strong>{error ? "Resolve input issues" : warning ? "Engineering scope review required" : "Calculation completed"}</strong><span>{error?.message ?? warning?.message ?? "Review remaining life, required thickness, MAWP, and corrosion rates before use."}</span></div></div>
           </section>
-          <section className="trace-card"><p className="eyebrow">Supporting results</p><h3>Calculation details</h3><div><span>Code basis</span><strong>{result.pipingCode}</strong></div><div><span>Structural minimum</span><strong>{formatOutput(result.structuralMinimumThicknessMm, "length", unitSystem)} {lengthUnit}</strong></div><div><span>Long-term corrosion rate</span><strong>{formatOutput(result.longTermCorrosionRateMmPerYear, "rate", unitSystem)} {rateUnit}</strong></div><div><span>Short-term corrosion rate</span><strong>{formatOutput(result.shortTermCorrosionRateMmPerYear, "rate", unitSystem)} {rateUnit}</strong></div><div><span>Governing corrosion rate</span><strong>{formatOutput(result.governingCorrosionRateMmPerYear, "rate", unitSystem)} {rateUnit}</strong></div><div><span>Current corrosion margin</span><strong>{formatOutput(result.corrosionAllowanceMm, "length", unitSystem)} {lengthUnit}</strong></div><div><span>Future corrosion allowance ({result.intervalYears} yr)</span><strong>{formatOutput(result.futureCorrosionAllowanceMm, "length", unitSystem)} {lengthUnit}</strong></div><div><span>Remaining corrosion margin ({result.intervalYears} yr)</span><strong>{formatOutput(result.remainingCorrosionAllowanceMm, "length", unitSystem)} {lengthUnit}</strong></div><div><span>Projected thickness ({result.intervalYears} yr)</span><strong>{formatOutput(result.projectedThicknessMm, "length", unitSystem)} {lengthUnit}</strong></div><div><span>Future MAWP thickness</span><strong>{formatOutput(result.futureMawpThicknessMm, "length", unitSystem)} {lengthUnit}</strong></div><div><span>Future MAWP</span><strong>{formatOutput(result.futureMawpMpa, "pressure", unitSystem)} {pressureUnit}</strong></div><div><span>Hydrostatic pressure</span><strong>{formatOutput(result.hydrostaticTestPressureMpa, "pressure", unitSystem)} {pressureUnit}</strong></div><div><span>Pneumatic pressure</span><strong>{formatOutput(result.pneumaticTestPressureMpa, "pressure", unitSystem)} {pressureUnit}</strong></div></section>
+          <section className="trace-card"><p className="eyebrow">Supporting results</p><h3>Calculation details</h3><div><span>Code basis</span><strong>{result.pipingCode}</strong></div><div><span>Nominal pipe size</span><strong>NPS {nominalPipeSizeLabel(String(result.nominalPipeSizeInUsed))}</strong></div><div><span>API 574 structural column</span><strong>{formatOutput(result.api574StructuralColumnThicknessMm, "length", unitSystem)} {lengthUnit}</strong></div><div><span>API 574 alert column</span><strong>{formatOutput(result.api574AlertColumnThicknessMm, "length", unitSystem)} {lengthUnit}</strong></div><div><span>API 574 selected minimum</span><strong>{formatOutput(result.structuralMinimumThicknessMm, "length", unitSystem)} {lengthUnit}</strong></div><div><span>Selection basis</span><strong>{result.structuralMinimumBasis.replaceAll("-", " ")}</strong></div><div><span>Long-term corrosion rate</span><strong>{formatOutput(result.longTermCorrosionRateMmPerYear, "rate", unitSystem)} {rateUnit}</strong></div><div><span>Short-term corrosion rate</span><strong>{formatOutput(result.shortTermCorrosionRateMmPerYear, "rate", unitSystem)} {rateUnit}</strong></div><div><span>Governing corrosion rate</span><strong>{formatOutput(result.governingCorrosionRateMmPerYear, "rate", unitSystem)} {rateUnit}</strong></div><div><span>Current corrosion margin</span><strong>{formatOutput(result.corrosionAllowanceMm, "length", unitSystem)} {lengthUnit}</strong></div><div><span>Future corrosion allowance ({result.intervalYears} yr)</span><strong>{formatOutput(result.futureCorrosionAllowanceMm, "length", unitSystem)} {lengthUnit}</strong></div><div><span>Remaining corrosion margin ({result.intervalYears} yr)</span><strong>{formatOutput(result.remainingCorrosionAllowanceMm, "length", unitSystem)} {lengthUnit}</strong></div><div><span>Projected thickness ({result.intervalYears} yr)</span><strong>{formatOutput(result.projectedThicknessMm, "length", unitSystem)} {lengthUnit}</strong></div><div><span>Future MAWP thickness</span><strong>{formatOutput(result.futureMawpThicknessMm, "length", unitSystem)} {lengthUnit}</strong></div><div><span>Future MAWP</span><strong>{formatOutput(result.futureMawpMpa, "pressure", unitSystem)} {pressureUnit}</strong></div><div><span>Hydrostatic pressure</span><strong>{formatOutput(result.hydrostaticTestPressureMpa, "pressure", unitSystem)} {pressureUnit}</strong></div><div><span>Pneumatic pressure</span><strong>{formatOutput(result.pneumaticTestPressureMpa, "pressure", unitSystem)} {pressureUnit}</strong></div></section>
         </aside>
       </div>
     </div>

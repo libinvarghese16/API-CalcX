@@ -7,7 +7,7 @@ function read(relativePath: string): string {
 }
 
 test("keeps structural minimum input and governing maximum visible across API 570 pressure-boundary routes", () => {
-  for (const fileName of ["Api570PipingCalculator.tsx", "Api570TubeCalculator.tsx", "Api570HeaderCalculator.tsx"]) {
+  for (const fileName of ["Api570TubeCalculator.tsx", "Api570HeaderCalculator.tsx"]) {
     const source = read(`src/api570/${fileName}`);
     assert.match(source, /Structural minimum thickness/);
     assert.match(source, /structuralMinimumThicknessMm/);
@@ -15,6 +15,14 @@ test("keeps structural minimum input and governing maximum visible across API 57
     assert.match(source, /Calculated required thickness/);
     assert.match(source, /Governing minimum used/);
   }
+
+  const piping = read("src/api570/Api570PipingCalculator.tsx");
+  assert.match(piping, /Nominal pipe size NPS/);
+  assert.match(piping, /API 574 selected minimum/);
+  assert.match(piping, /structuralMinimumThicknessMm/);
+  assert.match(piping, /max\(pressure required, structural minimum\)/);
+  assert.match(piping, /Calculated required thickness/);
+  assert.match(piping, /Governing minimum used/);
 });
 
 test("shows year-based FCA and remaining corrosion margin in API 570 and API 510 results", () => {
