@@ -57,7 +57,9 @@ export function calculateHemisphericalHead(input: HemisphericalHeadInputSI): Hem
     else issues.push({ code: "hemispherical-denominator-not-positive", field: "calculation", severity: "error", message: "The hemispherical-head required-thickness denominator must be greater than zero." });
   }
 
-  const minimumThicknessUsedMm = input.minimumThicknessMm === undefined ? Math.round(requiredThicknessMm * 100) / 100 : Math.max(input.minimumThicknessMm, 0);
+  // Keep the pressure-required thickness unrounded for the HRSG remaining-life
+  // dependency chain; the UI still formats the displayed value separately.
+  const minimumThicknessUsedMm = input.minimumThicknessMm === undefined ? requiredThicknessMm : Math.max(input.minimumThicknessMm, 0);
   const originalThicknessMm = Math.max(Number.isFinite(input.originalThicknessMm) ? input.originalThicknessMm : 0, 0);
   const previousThicknessMm = Math.max(Number.isFinite(input.previousThicknessMm) ? input.previousThicknessMm : 0, 0);
   const actualThicknessMm = Math.max(Number.isFinite(input.actualThicknessMm) ? input.actualThicknessMm : 0, 0);
@@ -83,7 +85,7 @@ export function calculateHemisphericalHead(input: HemisphericalHeadInputSI): Hem
   issues.push({ code: "test-pressure-basis-review", field: "calculation", severity: "warning", message: "Displayed test pressures are planning values; construction-code stress ratios and component limits govern." });
   return {
     engineId: "api510.hemispherical-head",
-    engineVersion: "0.1.0-legacy-parity",
+    engineVersion: "0.2.0-hrsg-report-equations",
     ok: !issues.some((issue) => issue.severity === "error"),
     issues,
     intervalYears,

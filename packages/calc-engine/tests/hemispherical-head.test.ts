@@ -28,8 +28,8 @@ test("matches the captured legacy API 510 hemispherical-head result", () => {
   assert.equal(result.engineId, "api510.hemispherical-head");
   approximately(result.requiredThicknessMm, 6.402048655569783);
   approximately(result.governingMawpMpa, 3.695003788029826);
-  approximately(result.minimumThicknessUsedMm, 6.4);
-  approximately(result.remainingLifeYears, 67.14285714285722);
+  approximately(result.minimumThicknessUsedMm, 6.402048655569783);
+  approximately(result.remainingLifeYears, 67.12822388878735);
   approximately(result.futureMawpThicknessMm, 14.400000000000002);
   approximately(result.futureMawpMpa, 3.368538608806637);
 });

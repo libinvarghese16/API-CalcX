@@ -30,16 +30,16 @@ test("matches the captured protected original-web API 570 B31.3 piping result", 
 
   assert.equal(result.ok, true);
   assert.equal(result.engineId, "api570.piping");
-  assert.equal(result.engineVersion, "0.1.0-original-web-parity");
+  assert.equal(result.engineVersion, "0.2.0-hrsg-report-equations");
   assert.ok(result.issues.some((issue) => issue.code === "test-pressure-planning-only" && issue.severity === "warning"));
   approximately(result.pressureDesignThicknessMm, 2.7421676545300597);
   approximately(result.requiredThicknessMm, 5.74216765453006);
-  approximately(result.minimumThicknessUsedMm, 5.74);
+  approximately(result.minimumThicknessUsedMm, 5.74216765453006);
   approximately(result.longTermCorrosionRateMmPerYear, 0.11);
   approximately(result.shortTermCorrosionRateMmPerYear, 0.14);
   approximately(result.governingCorrosionRateMmPerYear, 0.14);
-  approximately(result.corrosionAllowanceMm, 10.06);
-  approximately(result.remainingLifeYears, 71.85714285714285);
+  approximately(result.corrosionAllowanceMm, 10.05783234546994);
+  approximately(result.remainingLifeYears, 71.84165961049965);
   approximately(result.governingMawpMpa, 9.575204872293613);
   approximately(result.hydrostaticTestPressureMpa, 3);
   approximately(result.pneumaticTestPressureMpa, 2.2);
@@ -62,7 +62,7 @@ test("produces the same SI result from equivalent U.S. customary field values", 
 
   approximately(result.requiredThicknessMm, 5.74216765453006, 1e-9);
   approximately(result.governingMawpMpa, 9.575204872293613, 1e-9);
-  approximately(result.remainingLifeYears, 71.85714285714285, 1e-9);
+  approximately(result.remainingLifeYears, 71.84165961049965, 1e-9);
 });
 
 test("preserves every protected code route and blocks inactive historical codes", () => {

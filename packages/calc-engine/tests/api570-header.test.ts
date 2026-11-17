@@ -27,16 +27,16 @@ test("matches the captured protected original-web API 570 Header result", () => 
 
   assert.equal(result.ok, true);
   assert.equal(result.engineId, "api570.header");
-  assert.equal(result.engineVersion, "0.1.0-original-web-parity");
+  assert.equal(result.engineVersion, "0.2.0-hrsg-report-equations");
   assert.ok(result.issues.some((issue) => issue.code === "test-pressure-planning-only" && issue.severity === "warning"));
   approximately(result.requiredThicknessMm, 2.31508875739645);
-  approximately(result.automaticMinimumThicknessMm, 2.32);
-  approximately(result.minimumThicknessUsedMm, 2.32);
+  approximately(result.automaticMinimumThicknessMm, 2.31508875739645);
+  approximately(result.minimumThicknessUsedMm, 2.31508875739645);
   approximately(result.longTermCorrosionRateMmPerYear, 0.05999999999999996);
   approximately(result.shortTermCorrosionRateMmPerYear, 0.07999999999999971);
   approximately(result.governingCorrosionRateMmPerYear, 0.07999999999999971);
-  approximately(result.corrosionAllowanceMm, 6.48);
-  approximately(result.remainingLifeYears, 81.0000000000003);
+  approximately(result.corrosionAllowanceMm, 6.484911242603551);
+  approximately(result.remainingLifeYears, 81.06139053254468);
   approximately(result.governingMawpMpa, 9.735357917570498);
   approximately(result.futureMawpMpa, 9.278839815425185);
   approximately(result.hydrostaticTestPressureMpa, 3.75);
@@ -58,7 +58,7 @@ test("produces the same SI Header result from equivalent U.S. customary values",
 
   approximately(result.requiredThicknessMm, 2.31508875739645, 1e-9);
   approximately(result.governingMawpMpa, 9.735357917570498, 1e-9);
-  approximately(result.remainingLifeYears, 81.0000000000003, 1e-9);
+  approximately(result.remainingLifeYears, 81.06139053254468, 1e-9);
 });
 
 test("uses the protected blank defaults for Header E and y", () => {

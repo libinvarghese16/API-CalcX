@@ -6,7 +6,7 @@ import type {
 } from "../contracts.ts";
 
 const ENGINE_ID = "api570.tube" as const;
-const ENGINE_VERSION = "0.1.0-original-web-parity" as const;
+const ENGINE_VERSION = "0.2.0-hrsg-report-equations" as const;
 
 function finiteOrZero(value: number | undefined): number {
   return Number.isFinite(value) ? Number(value) : 0;
@@ -58,6 +58,9 @@ export function calculateApi570Tube(input: Api570TubeInputSI): Api570TubeResultS
   if (input.minimumThicknessMm !== undefined) {
     addNonNegativeIssue(issues, "minimumThicknessMm", input.minimumThicknessMm, "Minimum thickness");
   }
+  if (input.structuralMinimumThicknessMm !== undefined) {
+    addNonNegativeIssue(issues, "structuralMinimumThicknessMm", input.structuralMinimumThicknessMm, "Structural minimum thickness");
+  }
 
   const rawInterval = Number.isInteger(input.nextInspectionYears) ? input.nextInspectionYears : 5;
   const intervalYears = Math.min(Math.max(rawInterval, 1), 20);
@@ -78,9 +81,10 @@ export function calculateApi570Tube(input: Api570TubeInputSI): Api570TubeResultS
   const requiredThicknessMm = pressureBasisValid && denominator > 0
     ? ((P * D) / denominator) + (0.005 * D) + e
     : 0;
-  // The protected Metric workflow writes the auto value into a 0.01 mm editable
-  // field before remaining-life calculations. Keep this step SI and unit-invariant.
-  const automaticMinimumThicknessMm = Math.round((requiredThicknessMm + Number.EPSILON) * 100) / 100;
+  const structuralMinimumThicknessMm = Math.max(finiteOrZero(input.structuralMinimumThicknessMm), 0);
+  // Preserve full precision for the HRSG remaining-life dependency chain. The
+  // presentation layer still applies the configured display precision.
+  const automaticMinimumThicknessMm = Math.max(requiredThicknessMm, structuralMinimumThicknessMm);
   const minimumThicknessUsedMm = input.minimumThicknessMm === undefined
     ? automaticMinimumThicknessMm
     : Math.max(finiteOrZero(input.minimumThicknessMm), 0);
@@ -115,6 +119,7 @@ export function calculateApi570Tube(input: Api570TubeInputSI): Api570TubeResultS
     intervalYears,
     expandedEndThicknessFactorUsedMm: e,
     requiredThicknessMm,
+    structuralMinimumThicknessMm,
     automaticMinimumThicknessMm,
     minimumThicknessUsedMm,
     longTermCorrosionRateMmPerYear,

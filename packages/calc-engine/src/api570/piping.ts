@@ -7,7 +7,7 @@ import type {
 } from "../contracts.ts";
 
 const ENGINE_ID = "api570.piping" as const;
-const ENGINE_VERSION = "0.1.0-original-web-parity" as const;
+const ENGINE_VERSION = "0.2.0-hrsg-report-equations" as const;
 
 type PipingCalculationMode = "b31.1" | "b31.3" | "b31.4" | "b31.5" | "b31.8" | "b31.9" | "b31.12-ip" | "b31.12-pl";
 
@@ -191,12 +191,10 @@ export function calculateApi570Piping(input: Api570PipingInputSI): Api570PipingR
   const pressureDesignThicknessMm = pressureBasisValid ? pressureThickness(definition.calculationMode, sharedValues) : 0;
   const requiredThicknessMm = pressureDesignThicknessMm > 0 ? pressureDesignThicknessMm + (definition.usesAllowance ? allowance : 0) : 0;
   const structuralMinimumThicknessMm = Math.max(finiteOrZero(input.structuralMinimumThicknessMm), 0);
-  // The protected Metric workflow writes its automatic minimum into a 0.01 mm
-  // editable field before corrosion allowance and remaining life are evaluated.
-  // Preserve that audited behavior in SI so changing display units cannot alter it.
-  const automaticMinimumThicknessMm = Math.round(
-    (Math.max(requiredThicknessMm, structuralMinimumThicknessMm) + Number.EPSILON) * 100,
-  ) / 100;
+  // Keep the pressure/structural result at full SI precision. Presentation code
+  // rounds for display, while corrosion allowance and remaining life use the
+  // unrounded engineering value reproduced by the HRSG report calculation chain.
+  const automaticMinimumThicknessMm = Math.max(requiredThicknessMm, structuralMinimumThicknessMm);
   const minimumThicknessUsedMm = input.minimumThicknessMm === undefined
     ? automaticMinimumThicknessMm
     : Math.max(finiteOrZero(input.minimumThicknessMm), 0);

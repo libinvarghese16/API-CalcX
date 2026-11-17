@@ -8,7 +8,7 @@ export { calculateFlatCircularHead } from "./api510/flat-circular-head.ts";
 export { API570_PIPING_CODE_DEFINITIONS, api570PipingCodeDefinitionFor, calculateApi570Piping } from "./api570/piping.ts";
 export type { Api570PipingCodeDefinition } from "./api570/piping.ts";
 export { calculateApi570Tube } from "./api570/tube.ts";
-export { calculateApi570Header } from "./api570/header.ts";
+export { calculateApi570Header, calculateApi570LigamentEfficiency } from "./api570/header.ts";
 export { calculateApi570PressureDesign } from "./api570/pressure-design.ts";
 export { calculateApi570ValveFittings } from "./api570/valve-fittings.ts";
 export { calculateApi570HydroTest } from "./api570/hydro-test.ts";

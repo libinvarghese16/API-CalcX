@@ -53,6 +53,7 @@ export type Api570TubeField =
   | "originalThicknessMm"
   | "previousThicknessMm"
   | "actualThicknessMm"
+  | "structuralMinimumThicknessMm"
   | "minimumThicknessMm"
   | "yearsInService"
   | "yearsSincePreviousInspection"
@@ -64,10 +65,13 @@ export type Api570HeaderField =
   | "designPressureMpa"
   | "allowableStressMpa"
   | "jointEfficiency"
+  | "ligamentPitchMm"
+  | "actualHoleDiameterMm"
   | "yCoefficient"
   | "originalThicknessMm"
   | "previousThicknessMm"
   | "actualThicknessMm"
+  | "structuralMinimumThicknessMm"
   | "minimumThicknessMm"
   | "yearsInService"
   | "yearsSincePreviousInspection"
@@ -718,7 +722,7 @@ export interface Api570PipingInputSI {
 
 export interface Api570PipingResultSI {
   engineId: "api570.piping";
-  engineVersion: "0.1.0-original-web-parity";
+  engineVersion: "0.2.0-hrsg-report-equations";
   ok: boolean;
   issues: CalculationIssue[];
   pipingCode: Api570PipingCode;
@@ -755,6 +759,7 @@ export interface Api570TubeInputSI {
   originalThicknessMm: number;
   previousThicknessMm: number;
   actualThicknessMm: number;
+  structuralMinimumThicknessMm?: number;
   minimumThicknessMm?: number;
   yearsInService: number;
   yearsSincePreviousInspection: number;
@@ -763,13 +768,14 @@ export interface Api570TubeInputSI {
 
 export interface Api570TubeResultSI {
   engineId: "api570.tube";
-  engineVersion: "0.1.0-original-web-parity";
+  engineVersion: "0.2.0-hrsg-report-equations";
   ok: boolean;
   issues: CalculationIssue[];
   endCondition: Api570TubeEndCondition;
   intervalYears: number;
   expandedEndThicknessFactorUsedMm: number;
   requiredThicknessMm: number;
+  structuralMinimumThicknessMm: number;
   automaticMinimumThicknessMm: number;
   minimumThicknessUsedMm: number;
   longTermCorrosionRateMmPerYear: number;
@@ -790,10 +796,13 @@ export interface Api570HeaderInputSI {
   designPressureMpa: number;
   allowableStressMpa: number;
   jointEfficiency?: number;
+  ligamentPitchMm?: number;
+  actualHoleDiameterMm?: number;
   yCoefficient?: number;
   originalThicknessMm: number;
   previousThicknessMm: number;
   actualThicknessMm: number;
+  structuralMinimumThicknessMm?: number;
   minimumThicknessMm?: number;
   yearsInService: number;
   yearsSincePreviousInspection: number;
@@ -802,13 +811,17 @@ export interface Api570HeaderInputSI {
 
 export interface Api570HeaderResultSI {
   engineId: "api570.header";
-  engineVersion: "0.1.0-original-web-parity";
+  engineVersion: "0.2.0-hrsg-report-equations";
   ok: boolean;
   issues: CalculationIssue[];
   intervalYears: number;
   jointEfficiencyUsed: number;
+  ligamentEfficiencyCalculated: boolean;
+  ligamentPitchMmUsed: number;
+  actualHoleDiameterMmUsed: number;
   yCoefficientUsed: number;
   requiredThicknessMm: number;
+  structuralMinimumThicknessMm: number;
   automaticMinimumThicknessMm: number;
   minimumThicknessUsedMm: number;
   longTermCorrosionRateMmPerYear: number;
@@ -1134,7 +1147,7 @@ export interface HemisphericalHeadInputSI extends Omit<CylindricalShellInputSI, 
 
 export interface HemisphericalHeadResultSI {
   engineId: "api510.hemispherical-head";
-  engineVersion: "0.1.0-legacy-parity";
+  engineVersion: "0.2.0-hrsg-report-equations";
   ok: boolean;
   issues: CalculationIssue[];
   intervalYears: number;

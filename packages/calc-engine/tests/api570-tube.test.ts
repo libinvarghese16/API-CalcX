@@ -28,16 +28,16 @@ test("matches the captured protected original-web expanded-end Tube result", () 
 
   assert.equal(result.ok, true);
   assert.equal(result.engineId, "api570.tube");
-  assert.equal(result.engineVersion, "0.1.0-original-web-parity");
+  assert.equal(result.engineVersion, "0.2.0-hrsg-report-equations");
   assert.ok(result.issues.some((issue) => issue.code === "test-pressure-planning-only" && issue.severity === "warning"));
   approximately(result.requiredThicknessMm, 1.5640227790432801);
-  approximately(result.automaticMinimumThicknessMm, 1.56);
-  approximately(result.minimumThicknessUsedMm, 1.56);
+  approximately(result.automaticMinimumThicknessMm, 1.5640227790432801);
+  approximately(result.minimumThicknessUsedMm, 1.5640227790432801);
   approximately(result.longTermCorrosionRateMmPerYear, 0.03500000000000001);
   approximately(result.shortTermCorrosionRateMmPerYear, 0.05999999999999996);
   approximately(result.governingCorrosionRateMmPerYear, 0.05999999999999996);
-  approximately(result.corrosionAllowanceMm, 2.7399999999999998);
-  approximately(result.remainingLifeYears, 45.66666666666669);
+  approximately(result.corrosionAllowanceMm, 2.7359772209567197);
+  approximately(result.remainingLifeYears, 45.59962034927869);
   approximately(result.governingMawpMpa, 16.20891353112964);
   approximately(result.futureMawpMpa, 14.743996298944358);
   approximately(result.hydrostaticTestPressureMpa, 5.25);
@@ -60,7 +60,7 @@ test("produces the same SI Tube result from equivalent U.S. customary values", (
 
   approximately(result.requiredThicknessMm, 1.5640227790432801, 1e-9);
   approximately(result.governingMawpMpa, 16.20891353112964, 1e-9);
-  approximately(result.remainingLifeYears, 45.66666666666669, 1e-9);
+  approximately(result.remainingLifeYears, 45.59962034927869, 1e-9);
 });
 
 test("forces expanded-end thickness factor to zero for welded tube ends", () => {

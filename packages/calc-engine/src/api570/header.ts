@@ -6,7 +6,7 @@ import type {
 } from "../contracts.ts";
 
 const ENGINE_ID = "api570.header" as const;
-const ENGINE_VERSION = "0.1.0-original-web-parity" as const;
+const ENGINE_VERSION = "0.2.0-hrsg-report-equations" as const;
 
 function finiteOrZero(value: number | undefined): number {
   return Number.isFinite(value) ? Number(value) : 0;
@@ -22,6 +22,14 @@ function addNonNegativeIssue(issues: CalculationIssue[], field: Api570HeaderFiel
   if (!Number.isFinite(value) || value < 0) {
     issues.push({ code: "non-negative-value-required", field, severity: "error", message: `${label} must be a finite value of zero or greater.` });
   }
+}
+
+/** ASME Section I drilled-header ligament relation reproduced by the HRSG report. */
+export function calculateApi570LigamentEfficiency(pitchMm: number, actualHoleDiameterMm: number): number | null {
+  if (!(Number.isFinite(pitchMm) && Number.isFinite(actualHoleDiameterMm) && pitchMm > 0 && actualHoleDiameterMm > 0 && actualHoleDiameterMm < pitchMm)) {
+    return null;
+  }
+  return (pitchMm - actualHoleDiameterMm) / pitchMm;
 }
 
 function mawpFromThickness(thicknessMm: number, values: { D: number; S: number; E: number; y: number }): number {
@@ -43,12 +51,31 @@ export function calculateApi570Header(input: Api570HeaderInputSI): Api570HeaderR
   addNonNegativeIssue(issues, "yearsInService", input.yearsInService, "Years in service");
   addNonNegativeIssue(issues, "yearsSincePreviousInspection", input.yearsSincePreviousInspection, "Years since previous inspection");
 
-  const E = input.jointEfficiency === undefined ? 1 : finiteOrZero(input.jointEfficiency);
+  const ligamentPitchMm = finiteOrZero(input.ligamentPitchMm);
+  const actualHoleDiameterMm = finiteOrZero(input.actualHoleDiameterMm);
+  const ligamentInputRequested = input.ligamentPitchMm !== undefined || input.actualHoleDiameterMm !== undefined;
+  if (ligamentInputRequested) {
+    addPositiveIssue(issues, "ligamentPitchMm", ligamentPitchMm, "Ligament pitch");
+    addPositiveIssue(issues, "actualHoleDiameterMm", actualHoleDiameterMm, "Actual drilled-hole diameter");
+    if (ligamentPitchMm > 0 && actualHoleDiameterMm >= ligamentPitchMm) {
+      issues.push({ code: "ligament-hole-not-less-than-pitch", field: "actualHoleDiameterMm", severity: "error", message: "Actual drilled-hole diameter must be less than the ligament pitch." });
+    }
+  }
+  const automaticLigamentEfficiency = ligamentInputRequested
+    ? calculateApi570LigamentEfficiency(ligamentPitchMm, actualHoleDiameterMm)
+    : null;
+  const ligamentEfficiencyCalculated = automaticLigamentEfficiency !== null;
+  const E = ligamentEfficiencyCalculated
+    ? automaticLigamentEfficiency
+    : input.jointEfficiency === undefined ? 1 : finiteOrZero(input.jointEfficiency);
   const y = input.yCoefficient === undefined ? 0 : finiteOrZero(input.yCoefficient);
   addPositiveIssue(issues, "jointEfficiency", E, "Joint efficiency");
   addNonNegativeIssue(issues, "yCoefficient", y, "Y coefficient");
   if (input.minimumThicknessMm !== undefined) {
     addNonNegativeIssue(issues, "minimumThicknessMm", input.minimumThicknessMm, "Minimum thickness");
+  }
+  if (input.structuralMinimumThicknessMm !== undefined) {
+    addNonNegativeIssue(issues, "structuralMinimumThicknessMm", input.structuralMinimumThicknessMm, "Structural minimum thickness");
   }
 
   const rawInterval = Number.isInteger(input.nextInspectionYears) ? input.nextInspectionYears : 5;
@@ -61,13 +88,14 @@ export function calculateApi570Header(input: Api570HeaderInputSI): Api570HeaderR
   const D = finiteOrZero(input.outsideDiameterMm);
   const S = finiteOrZero(input.allowableStressMpa);
   const pressureBasisValid = !issues.some((issue) => issue.severity === "error" && [
-    "outsideDiameterMm", "designPressureMpa", "allowableStressMpa", "jointEfficiency", "yCoefficient",
+    "outsideDiameterMm", "designPressureMpa", "allowableStressMpa", "jointEfficiency", "ligamentPitchMm", "actualHoleDiameterMm", "yCoefficient",
   ].includes(issue.field));
   const denominator = (2 * S * E) + (2 * y * P);
   const requiredThicknessMm = pressureBasisValid && denominator > 0 ? (P * D) / denominator : 0;
-  // The protected Metric workflow writes the automatic value to a 0.01 mm
-  // editable field before corrosion allowance and remaining life are evaluated.
-  const automaticMinimumThicknessMm = Math.round((requiredThicknessMm + Number.EPSILON) * 100) / 100;
+  const structuralMinimumThicknessMm = Math.max(finiteOrZero(input.structuralMinimumThicknessMm), 0);
+  // Use the unrounded pressure/structural maximum for the HRSG dependency chain.
+  // Display formatting remains a presentation concern.
+  const automaticMinimumThicknessMm = Math.max(requiredThicknessMm, structuralMinimumThicknessMm);
   const minimumThicknessUsedMm = input.minimumThicknessMm === undefined
     ? automaticMinimumThicknessMm
     : Math.max(finiteOrZero(input.minimumThicknessMm), 0);
@@ -100,8 +128,12 @@ export function calculateApi570Header(input: Api570HeaderInputSI): Api570HeaderR
     issues,
     intervalYears,
     jointEfficiencyUsed: E,
+    ligamentEfficiencyCalculated,
+    ligamentPitchMmUsed: ligamentEfficiencyCalculated ? ligamentPitchMm : 0,
+    actualHoleDiameterMmUsed: ligamentEfficiencyCalculated ? actualHoleDiameterMm : 0,
     yCoefficientUsed: y,
     requiredThicknessMm,
+    structuralMinimumThicknessMm,
     automaticMinimumThicknessMm,
     minimumThicknessUsedMm,
     longTermCorrosionRateMmPerYear,
