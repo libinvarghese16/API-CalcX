@@ -35,14 +35,16 @@ test("matches the protected original-site API 510 flat circular-head result", ()
   approximately(result.shortTermCorrosionRateMmPerYear, 0.13999999999999985);
   approximately(result.projectedThicknessMm, 15.100000000000001);
   approximately(result.minimumThicknessUsedMm, 12.39);
-  approximately(result.futureMawpThicknessMm, 14.400000000000002);
-  approximately(result.futureMawpMpa, 2.0269440000000003);
+  approximately(result.futureCorrosionAllowanceMm, 0.6999999999999993);
+  approximately(result.remainingCorrosionAllowanceMm, 2.710000000000001);
+  approximately(result.futureMawpThicknessMm, 15.100000000000001);
+  approximately(result.futureMawpMpa, 2.2287977500000005);
   approximately(result.corrosionAllowanceMm, 3.41);
   approximately(result.remainingLifeYears, 24.357142857142886);
 
   assert.equal(result.requiredThicknessMm.toFixed(2), "12.39");
   assert.equal(result.governingMawpMpa.toFixed(3), "2.440");
-  assert.equal(result.futureMawpMpa.toFixed(3), "2.027");
+  assert.equal(result.futureMawpMpa.toFixed(3), "2.229");
 });
 
 test("blocks a non-positive flat-head attachment factor", () => {

@@ -7,7 +7,7 @@ import type {
 } from "../contracts.ts";
 
 const ENGINE_ID = "api570.piping" as const;
-const ENGINE_VERSION = "0.2.0-hrsg-report-equations" as const;
+const ENGINE_VERSION = "0.3.0-fca-projection" as const;
 
 type PipingCalculationMode = "b31.1" | "b31.3" | "b31.4" | "b31.5" | "b31.8" | "b31.9" | "b31.12-ip" | "b31.12-pl";
 
@@ -210,6 +210,8 @@ export function calculateApi570Piping(input: Api570PipingInputSI): Api570PipingR
     ? Math.max(previousThicknessMm - actualThicknessMm, 0) / yearsSincePreviousInspection : 0;
   const governingCorrosionRateMmPerYear = Math.max(longTermCorrosionRateMmPerYear, shortTermCorrosionRateMmPerYear);
   const corrosionAllowanceMm = actualThicknessMm > 0 && minimumThicknessUsedMm > 0 ? Math.max(actualThicknessMm - minimumThicknessUsedMm, 0) : 0;
+  const futureCorrosionAllowanceMm = governingCorrosionRateMmPerYear * intervalYears;
+  const remainingCorrosionAllowanceMm = Math.max(corrosionAllowanceMm - futureCorrosionAllowanceMm, 0);
   const remainingLifeYears = governingCorrosionRateMmPerYear > 0 ? corrosionAllowanceMm / governingCorrosionRateMmPerYear : 0;
   const projectedThicknessMm = actualThicknessMm > 0 ? Math.max(actualThicknessMm - (governingCorrosionRateMmPerYear * intervalYears), 0) : 0;
   const futureMawpThicknessMm = projectedThicknessMm;
@@ -224,7 +226,8 @@ export function calculateApi570Piping(input: Api570PipingInputSI): Api570PipingR
     pipingCode: definition.code, codeLabel: definition.label, codeStatus: definition.status, intervalYears,
     pressureDesignThicknessMm, requiredThicknessMm, structuralMinimumThicknessMm, automaticMinimumThicknessMm,
     minimumThicknessUsedMm, longTermCorrosionRateMmPerYear, shortTermCorrosionRateMmPerYear,
-    governingCorrosionRateMmPerYear, corrosionAllowanceMm, remainingLifeYears, governingMawpMpa,
+    governingCorrosionRateMmPerYear, corrosionAllowanceMm, futureCorrosionAllowanceMm,
+    remainingCorrosionAllowanceMm, remainingLifeYears, governingMawpMpa,
     hydrostaticTestPressureMpa: P > 0 ? 1.5 * P : 0, pneumaticTestPressureMpa: P > 0 ? 1.1 * P : 0,
     projectedThicknessMm, futureMawpThicknessMm, futureMawpMpa,
   };

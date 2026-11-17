@@ -27,7 +27,7 @@ test("matches the captured protected original-web API 570 Header result", () => 
 
   assert.equal(result.ok, true);
   assert.equal(result.engineId, "api570.header");
-  assert.equal(result.engineVersion, "0.2.0-hrsg-report-equations");
+  assert.equal(result.engineVersion, "0.3.0-fca-projection");
   assert.ok(result.issues.some((issue) => issue.code === "test-pressure-planning-only" && issue.severity === "warning"));
   approximately(result.requiredThicknessMm, 2.31508875739645);
   approximately(result.automaticMinimumThicknessMm, 2.31508875739645);

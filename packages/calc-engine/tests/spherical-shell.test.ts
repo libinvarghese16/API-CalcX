@@ -30,8 +30,10 @@ test("matches the live API Calc spherical-shell route", () => {
   approximately(result.minimumThicknessUsedMm, 12.89);
   approximately(result.governingMawpMpa, 1.8359353330427548);
   approximately(result.remainingLifeYears, 20.78571428571431);
-  approximately(result.futureMawpThicknessMm, 14.400000000000002);
-  approximately(result.futureMawpMpa, 1.6746510152284266);
+  approximately(result.futureCorrosionAllowanceMm, 0.6999999999999993);
+  approximately(result.remainingCorrosionAllowanceMm, 2.210000000000001);
+  approximately(result.futureMawpThicknessMm, 15.100000000000001);
+  approximately(result.futureMawpMpa, 1.7553267397379742);
 });
 
 test("blocks invalid spherical-shell pressure basis", () => {

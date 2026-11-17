@@ -6,7 +6,7 @@ import type {
 } from "../contracts.ts";
 
 const ENGINE_ID = "api570.tube" as const;
-const ENGINE_VERSION = "0.2.0-hrsg-report-equations" as const;
+const ENGINE_VERSION = "0.3.0-fca-projection" as const;
 
 function finiteOrZero(value: number | undefined): number {
   return Number.isFinite(value) ? Number(value) : 0;
@@ -61,6 +61,9 @@ export function calculateApi570Tube(input: Api570TubeInputSI): Api570TubeResultS
   if (input.structuralMinimumThicknessMm !== undefined) {
     addNonNegativeIssue(issues, "structuralMinimumThicknessMm", input.structuralMinimumThicknessMm, "Structural minimum thickness");
   }
+  if ((input.structuralMinimumThicknessMm ?? 0) > 0) {
+    issues.push({ code: "structural-minimum-applicability-review", field: "structuralMinimumThicknessMm", severity: "warning", message: "Confirm the entered structural minimum against the applicable controlled basis, component geometry, supports, vibration, external loading, temperature, and service conditions." });
+  }
 
   const rawInterval = Number.isInteger(input.nextInspectionYears) ? input.nextInspectionYears : 5;
   const intervalYears = Math.min(Math.max(rawInterval, 1), 20);
@@ -101,6 +104,8 @@ export function calculateApi570Tube(input: Api570TubeInputSI): Api570TubeResultS
   const governingCorrosionRateMmPerYear = Math.max(longTermCorrosionRateMmPerYear, shortTermCorrosionRateMmPerYear);
   const corrosionAllowanceMm = actualThicknessMm > 0 && minimumThicknessUsedMm > 0
     ? Math.max(actualThicknessMm - minimumThicknessUsedMm, 0) : 0;
+  const futureCorrosionAllowanceMm = governingCorrosionRateMmPerYear * intervalYears;
+  const remainingCorrosionAllowanceMm = Math.max(corrosionAllowanceMm - futureCorrosionAllowanceMm, 0);
   const remainingLifeYears = governingCorrosionRateMmPerYear > 0
     ? corrosionAllowanceMm / governingCorrosionRateMmPerYear : 0;
   const projectedThicknessMm = actualThicknessMm > 0
@@ -126,6 +131,8 @@ export function calculateApi570Tube(input: Api570TubeInputSI): Api570TubeResultS
     shortTermCorrosionRateMmPerYear,
     governingCorrosionRateMmPerYear,
     corrosionAllowanceMm,
+    futureCorrosionAllowanceMm,
+    remainingCorrosionAllowanceMm,
     remainingLifeYears,
     governingMawpMpa: pressureBasisValid ? mawpFromThickness(actualThicknessMm, mawpValues) : 0,
     hydrostaticTestPressureMpa: P > 0 ? 1.5 * P : 0,

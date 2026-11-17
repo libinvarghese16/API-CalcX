@@ -127,6 +127,10 @@ function resolvedYears(mode: Api510InputSnapshot["serviceYearsMode"], manual: st
 
 export function createApi510ReportModel(context: Api510ReportContext): Api510ReportModel {
   const { inputs, result } = context;
+  const futureCorrosionAllowanceMm = result.futureCorrosionAllowanceMm
+    ?? (result.governingCorrosionRateMmPerYear * result.intervalYears);
+  const remainingCorrosionAllowanceMm = result.remainingCorrosionAllowanceMm
+    ?? Math.max(result.corrosionAllowanceMm - futureCorrosionAllowanceMm, 0);
   const lengthUnit = unitLabel("length", inputs.unitSystem);
   const pressureUnit = unitLabel("pressure", inputs.unitSystem);
   const pressureInputUnit = resolveUnit(inputs.pressureUnit, "pressure", inputs.unitSystem);
@@ -166,6 +170,7 @@ export function createApi510ReportModel(context: Api510ReportContext): Api510Rep
     ],
     basisRows: [
       { label: "Component", value: componentLabels[inputs.component] },
+      ...(inputs.component === "cylindrical" ? [{ label: "Equation basis", value: "ASME BPVC Section VIII, Division 1 · cylindrical shell internal-pressure route · UG-27(c)" }] : []),
       { label: "Output unit system", value: inputs.unitSystem === "metric" ? "Metric · MPa / mm / °C" : "U.S. customary · psi / in / °F" },
       { label: "Internal design pressure", value: inputValue(inputs.pressure, pressureInputUnit) },
       ...geometryRows(inputs),
@@ -193,9 +198,11 @@ export function createApi510ReportModel(context: Api510ReportContext): Api510Rep
       { label: "Long-term corrosion rate", value: `${formatDisplayNumber(convertFromSI(result.longTermCorrosionRateMmPerYear, "length", inputs.unitSystem), "corrosion-rate")} ${lengthUnit}/yr` },
       { label: "Short-term corrosion rate", value: `${formatDisplayNumber(convertFromSI(result.shortTermCorrosionRateMmPerYear, "length", inputs.unitSystem), "corrosion-rate")} ${lengthUnit}/yr` },
       { label: "Governing corrosion rate", value: `${formatDisplayNumber(convertFromSI(result.governingCorrosionRateMmPerYear, "length", inputs.unitSystem), "corrosion-rate")} ${lengthUnit}/yr`, emphasis: "primary" },
-      { label: "Corrosion allowance", value: `${formatDisplayNumber(convertFromSI(result.corrosionAllowanceMm, "length", inputs.unitSystem))} ${lengthUnit}` },
+      { label: "Current corrosion margin", value: `${formatDisplayNumber(convertFromSI(result.corrosionAllowanceMm, "length", inputs.unitSystem))} ${lengthUnit}` },
     ],
     planningRows: [
+      { label: `Future corrosion allowance (${result.intervalYears} yr)`, value: `${formatDisplayNumber(convertFromSI(futureCorrosionAllowanceMm, "length", inputs.unitSystem))} ${lengthUnit}` },
+      { label: `Remaining corrosion margin (${result.intervalYears} yr)`, value: `${formatDisplayNumber(convertFromSI(remainingCorrosionAllowanceMm, "length", inputs.unitSystem))} ${lengthUnit}` },
       { label: `Projected thickness (${result.intervalYears} yr)`, value: `${formatDisplayNumber(convertFromSI(result.projectedThicknessMm, "length", inputs.unitSystem))} ${lengthUnit}` },
       { label: `Future MAWP thickness (${result.intervalYears} yr)`, value: `${formatDisplayNumber(convertFromSI(result.futureMawpThicknessMm, "length", inputs.unitSystem))} ${lengthUnit}` },
       { label: "Future MAWP", value: `${formatDisplayNumber(convertFromSI(result.futureMawpMpa, "pressure", inputs.unitSystem))} ${pressureUnit}`, emphasis: "primary" },

@@ -100,6 +100,8 @@ export interface Api510ResultSnapshot {
   shortTermCorrosionRateMmPerYear: number;
   governingCorrosionRateMmPerYear: number;
   corrosionAllowanceMm: number;
+  futureCorrosionAllowanceMm?: number;
+  remainingCorrosionAllowanceMm?: number;
   remainingLifeYears: number;
   governingMawpMpa: number;
   hydrostaticTestPressureMpa: number;
@@ -216,6 +218,7 @@ export type Api570TubeUnitFieldId =
   | "originalThickness"
   | "previousThickness"
   | "actualThickness"
+  | "structuralMinimum"
   | "manualMinimum";
 
 export interface Api570TubeUnitFieldSnapshot {
@@ -253,7 +256,7 @@ export interface Api570UnitFieldSnapshot {
 export interface Api570HeaderInputSnapshot {
   calculatorId: "header";
   unitSystem: UnitSystem;
-  fields: Record<"designPressure" | "outsideDiameter" | "designTemperature" | "allowableStress" | "originalThickness" | "previousThickness" | "actualThickness" | "manualMinimum", Api570UnitFieldSnapshot>;
+  fields: Record<"designPressure" | "outsideDiameter" | "designTemperature" | "allowableStress" | "originalThickness" | "previousThickness" | "actualThickness" | "structuralMinimum" | "manualMinimum", Api570UnitFieldSnapshot>;
   jointEfficiency: string;
   yCoefficient: string;
   buildYear: string;

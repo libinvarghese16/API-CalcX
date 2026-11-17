@@ -30,7 +30,7 @@ test("matches the captured protected original-web API 570 B31.3 piping result", 
 
   assert.equal(result.ok, true);
   assert.equal(result.engineId, "api570.piping");
-  assert.equal(result.engineVersion, "0.2.0-hrsg-report-equations");
+  assert.equal(result.engineVersion, "0.3.0-fca-projection");
   assert.ok(result.issues.some((issue) => issue.code === "test-pressure-planning-only" && issue.severity === "warning"));
   approximately(result.pressureDesignThicknessMm, 2.7421676545300597);
   approximately(result.requiredThicknessMm, 5.74216765453006);

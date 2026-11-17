@@ -30,8 +30,10 @@ test("matches the captured legacy API 510 hemispherical-head result", () => {
   approximately(result.governingMawpMpa, 3.695003788029826);
   approximately(result.minimumThicknessUsedMm, 6.402048655569783);
   approximately(result.remainingLifeYears, 67.12822388878735);
-  approximately(result.futureMawpThicknessMm, 14.400000000000002);
-  approximately(result.futureMawpMpa, 3.368538608806637);
+  approximately(result.futureCorrosionAllowanceMm, 0.6999999999999993);
+  approximately(result.remainingCorrosionAllowanceMm, 8.69795134443022);
+  approximately(result.futureMawpThicknessMm, 15.100000000000001);
+  approximately(result.futureMawpMpa, 3.531793982173835);
 });
 
 test("blocks an invalid hemispherical radius basis", () => {

@@ -722,7 +722,7 @@ export interface Api570PipingInputSI {
 
 export interface Api570PipingResultSI {
   engineId: "api570.piping";
-  engineVersion: "0.2.0-hrsg-report-equations";
+  engineVersion: "0.3.0-fca-projection";
   ok: boolean;
   issues: CalculationIssue[];
   pipingCode: Api570PipingCode;
@@ -738,6 +738,8 @@ export interface Api570PipingResultSI {
   shortTermCorrosionRateMmPerYear: number;
   governingCorrosionRateMmPerYear: number;
   corrosionAllowanceMm: number;
+  futureCorrosionAllowanceMm: number;
+  remainingCorrosionAllowanceMm: number;
   remainingLifeYears: number;
   governingMawpMpa: number;
   hydrostaticTestPressureMpa: number;
@@ -768,7 +770,7 @@ export interface Api570TubeInputSI {
 
 export interface Api570TubeResultSI {
   engineId: "api570.tube";
-  engineVersion: "0.2.0-hrsg-report-equations";
+  engineVersion: "0.3.0-fca-projection";
   ok: boolean;
   issues: CalculationIssue[];
   endCondition: Api570TubeEndCondition;
@@ -782,6 +784,8 @@ export interface Api570TubeResultSI {
   shortTermCorrosionRateMmPerYear: number;
   governingCorrosionRateMmPerYear: number;
   corrosionAllowanceMm: number;
+  futureCorrosionAllowanceMm: number;
+  remainingCorrosionAllowanceMm: number;
   remainingLifeYears: number;
   governingMawpMpa: number;
   hydrostaticTestPressureMpa: number;
@@ -811,7 +815,7 @@ export interface Api570HeaderInputSI {
 
 export interface Api570HeaderResultSI {
   engineId: "api570.header";
-  engineVersion: "0.2.0-hrsg-report-equations";
+  engineVersion: "0.3.0-fca-projection";
   ok: boolean;
   issues: CalculationIssue[];
   intervalYears: number;
@@ -828,6 +832,8 @@ export interface Api570HeaderResultSI {
   shortTermCorrosionRateMmPerYear: number;
   governingCorrosionRateMmPerYear: number;
   corrosionAllowanceMm: number;
+  futureCorrosionAllowanceMm: number;
+  remainingCorrosionAllowanceMm: number;
   remainingLifeYears: number;
   governingMawpMpa: number;
   hydrostaticTestPressureMpa: number;
@@ -1049,7 +1055,7 @@ export type GoverningCase = "circumferential" | "longitudinal" | "equal" | "none
 
 export interface CylindricalShellResultSI {
   engineId: "api510.cylindrical-shell";
-  engineVersion: "0.1.0-legacy-parity";
+  engineVersion: "0.3.0-fca-projection";
   ok: boolean;
   issues: CalculationIssue[];
   intervalYears: number;
@@ -1062,6 +1068,8 @@ export interface CylindricalShellResultSI {
   shortTermCorrosionRateMmPerYear: number;
   governingCorrosionRateMmPerYear: number;
   corrosionAllowanceMm: number;
+  futureCorrosionAllowanceMm: number;
+  remainingCorrosionAllowanceMm: number;
   remainingLifeYears: number;
   circumferentialMawpMpa: number;
   longitudinalMawpMpa: number;
@@ -1076,7 +1084,7 @@ export interface CylindricalShellResultSI {
 
 export interface SphericalShellResultSI {
   engineId: "api510.spherical-shell";
-  engineVersion: "0.1.0-legacy-parity";
+  engineVersion: "0.3.0-fca-projection";
   ok: boolean;
   issues: CalculationIssue[];
   intervalYears: number;
@@ -1086,6 +1094,8 @@ export interface SphericalShellResultSI {
   shortTermCorrosionRateMmPerYear: number;
   governingCorrosionRateMmPerYear: number;
   corrosionAllowanceMm: number;
+  futureCorrosionAllowanceMm: number;
+  remainingCorrosionAllowanceMm: number;
   remainingLifeYears: number;
   governingMawpMpa: number;
   hydrostaticTestPressureMpa: number;
@@ -1097,7 +1107,7 @@ export interface SphericalShellResultSI {
 
 export interface EllipsoidalHeadResultSI {
   engineId: "api510.ellipsoidal-head";
-  engineVersion: "0.1.0-legacy-parity";
+  engineVersion: "0.3.0-fca-projection";
   ok: boolean;
   issues: CalculationIssue[];
   intervalYears: number;
@@ -1107,6 +1117,8 @@ export interface EllipsoidalHeadResultSI {
   shortTermCorrosionRateMmPerYear: number;
   governingCorrosionRateMmPerYear: number;
   corrosionAllowanceMm: number;
+  futureCorrosionAllowanceMm: number;
+  remainingCorrosionAllowanceMm: number;
   remainingLifeYears: number;
   governingMawpMpa: number;
   hydrostaticTestPressureMpa: number;
@@ -1122,7 +1134,7 @@ export interface TorisphericalHeadInputSI extends Omit<CylindricalShellInputSI, 
 
 export interface TorisphericalHeadResultSI {
   engineId: "api510.torispherical-head";
-  engineVersion: "0.1.0-legacy-parity";
+  engineVersion: "0.3.0-fca-projection";
   ok: boolean;
   issues: CalculationIssue[];
   intervalYears: number;
@@ -1132,6 +1144,8 @@ export interface TorisphericalHeadResultSI {
   shortTermCorrosionRateMmPerYear: number;
   governingCorrosionRateMmPerYear: number;
   corrosionAllowanceMm: number;
+  futureCorrosionAllowanceMm: number;
+  remainingCorrosionAllowanceMm: number;
   remainingLifeYears: number;
   governingMawpMpa: number;
   hydrostaticTestPressureMpa: number;
@@ -1147,7 +1161,7 @@ export interface HemisphericalHeadInputSI extends Omit<CylindricalShellInputSI, 
 
 export interface HemisphericalHeadResultSI {
   engineId: "api510.hemispherical-head";
-  engineVersion: "0.2.0-hrsg-report-equations";
+  engineVersion: "0.3.0-fca-projection";
   ok: boolean;
   issues: CalculationIssue[];
   intervalYears: number;
@@ -1157,6 +1171,8 @@ export interface HemisphericalHeadResultSI {
   shortTermCorrosionRateMmPerYear: number;
   governingCorrosionRateMmPerYear: number;
   corrosionAllowanceMm: number;
+  futureCorrosionAllowanceMm: number;
+  remainingCorrosionAllowanceMm: number;
   remainingLifeYears: number;
   governingMawpMpa: number;
   hydrostaticTestPressureMpa: number;
@@ -1173,7 +1189,7 @@ export interface ConicalHeadInputSI extends Omit<CylindricalShellInputSI, "insid
 
 export interface ConicalHeadResultSI {
   engineId: "api510.conical-head";
-  engineVersion: "0.1.0-legacy-parity";
+  engineVersion: "0.3.0-fca-projection";
   ok: boolean;
   issues: CalculationIssue[];
   intervalYears: number;
@@ -1183,6 +1199,8 @@ export interface ConicalHeadResultSI {
   shortTermCorrosionRateMmPerYear: number;
   governingCorrosionRateMmPerYear: number;
   corrosionAllowanceMm: number;
+  futureCorrosionAllowanceMm: number;
+  remainingCorrosionAllowanceMm: number;
   remainingLifeYears: number;
   governingMawpMpa: number;
   hydrostaticTestPressureMpa: number;
@@ -1199,7 +1217,7 @@ export interface FlatCircularHeadInputSI extends Omit<CylindricalShellInputSI, "
 
 export interface FlatCircularHeadResultSI {
   engineId: "api510.flat-circular-head";
-  engineVersion: "0.1.0-legacy-parity";
+  engineVersion: "0.3.0-fca-projection";
   ok: boolean;
   issues: CalculationIssue[];
   intervalYears: number;
@@ -1209,6 +1227,8 @@ export interface FlatCircularHeadResultSI {
   shortTermCorrosionRateMmPerYear: number;
   governingCorrosionRateMmPerYear: number;
   corrosionAllowanceMm: number;
+  futureCorrosionAllowanceMm: number;
+  remainingCorrosionAllowanceMm: number;
   remainingLifeYears: number;
   governingMawpMpa: number;
   hydrostaticTestPressureMpa: number;

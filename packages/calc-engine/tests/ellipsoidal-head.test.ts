@@ -30,8 +30,10 @@ test("matches the captured legacy API 510 ellipsoidal-head result", () => {
   approximately(result.governingMawpMpa, 1.8504163421793567);
   approximately(result.minimumThicknessUsedMm, 12.8);
   approximately(result.remainingLifeYears, 21.428571428571452);
-  approximately(result.futureMawpThicknessMm, 14.400000000000002);
-  approximately(result.futureMawpMpa, 1.6866911647227991);
+  approximately(result.futureCorrosionAllowanceMm, 0.6999999999999993);
+  approximately(result.remainingCorrosionAllowanceMm, 2.3000000000000007);
+  approximately(result.futureMawpThicknessMm, 15.100000000000001);
+  approximately(result.futureMawpMpa, 1.7685594751924594);
 });
 
 test("blocks invalid ellipsoidal-head pressure basis", () => {

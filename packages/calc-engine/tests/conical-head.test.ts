@@ -31,8 +31,10 @@ test("matches the captured legacy API 510 conical-head result", () => {
   approximately(result.governingMawpMpa, 1.5919695776569007);
   approximately(result.minimumThicknessUsedMm, 14.88);
   approximately(result.remainingLifeYears, 6.571428571428578);
-  approximately(result.futureMawpThicknessMm, 14.400000000000002);
-  approximately(result.futureMawpMpa, 1.4519566234262382);
+  approximately(result.futureCorrosionAllowanceMm, 0.6999999999999993);
+  approximately(result.remainingCorrosionAllowanceMm, 0.22000000000000064);
+  approximately(result.futureMawpThicknessMm, 15.100000000000001);
+  approximately(result.futureMawpMpa, 1.5219883658082791);
 });
 
 test("blocks a conical half-apex angle at or beyond 90 degrees", () => {

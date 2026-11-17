@@ -38,6 +38,8 @@ test("reproduces the HRSG tube pressure-thickness equation", () => {
   // t = PD/(2Sw + P) + 0.005D + e
   approximately(result.requiredThicknessMm, 4.737413580246914);
   approximately(result.automaticMinimumThicknessMm, 4.737413580246914);
+  approximately(result.futureCorrosionAllowanceMm, 0.06249999999999978);
+  approximately(result.remainingCorrosionAllowanceMm, 0.2000864197530865);
   approximately(result.remainingLifeYears, 21.006913580246977);
 });
 
@@ -84,6 +86,8 @@ test("reproduces the HRSG header or drum pressure-thickness equation", () => {
   // LTCR=(original-current)/service years; STCR=(previous-current)/inspection years.
   approximately(result.longTermCorrosionRateMmPerYear, 0.10526315789473684);
   approximately(result.shortTermCorrosionRateMmPerYear, 0.125);
+  approximately(result.futureCorrosionAllowanceMm, 0.625);
+  approximately(result.remainingCorrosionAllowanceMm, 3.155169602087412);
 });
 
 test("calculates drilled-header ligament efficiency from actual pitch and hole diameter", () => {
@@ -151,6 +155,8 @@ test("reproduces the HRSG B31.1 pressure-thickness route and structural maximum"
   approximately(result.pressureDesignThicknessMm, 0.6185064935064934);
   approximately(result.requiredThicknessMm, 0.6185064935064934);
   approximately(result.automaticMinimumThicknessMm, 2.3);
+  approximately(result.futureCorrosionAllowanceMm, 0.13157894736842124);
+  approximately(result.remainingCorrosionAllowanceMm, 3.0684210526315783);
 });
 
 test("reproduces the HRSG hemispherical-head equation at full precision", () => {

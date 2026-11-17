@@ -58,6 +58,8 @@ export function calculateSphericalShell(input: CylindricalShellInputSI): Spheric
   const shortTermCorrosionRateMmPerYear = input.yearsSincePreviousInspection > 0 ? shortTermLossMm / input.yearsSincePreviousInspection : 0;
   const governingCorrosionRateMmPerYear = Math.max(longTermCorrosionRateMmPerYear, shortTermCorrosionRateMmPerYear);
   const corrosionAllowanceMm = actualThicknessMm > 0 && minimumThicknessUsedMm > 0 ? Math.max(actualThicknessMm - minimumThicknessUsedMm, 0) : 0;
+  const futureCorrosionAllowanceMm = governingCorrosionRateMmPerYear * intervalYears;
+  const remainingCorrosionAllowanceMm = Math.max(corrosionAllowanceMm - futureCorrosionAllowanceMm, 0);
   const remainingLifeYears = governingCorrosionRateMmPerYear > 0 ? corrosionAllowanceMm / governingCorrosionRateMmPerYear : 0;
 
   const mawpFromThickness = (thicknessMm: number): number => {
@@ -68,13 +70,13 @@ export function calculateSphericalShell(input: CylindricalShellInputSI): Spheric
   };
   const governingMawpMpa = mawpFromThickness(actualThicknessMm);
   const projectedThicknessMm = actualThicknessMm > 0 ? Math.max(actualThicknessMm - (governingCorrosionRateMmPerYear * intervalYears), 0) : 0;
-  const futureMawpThicknessMm = actualThicknessMm > 0 ? Math.max(actualThicknessMm - (2 * governingCorrosionRateMmPerYear * intervalYears), 0) : 0;
+  const futureMawpThicknessMm = projectedThicknessMm;
 
   issues.push({ code: "thin-sphere-scope-review", field: "calculation", severity: "warning", message: "The live-reference spherical-shell equation is active. Confirm geometry and equation applicability against the controlled engineering basis." });
   issues.push({ code: "test-pressure-basis-review", field: "calculation", severity: "warning", message: "Displayed hydrostatic and pneumatic pressures are planning values; the construction code, edition, stress ratio, and component limits govern the test." });
   return {
     engineId: "api510.spherical-shell",
-    engineVersion: "0.1.0-legacy-parity",
+    engineVersion: "0.3.0-fca-projection",
     ok: !issues.some((issue) => issue.severity === "error"),
     issues,
     intervalYears,
@@ -84,6 +86,8 @@ export function calculateSphericalShell(input: CylindricalShellInputSI): Spheric
     shortTermCorrosionRateMmPerYear,
     governingCorrosionRateMmPerYear,
     corrosionAllowanceMm,
+    futureCorrosionAllowanceMm,
+    remainingCorrosionAllowanceMm,
     remainingLifeYears,
     governingMawpMpa,
     hydrostaticTestPressureMpa: governingMawpMpa > 0 ? 1.3 * governingMawpMpa : 0,

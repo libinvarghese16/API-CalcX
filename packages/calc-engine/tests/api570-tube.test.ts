@@ -28,7 +28,7 @@ test("matches the captured protected original-web expanded-end Tube result", () 
 
   assert.equal(result.ok, true);
   assert.equal(result.engineId, "api570.tube");
-  assert.equal(result.engineVersion, "0.2.0-hrsg-report-equations");
+  assert.equal(result.engineVersion, "0.3.0-fca-projection");
   assert.ok(result.issues.some((issue) => issue.code === "test-pressure-planning-only" && issue.severity === "warning"));
   approximately(result.requiredThicknessMm, 1.5640227790432801);
   approximately(result.automaticMinimumThicknessMm, 1.5640227790432801);

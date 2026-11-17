@@ -7,7 +7,7 @@ import type {
 } from "../contracts.ts";
 
 const ENGINE_ID = "api510.cylindrical-shell" as const;
-const ENGINE_VERSION = "0.1.0-legacy-parity" as const;
+const ENGINE_VERSION = "0.3.0-fca-projection" as const;
 
 function finiteOrZero(value: number): number {
   return Number.isFinite(value) ? value : 0;
@@ -174,7 +174,9 @@ export function calculateCylindricalShell(input: CylindricalShellInputSI): Cylin
     longitudinalRequiredThicknessMm,
   );
   const minimumThicknessUsedMm = input.minimumThicknessMm === undefined
-    ? Math.round(requiredThicknessMm * 100) / 100
+    // Preserve full engineering precision for corrosion margin, FCA, and
+    // remaining-life calculations. Display formatting performs the rounding.
+    ? requiredThicknessMm
     : Math.max(finiteOrZero(input.minimumThicknessMm), 0);
 
   const originalThicknessMm = Math.max(finiteOrZero(input.originalThicknessMm), 0);
@@ -200,6 +202,8 @@ export function calculateCylindricalShell(input: CylindricalShellInputSI): Cylin
   const corrosionAllowanceMm = actualThicknessMm > 0 && minimumThicknessUsedMm > 0
     ? Math.max(actualThicknessMm - minimumThicknessUsedMm, 0)
     : 0;
+  const futureCorrosionAllowanceMm = governingCorrosionRateMmPerYear * intervalYears;
+  const remainingCorrosionAllowanceMm = Math.max(corrosionAllowanceMm - futureCorrosionAllowanceMm, 0);
   const remainingLifeYears = governingCorrosionRateMmPerYear > 0
     ? corrosionAllowanceMm / governingCorrosionRateMmPerYear
     : 0;
@@ -210,9 +214,7 @@ export function calculateCylindricalShell(input: CylindricalShellInputSI): Cylin
   const projectedThicknessMm = actualThicknessMm > 0
     ? Math.max(actualThicknessMm - (governingCorrosionRateMmPerYear * intervalYears), 0)
     : 0;
-  const futureMawpThicknessMm = actualThicknessMm > 0
-    ? Math.max(actualThicknessMm - (2 * governingCorrosionRateMmPerYear * intervalYears), 0)
-    : 0;
+  const futureMawpThicknessMm = projectedThicknessMm;
   const mawpFuture = pressureBasisValid
     ? mawpFromThickness(futureMawpThicknessMm, insideRadiusMm, allowableStressMpa, jointEfficiency)
     : { circumferential: 0, longitudinal: 0, governing: 0, governingCase: "none" as const };
@@ -238,6 +240,8 @@ export function calculateCylindricalShell(input: CylindricalShellInputSI): Cylin
     shortTermCorrosionRateMmPerYear,
     governingCorrosionRateMmPerYear,
     corrosionAllowanceMm,
+    futureCorrosionAllowanceMm,
+    remainingCorrosionAllowanceMm,
     remainingLifeYears,
     circumferentialMawpMpa: mawpNow.circumferential,
     longitudinalMawpMpa: mawpNow.longitudinal,
