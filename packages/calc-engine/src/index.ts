@@ -78,6 +78,7 @@ export type {
   CalculationField,
   Api570PipingField,
   Api570PipingCode,
+  Api574PipingThicknessBasis,
   Api570PipingInputSI,
   Api570PipingResultSI,
   Api570TubeField,

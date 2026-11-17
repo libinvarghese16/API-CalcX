@@ -3,11 +3,12 @@ import type {
   Api570PipingField,
   Api570PipingInputSI,
   Api570PipingResultSI,
+  Api574PipingThicknessBasis,
   CalculationIssue,
 } from "../contracts.ts";
 
 const ENGINE_ID = "api570.piping" as const;
-const ENGINE_VERSION = "0.4.0-api574-nps-minimum" as const;
+const ENGINE_VERSION = "0.6.0-api574-three-way-governing" as const;
 
 export type Api574PipingMinimumSelection = {
   nominalPipeSizeIn: number;
@@ -18,11 +19,15 @@ export type Api574PipingMinimumSelection = {
 };
 
 /**
- * Reproduces the protected master site's API RP 574 Table 5 selection rule
- * without exposing or rendering the standards table. The master route uses
- * the more conservative of the structural and alert columns.
+ * Selects one of the two distinct API RP 574 thresholds captured from the
+ * protected master site. Structural minimum is an integrity basis; minimum
+ * alert thickness is an earlier inspection/action threshold. The caller must
+ * choose the intended purpose rather than silently taking the larger value.
  */
-export function selectApi574PipingMinimumThickness(nominalPipeSizeIn: number): Api574PipingMinimumSelection {
+export function selectApi574PipingMinimumThickness(
+  nominalPipeSizeIn: number,
+  thicknessBasis: Api574PipingThicknessBasis = "structural",
+): Api574PipingMinimumSelection {
   const nps = finiteOrZero(nominalPipeSizeIn);
   let structuralThicknessMm: number | null = null;
   let alertThicknessMm: number | null = null;
@@ -41,18 +46,19 @@ export function selectApi574PipingMinimumThickness(nominalPipeSizeIn: number): A
     structuralThicknessMm = 2.8; alertThicknessMm = 3.3;
   } else if (nps >= 20 && nps <= 24) {
     structuralThicknessMm = 3.1; alertThicknessMm = 3.6;
-  } else if (nps > 24) {
-    // Protected master-site rule: use the maximum available value above NPS 24.
-    structuralThicknessMm = 3.1; alertThicknessMm = 3.6;
   }
 
   if (structuralThicknessMm === null && alertThicknessMm === null) {
     return { nominalPipeSizeIn: nps, structuralThicknessMm, alertThicknessMm, selectedThicknessMm: null, selectedBasis: "unavailable" };
   }
-  if ((alertThicknessMm ?? -Infinity) >= (structuralThicknessMm ?? -Infinity)) {
-    return { nominalPipeSizeIn: nps, structuralThicknessMm, alertThicknessMm, selectedThicknessMm: alertThicknessMm, selectedBasis: "api574-alert" };
-  }
-  return { nominalPipeSizeIn: nps, structuralThicknessMm, alertThicknessMm, selectedThicknessMm: structuralThicknessMm, selectedBasis: "api574-structural" };
+  const selectedThicknessMm = thicknessBasis === "alert" ? alertThicknessMm : structuralThicknessMm;
+  return {
+    nominalPipeSizeIn: nps,
+    structuralThicknessMm,
+    alertThicknessMm,
+    selectedThicknessMm,
+    selectedBasis: selectedThicknessMm === null ? "unavailable" : thicknessBasis === "alert" ? "api574-alert" : "api574-structural",
+  };
 }
 
 type PipingCalculationMode = "b31.1" | "b31.3" | "b31.4" | "b31.5" | "b31.8" | "b31.9" | "b31.12-ip" | "b31.12-pl";
@@ -241,31 +247,62 @@ export function calculateApi570Piping(input: Api570PipingInputSI): Api570PipingR
   const pressureDesignThicknessMm = pressureBasisValid ? pressureThickness(definition.calculationMode, sharedValues) : 0;
   const requiredThicknessMm = pressureDesignThicknessMm > 0 ? pressureDesignThicknessMm + (definition.usesAllowance ? allowance : 0) : 0;
   const nominalPipeSizeInUsed = Math.max(finiteOrZero(input.nominalPipeSizeIn), 0);
-  const api574Selection = selectApi574PipingMinimumThickness(nominalPipeSizeInUsed);
+  const api574ThicknessBasisUsed = input.api574ThicknessBasis ?? "structural";
+  const api574Selection = selectApi574PipingMinimumThickness(nominalPipeSizeInUsed, api574ThicknessBasisUsed);
   const automaticApi574Allowed = input.designTemperatureC === undefined || input.designTemperatureC <= 205;
   const api574StructuralColumnThicknessMm = automaticApi574Allowed ? api574Selection.structuralThicknessMm ?? 0 : 0;
   const api574AlertColumnThicknessMm = automaticApi574Allowed ? api574Selection.alertThicknessMm ?? 0 : 0;
   const usesManualStructuralMinimum = input.structuralMinimumThicknessMm !== undefined;
-  const structuralMinimumThicknessMm = usesManualStructuralMinimum
+  const manualSelectedThresholdThicknessMm = usesManualStructuralMinimum
     ? Math.max(finiteOrZero(input.structuralMinimumThicknessMm), 0)
-    : automaticApi574Allowed ? api574Selection.selectedThicknessMm ?? 0 : 0;
+    : null;
+  const api574StructuralThicknessMmUsed = usesManualStructuralMinimum && api574ThicknessBasisUsed === "structural"
+    ? manualSelectedThresholdThicknessMm ?? 0
+    : api574StructuralColumnThicknessMm;
+  const api574AlertThicknessMmUsed = usesManualStructuralMinimum && api574ThicknessBasisUsed === "alert"
+    ? manualSelectedThresholdThicknessMm ?? 0
+    : api574AlertColumnThicknessMm;
+  const api574SelectedThresholdThicknessMm = api574ThicknessBasisUsed === "alert"
+    ? api574AlertThicknessMmUsed
+    : api574StructuralThicknessMmUsed;
   const structuralMinimumBasis = usesManualStructuralMinimum
     ? "manual" as const
     : automaticApi574Allowed ? api574Selection.selectedBasis : "unavailable" as const;
   if (!usesManualStructuralMinimum && nominalPipeSizeInUsed > 0 && !automaticApi574Allowed) {
-    issues.push({ code: "api574-table5-temperature-outside-range", field: "designTemperatureC", severity: "warning", message: "The supplied API RP 574 Table 5 lookup is limited to temperatures at or below 205 °C. Enter a controlled manual structural minimum for this temperature." });
+    issues.push({ code: "api574-lookup-temperature-outside-range", field: "designTemperatureC", severity: "warning", message: "The supplied API RP 574 carbon/low-alloy steel lookup is limited to temperatures at or below 205 °C. Enter a controlled manual threshold for this temperature." });
   } else if (!usesManualStructuralMinimum && nominalPipeSizeInUsed > 0 && structuralMinimumBasis === "unavailable") {
-    issues.push({ code: "api574-table5-nps-unavailable", field: "nominalPipeSizeIn", severity: "warning", message: "The selected NPS has no matching row in the supplied API RP 574 Table 5 reference. Enter a controlled manual structural minimum." });
-  } else if (!usesManualStructuralMinimum && structuralMinimumThicknessMm > 0) {
-    issues.push({ code: "api574-table5-auto-selection", field: "structuralMinimumThicknessMm", severity: "warning", message: `API RP 574 Table 5 auto-selection used the more conservative ${structuralMinimumBasis === "api574-alert" ? "minimum alert" : "structural minimum"} value for NPS ${nominalPipeSizeInUsed}. Confirm applicability against the controlled edition and service conditions.` });
+    issues.push({ code: "api574-lookup-nps-unavailable", field: "nominalPipeSizeIn", severity: "warning", message: "The selected NPS has no matching row in the supplied API RP 574 reference (the supplied range ends at NPS 24). Enter a controlled manual threshold." });
+  } else if (!usesManualStructuralMinimum && api574SelectedThresholdThicknessMm > 0) {
+    issues.push({
+      code: api574ThicknessBasisUsed === "alert" ? "api574-alert-threshold-selected" : "api574-structural-threshold-selected",
+      field: "structuralMinimumThicknessMm",
+      severity: "warning",
+      message: api574ThicknessBasisUsed === "alert"
+        ? `Minimum alert thickness is selected for display/editing at NPS ${nominalPipeSizeInUsed}. The governing evaluation still compares calculated required, structural minimum, and alert thickness; time to an alert-governed threshold is not structural remaining life.`
+        : `Default minimum structural thickness is selected for display/editing at NPS ${nominalPipeSizeInUsed}. The governing evaluation still compares calculated required, structural minimum, and alert thickness. Confirm applicability before use.`,
+    });
   }
-  // Keep the pressure/structural result at full SI precision. Presentation code
+  // Keep all three thickness candidates at full SI precision. Presentation code
   // rounds for display, while corrosion allowance and remaining life use the
   // unrounded engineering value reproduced by the HRSG report calculation chain.
-  const automaticMinimumThicknessMm = Math.max(requiredThicknessMm, structuralMinimumThicknessMm);
+  const structuralMinimumThicknessMm = api574SelectedThresholdThicknessMm;
+  const automaticMinimumThicknessMm = Math.max(
+    requiredThicknessMm,
+    api574StructuralThicknessMmUsed,
+    api574AlertThicknessMmUsed,
+  );
   const minimumThicknessUsedMm = input.minimumThicknessMm === undefined
     ? automaticMinimumThicknessMm
     : Math.max(finiteOrZero(input.minimumThicknessMm), 0);
+  const automaticMinimumThicknessBasis: Api570PipingResultSI["minimumThicknessBasis"] = requiredThicknessMm >= api574StructuralThicknessMmUsed
+    && requiredThicknessMm >= api574AlertThicknessMmUsed
+    ? "pressure-required"
+    : api574AlertThicknessMmUsed >= api574StructuralThicknessMmUsed
+      ? usesManualStructuralMinimum && api574ThicknessBasisUsed === "alert" ? "manual-alert-threshold" : "api574-alert"
+      : usesManualStructuralMinimum && api574ThicknessBasisUsed === "structural" ? "manual-structural-threshold" : "api574-structural";
+  const minimumThicknessBasis = input.minimumThicknessMm === undefined
+    ? automaticMinimumThicknessBasis
+    : "manual-governing-minimum" as const;
 
   const originalThicknessMm = Math.max(finiteOrZero(input.originalThicknessMm), 0);
   const previousThicknessMm = Math.max(finiteOrZero(input.previousThicknessMm), 0);
@@ -293,7 +330,9 @@ export function calculateApi570Piping(input: Api570PipingInputSI): Api570PipingR
     engineId: ENGINE_ID, engineVersion: ENGINE_VERSION, ok: !issues.some((issue) => issue.severity === "error"), issues,
     pipingCode: definition.code, codeLabel: definition.label, codeStatus: definition.status, intervalYears,
     pressureDesignThicknessMm, requiredThicknessMm, nominalPipeSizeInUsed,
-    api574StructuralColumnThicknessMm, api574AlertColumnThicknessMm, structuralMinimumBasis,
+    api574StructuralColumnThicknessMm, api574AlertColumnThicknessMm,
+    api574StructuralThicknessMmUsed, api574AlertThicknessMmUsed, api574ThicknessBasisUsed,
+    api574SelectedThresholdThicknessMm, structuralMinimumBasis, minimumThicknessBasis,
     structuralMinimumThicknessMm, automaticMinimumThicknessMm,
     minimumThicknessUsedMm, longTermCorrosionRateMmPerYear, shortTermCorrosionRateMmPerYear,
     governingCorrosionRateMmPerYear, corrosionAllowanceMm, futureCorrosionAllowanceMm,

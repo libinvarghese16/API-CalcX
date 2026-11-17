@@ -12,6 +12,7 @@ import type {
   Api653ShellAssessmentInputSI,
   Api653ShellAssessmentResultSI,
   Api570PipingCode,
+  Api574PipingThicknessBasis,
   Api570PipingInputSI,
   Api570PipingResultSI,
   Api570FilletWeldInputSI,
@@ -195,6 +196,7 @@ export interface Api570PipingInputSnapshot {
   manualServiceYears: string;
   manualInspectionYears: string;
   nominalPipeSizeIn?: string;
+  api574ThicknessBasis?: Api574PipingThicknessBasis;
   structuralMinimumMode?: AutomaticValueMode;
   minimumMode: AutomaticValueMode;
   qualityFactor: string;

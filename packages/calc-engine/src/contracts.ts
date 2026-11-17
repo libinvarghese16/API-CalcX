@@ -699,10 +699,13 @@ export type Api570PipingCode =
   | "b31.12-ip"
   | "b31.12-pl";
 
+export type Api574PipingThicknessBasis = "structural" | "alert";
+
 export interface Api570PipingInputSI {
   pipingCode: Api570PipingCode;
   nominalPipeSizeIn?: number;
   designTemperatureC?: number;
+  api574ThicknessBasis?: Api574PipingThicknessBasis;
   outsideDiameterMm: number;
   designPressureMpa: number;
   allowableStressMpa: number;
@@ -726,7 +729,7 @@ export interface Api570PipingInputSI {
 
 export interface Api570PipingResultSI {
   engineId: "api570.piping";
-  engineVersion: "0.4.0-api574-nps-minimum";
+  engineVersion: "0.6.0-api574-three-way-governing";
   ok: boolean;
   issues: CalculationIssue[];
   pipingCode: Api570PipingCode;
@@ -738,7 +741,12 @@ export interface Api570PipingResultSI {
   nominalPipeSizeInUsed: number;
   api574StructuralColumnThicknessMm: number;
   api574AlertColumnThicknessMm: number;
+  api574StructuralThicknessMmUsed: number;
+  api574AlertThicknessMmUsed: number;
+  api574ThicknessBasisUsed: Api574PipingThicknessBasis;
+  api574SelectedThresholdThicknessMm: number;
   structuralMinimumBasis: "api574-structural" | "api574-alert" | "manual" | "unavailable";
+  minimumThicknessBasis: "pressure-required" | "api574-structural" | "api574-alert" | "manual-structural-threshold" | "manual-alert-threshold" | "manual-governing-minimum" | "unavailable";
   structuralMinimumThicknessMm: number;
   automaticMinimumThicknessMm: number;
   minimumThicknessUsedMm: number;

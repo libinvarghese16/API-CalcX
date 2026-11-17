@@ -18,9 +18,13 @@ test("keeps structural minimum input and governing maximum visible across API 57
 
   const piping = read("src/api570/Api570PipingCalculator.tsx");
   assert.match(piping, /Nominal pipe size NPS/);
-  assert.match(piping, /API 574 selected minimum/);
+  assert.match(piping, /API 574 thickness field/);
+  assert.match(piping, /Structural minimum thickness/);
+  assert.match(piping, /Minimum alert thickness/);
+  assert.match(piping, /Selected API 574 threshold/);
+  assert.match(piping, /Time to alert threshold/);
   assert.match(piping, /structuralMinimumThicknessMm/);
-  assert.match(piping, /max\(pressure required, structural minimum\)/);
+  assert.match(piping, /max\(calculated required, structural minimum, alert thickness\)/);
   assert.match(piping, /Calculated required thickness/);
   assert.match(piping, /Governing minimum used/);
 });

@@ -30,7 +30,7 @@ test("matches the captured protected original-web API 570 B31.3 piping result", 
 
   assert.equal(result.ok, true);
   assert.equal(result.engineId, "api570.piping");
-  assert.equal(result.engineVersion, "0.4.0-api574-nps-minimum");
+  assert.equal(result.engineVersion, "0.6.0-api574-three-way-governing");
   assert.ok(result.issues.some((issue) => issue.code === "test-pressure-planning-only" && issue.severity === "warning"));
   approximately(result.pressureDesignThicknessMm, 2.7421676545300597);
   approximately(result.requiredThicknessMm, 5.74216765453006);
@@ -109,7 +109,7 @@ test("uses structural minimums and manual minimum-thickness overrides explicitly
   approximately(manual.remainingLifeYears, 55.71428571428571);
 });
 
-test("matches the protected master-site API RP 574 Table 5 NPS selection within 0.01 mm", () => {
+test("matches the supplied API RP 574 structural and alert values within 0.01 mm", () => {
   const goldenRows = [
     { nps: 0.5, structural: 1.8, alert: 2 },
     { nps: 1.5, structural: 1.8, alert: 2.3 },
@@ -118,42 +118,80 @@ test("matches the protected master-site API RP 574 Table 5 NPS selection within 
     { nps: 4, structural: 2.3, alert: 3.1 },
     { nps: 12, structural: 2.8, alert: 3.3 },
     { nps: 24, structural: 3.1, alert: 3.6 },
-    { nps: 30, structural: 3.1, alert: 3.6 },
   ] as const;
 
   for (const row of goldenRows) {
-    const selection = selectApi574PipingMinimumThickness(row.nps);
-    approximately(selection.structuralThicknessMm ?? 0, row.structural, 0.01);
-    approximately(selection.alertThicknessMm ?? 0, row.alert, 0.01);
-    approximately(selection.selectedThicknessMm ?? 0, Math.max(row.structural, row.alert), 0.01);
-    assert.equal(selection.selectedBasis, "api574-alert");
+    const structural = selectApi574PipingMinimumThickness(row.nps, "structural");
+    approximately(structural.structuralThicknessMm ?? 0, row.structural, 0.01);
+    approximately(structural.alertThicknessMm ?? 0, row.alert, 0.01);
+    approximately(structural.selectedThicknessMm ?? 0, row.structural, 0.01);
+    assert.equal(structural.selectedBasis, "api574-structural");
+
+    const alert = selectApi574PipingMinimumThickness(row.nps, "alert");
+    approximately(alert.selectedThicknessMm ?? 0, row.alert, 0.01);
+    assert.equal(alert.selectedBasis, "api574-alert");
   }
 });
 
-test("auto-selects the conservative API 574 NPS value and keeps a manual override", () => {
-  const automatic = calculateApi570Piping({
+test("keeps all three thickness candidates separate and uses the greatest as governing", () => {
+  const common = {
     ...originalWebGoldenInput,
     nominalPipeSizeIn: 12,
     designTemperatureC: 150,
     designPressureMpa: 0.1,
     allowanceMm: 0,
-  });
-  approximately(automatic.api574StructuralColumnThicknessMm, 2.8, 0.01);
-  approximately(automatic.api574AlertColumnThicknessMm, 3.3, 0.01);
-  approximately(automatic.structuralMinimumThicknessMm, 3.3, 0.01);
-  approximately(automatic.minimumThicknessUsedMm, 3.3, 0.01);
-  assert.equal(automatic.structuralMinimumBasis, "api574-alert");
+  } satisfies Api570PipingInputSI;
 
-  const manual = calculateApi570Piping({ ...originalWebGoldenInput, nominalPipeSizeIn: 12, designTemperatureC: 150, structuralMinimumThicknessMm: 4.2 });
-  approximately(manual.structuralMinimumThicknessMm, 4.2);
-  assert.equal(manual.structuralMinimumBasis, "manual");
+  const structural = calculateApi570Piping({ ...common, api574ThicknessBasis: "structural" });
+  approximately(structural.api574StructuralColumnThicknessMm, 2.8, 0.01);
+  approximately(structural.api574AlertColumnThicknessMm, 3.3, 0.01);
+  approximately(structural.api574StructuralThicknessMmUsed, 2.8, 0.01);
+  approximately(structural.api574AlertThicknessMmUsed, 3.3, 0.01);
+  approximately(structural.api574SelectedThresholdThicknessMm, 2.8, 0.01);
+  approximately(structural.minimumThicknessUsedMm, 3.3, 0.01);
+  assert.equal(structural.api574ThicknessBasisUsed, "structural");
+  assert.equal(structural.structuralMinimumBasis, "api574-structural");
+  assert.equal(structural.minimumThicknessBasis, "api574-alert");
+
+  const alert = calculateApi570Piping({ ...common, api574ThicknessBasis: "alert" });
+  approximately(alert.api574SelectedThresholdThicknessMm, 3.3, 0.01);
+  approximately(alert.minimumThicknessUsedMm, 3.3, 0.01);
+  assert.equal(alert.api574ThicknessBasisUsed, "alert");
+  assert.equal(alert.structuralMinimumBasis, "api574-alert");
+  assert.equal(alert.minimumThicknessBasis, "api574-alert");
+  approximately(alert.remainingLifeYears, structural.remainingLifeYears, 1e-12);
+  assert.ok(alert.issues.some((issue) => issue.code === "api574-alert-threshold-selected"));
+
+  const manualStructural = calculateApi570Piping({ ...common, api574ThicknessBasis: "structural", structuralMinimumThicknessMm: 4.2 });
+  approximately(manualStructural.api574StructuralThicknessMmUsed, 4.2);
+  approximately(manualStructural.api574AlertThicknessMmUsed, 3.3);
+  approximately(manualStructural.minimumThicknessUsedMm, 4.2);
+  assert.equal(manualStructural.minimumThicknessBasis, "manual-structural-threshold");
+
+  const manualAlert = calculateApi570Piping({ ...common, api574ThicknessBasis: "alert", structuralMinimumThicknessMm: 4.2 });
+  approximately(manualAlert.api574StructuralThicknessMmUsed, 2.8);
+  approximately(manualAlert.api574AlertThicknessMmUsed, 4.2);
+  approximately(manualAlert.minimumThicknessUsedMm, 4.2);
+  assert.equal(manualAlert.api574ThicknessBasisUsed, "alert");
+  assert.equal(manualAlert.structuralMinimumBasis, "manual");
+  assert.equal(manualAlert.minimumThicknessBasis, "manual-alert-threshold");
 });
 
 test("requires a controlled manual minimum outside the supplied 205 C lookup range", () => {
   const result = calculateApi570Piping({ ...originalWebGoldenInput, nominalPipeSizeIn: 12, designTemperatureC: 250 });
   assert.equal(result.structuralMinimumThicknessMm, 0);
   assert.equal(result.structuralMinimumBasis, "unavailable");
-  assert.ok(result.issues.some((issue) => issue.code === "api574-table5-temperature-outside-range"));
+  assert.ok(result.issues.some((issue) => issue.code === "api574-lookup-temperature-outside-range"));
+});
+
+test("requires a controlled manual threshold above the supplied NPS 24 range", () => {
+  const selection = selectApi574PipingMinimumThickness(30, "structural");
+  assert.equal(selection.selectedThicknessMm, null);
+  assert.equal(selection.selectedBasis, "unavailable");
+
+  const result = calculateApi570Piping({ ...originalWebGoldenInput, nominalPipeSizeIn: 30, designTemperatureC: 150 });
+  assert.equal(result.api574SelectedThresholdThicknessMm, 0);
+  assert.ok(result.issues.some((issue) => issue.code === "api574-lookup-nps-unavailable"));
 });
 
 test("normalizes the protected future interval to 1 through 20 years", () => {
