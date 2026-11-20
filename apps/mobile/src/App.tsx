@@ -1,3 +1,4 @@
+import { TankReferencePage } from "./reference/TankReferencePage.tsx";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import {
@@ -104,7 +105,7 @@ const Api653RoofPlateCalculator = lazy(() => import("./api653/Api653RoofPlateCal
 const Api653Other432Calculator = lazy(() => import("./api653/Api653Other432Calculator.tsx").then((module) => ({ default: module.Api653Other432Calculator })));
 const Api571DamageMechanisms = lazy(() => import("./api571/Api571DamageMechanisms.tsx").then((module) => ({ default: module.Api571DamageMechanisms })));
 
-type Page = "home" | "calculators" | "projects" | "reports" | "account" | "calculator" | "api570-piping" | "api570-tube" | "api570-header" | "api570-support" | "api570-pressure-design" | "api570-valve-fittings" | "api570-hydro-test" | "api570-flange-hydro-test" | "api570-pneumatic-test" | "api570-fillet-weld" | "api570-tension-test" | "api570-soil-resistivity" | "api653-bottom" | "api653-annular" | "api653-shell" | "api653-nozzles" | "api653-roof" | "api653-other-4-3-2" | "api571-damage-mechanisms";
+type Page = "reference" | "home" | "calculators" | "projects" | "reports" | "account" | "calculator" | "api570-piping" | "api570-tube" | "api570-header" | "api570-support" | "api570-pressure-design" | "api570-valve-fittings" | "api570-hydro-test" | "api570-flange-hydro-test" | "api570-pneumatic-test" | "api570-fillet-weld" | "api570-tension-test" | "api570-soil-resistivity" | "api653-bottom" | "api653-annular" | "api653-shell" | "api653-nozzles" | "api653-roof" | "api653-other-4-3-2" | "api571-damage-mechanisms";
 const api570PageByCalculator: Record<Api570CalculatorId, Page> = {
   piping: "api570-piping",
   tube: "api570-tube",
@@ -213,11 +214,13 @@ const navItems: Array<{ id: NavigationPage; label: string; icon: LucideIcon }> =
   { id: "home", label: "Home", icon: Home },
   { id: "calculators", label: "Calculators", icon: Calculator },
   { id: "projects", label: "Projects", icon: FolderOpen },
+  { id: "reference", label: "Reference", icon: BookOpenText },
   { id: "reports", label: "Reports", icon: FileText },
   { id: "account", label: "Account", icon: UserRound },
 ];
 
 const pageTitles: Record<NavigationPage, { eyebrow: string; title: string; description: string }> = {
+  reference: { eyebrow: "Technical reference", title: "Reference", description: "Equipment damage and repair guidance." },
   home: {
     eyebrow: "Engineering workspace",
     title: "Good morning, Libin.",
@@ -628,6 +631,8 @@ function App() {
           <Suspense fallback={<div className="page-wrap"><div className="empty-state"><Gauge size={28} /><h2>Loading Roof Plate calculator</h2></div></div>}><Api653RoofPlateCalculator key={activeApi653Calculation?.calculatorId === "roof-plate" ? activeApi653Calculation.id : "new-api653-roof"} onBack={() => navigate("calculators")} {...api653RecordProps} /></Suspense>
         ) : page === "api653-other-4-3-2" ? (
           <Suspense fallback={<div className="page-wrap"><div className="empty-state"><Gauge size={28} /><h2>Loading Other 4.3.2 calculator</h2></div></div>}><Api653Other432Calculator key={activeApi653Calculation?.calculatorId === "other-4-3-2" ? activeApi653Calculation.id : "new-api653-other"} onBack={() => navigate("calculators")} {...api653RecordProps} /></Suspense>
+        ) : page === "reference" ? (
+          <TankReferencePage />
         ) : page === "api571-damage-mechanisms" ? (
           <Suspense fallback={<div className="page-wrap"><div className="empty-state"><BookOpenText size={28} /><h2>Loading damage mechanisms</h2></div></div>}><Api571DamageMechanisms onBack={() => navigate("calculators")} /></Suspense>
         ) : (
