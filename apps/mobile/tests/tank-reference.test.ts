@@ -15,7 +15,7 @@ test('reference supplements resolve to real clauses and shipped source images',(
  for(const image of sourceImages){
   assert.ok(image.keys.every(key=>key in tankData.references));
   assert.ok(existsSync(new URL(`../public/reference/${image.file}`,import.meta.url)), image.file);
-  assert.match(image.caption,/PDF p\. \d+/);
+  assert.match(image.caption,/(Figure|Table)/);
  }
  assert.ok(relatedStandards.every(s=>s.edition&&s.source&&s.details.length&&new URL(s.url).protocol==='https:'));
 });
