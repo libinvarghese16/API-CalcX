@@ -1,11 +1,13 @@
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { tankData } from "./tank-data.ts";
 import "./reference.css";
 import { considerationDetails, generalConsiderations, relatedStandards, sourceImages } from "./reference-details.ts";
+const Api653Library = lazy(() => import("./Api653Library.tsx"));
 type Ref = {code:string;clause:string;pdfPage:number;printedPage:string;title:string;consideration:string;repair:string};
 const references: Record<string,Ref> = tankData.references;
 export function TankReferencePage() {
  const [category,setCategory]=useState('Tank');
+ const [referenceMode,setReferenceMode]=useState('parts');
  const [search,setSearch]=useState(''); const [group,setGroup]=useState('');
  const [partId,setPartId]=useState('chime'); const [selected,setSelected]=useState<string[]>([]);
  const parts=useMemo(()=>tankData.parts.filter(p=>(!group||p.group===group)&&`${p.name} ${p.group} ${p.detail}`.toLowerCase().includes(search.toLowerCase())),[search,group]);
@@ -16,7 +18,8 @@ export function TankReferencePage() {
  const figures=sourceImages.filter(image=>image.keys.some(key=>cards.includes(key)));
  return <div className="page-wrap tank-reference"><section className="page-heading"><div><p className="eyebrow">Equipment integrity</p><h1>Reference</h1><p>Tank parts, damage mechanisms and repair considerations.</p></div></section>
  <div className="reference-categories" aria-label="Reference category">{['Tank','Piping','Pressure Vessels'].map(c=><button key={c} type="button" aria-pressed={category===c} onClick={()=>setCategory(c)}>{c}</button>)}</div>
- {category!=='Tank'?<section className="reference-card"><h2>{category}</h2><p>Reference content will be added when the applicable standards are supplied.</p></section>:<>
+ {category==='Tank'&&<div className="reference-categories" aria-label="Tank reference view"><button type="button" aria-pressed={referenceMode==='parts'} onClick={()=>setReferenceMode('parts')}>Tank parts and damage</button><button type="button" aria-pressed={referenceMode==='code'} onClick={()=>setReferenceMode('code')}>API 653 clauses and annexes</button></div>}
+ {category!=='Tank'?<section className="reference-card"><h2>{category}</h2><p>Reference content will be added when the applicable standards are supplied.</p></section>:referenceMode==='code'?<Suspense fallback={<section className="reference-card" role="status">Loading API 653 reference…</section>}><Api653Library/></Suspense>:<>
  <details className="reference-card"><summary>Source editions and how to use this reference</summary><p>{tankData.sources['650'].title}.</p><p>{tankData.sources['653'].title}.</p><p>Original summaries of the supplied editions, with selected source-page screenshots. Related references include API RP 651 (5th edition, 2024) and API RP 652 (6th edition, 2025). Consult the complete clauses, figures, notes and exceptions in your licensed standards before applying a repair. API 571 identifiers are screening cross-references, not independently verified against a supplied API 571 edition. Multiple selections do not diagnose multiple mechanisms.</p></details>
  <div className="reference-layout"><section className="reference-card reference-controls">
  <label>Search tank parts<input type="search" value={search} onChange={e=>{setSearch(e.target.value);setSelected([]);}} placeholder="Chime, column, sump, weld…"/></label>
