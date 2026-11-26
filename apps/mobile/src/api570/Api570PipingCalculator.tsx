@@ -1,3 +1,4 @@
+import { MonthYearField, useCurrentMonth, serviceDateHelp } from "../components/MonthYearField.tsx";
 import { useMemo, useState } from "react";
 import {
   API570_PIPING_CODE_DEFINITIONS,
@@ -155,13 +156,16 @@ export function Api570PipingCalculator({ onBack, onNeedProject, notify, projects
   onApprove: (input: ApproveApi570CalculationInput) => SavedApi570Calculation;
 }) {
   const initialInputs = initialCalculation?.inputs.calculatorId === "piping" ? initialCalculation.inputs : undefined;
-  const currentYear = new Date().getFullYear();
+
   const [unitSystem, setUnitSystem] = useState<UnitSystem>(initialInputs?.unitSystem ?? "metric");
   const [fields, setFields] = useState<UnitFieldMap>(() => initialUnitFields(initialInputs));
   const [materialSpec, setMaterialSpec] = useState(initialInputs?.materialSpec ?? DEFAULT_API570_MATERIAL_SPEC);
   const [gradeKey, setGradeKey] = useState(initialInputs?.gradeKey ?? DEFAULT_API570_MATERIAL_GRADE);
   const [stressMode, setStressMode] = useState<AutomaticValueMode>(initialInputs?.stressMode ?? "auto");
   const [pipingCode, setPipingCode] = useState<Api570PipingCode>(initialInputs?.pipingCode ?? "b31.3");
+  const { currentYear, currentMonth } = useCurrentMonth();
+  const [buildMonth, setBuildMonth] = useState(initialInputs?.buildMonth ?? "");
+  const [previousInspectionMonth, setPreviousInspectionMonth] = useState(initialInputs?.previousInspectionMonth ?? "");
   const [buildYear, setBuildYear] = useState(initialInputs?.buildYear ?? "2006");
   const [previousInspectionYear, setPreviousInspectionYear] = useState(initialInputs?.previousInspectionYear ?? "2021");
   const [serviceYearsMode, setServiceYearsMode] = useState<AutomaticValueMode>(initialInputs?.serviceYearsMode ?? "auto");
@@ -183,8 +187,8 @@ export function Api570PipingCalculator({ onBack, onNeedProject, notify, projects
 
   const codeDefinition = api570PipingCodeDefinitionFor(pipingCode);
   const numericBuildYear = numberFrom(buildYear);
-  const serviceYears = deriveYearsInService(numericBuildYear, currentYear);
-  const inspectionYears = deriveYearsSincePreviousInspection(numberFrom(previousInspectionYear), numericBuildYear, currentYear);
+  const serviceYears = deriveYearsInService(numericBuildYear, currentYear, buildMonth ? Number(buildMonth) : undefined, currentMonth);
+  const inspectionYears = deriveYearsSincePreviousInspection(numberFrom(previousInspectionYear), numericBuildYear, currentYear, { buildMonth: buildMonth ? Number(buildMonth) : undefined, previousInspectionMonth: previousInspectionMonth ? Number(previousInspectionMonth) : undefined, asOfMonth: currentMonth });
   const yearsInService = serviceYearsMode === "auto" ? serviceYears.yearsInService ?? 0 : numberFrom(manualServiceYears);
   const yearsSinceInspection = inspectionYearsMode === "auto" ? inspectionYears.yearsSincePreviousInspection ?? 0 : numberFrom(manualInspectionYears);
 
@@ -254,7 +258,7 @@ export function Api570PipingCalculator({ onBack, onNeedProject, notify, projects
     unitSystem,
     fields,
     pipingCode,
-    buildYear,
+    buildYear, buildMonth, previousInspectionMonth,
     previousInspectionYear,
     serviceYearsMode,
     inspectionYearsMode,
@@ -276,7 +280,7 @@ export function Api570PipingCalculator({ onBack, onNeedProject, notify, projects
     gradeKey,
     stressMode,
     engineInput: minimumMode === "manual" ? { ...baseInput, minimumThicknessMm: unitValue(fields.manualMinimum) } : baseInput,
-  }), [api574ThicknessBasis, baseInput, buildYear, designFactor, fields, gradeKey, hydrogenFactor, hydrogenMaterialFactor, inspectionYearsMode, intervalYears, manualInspectionYears, manualServiceYears, materialSpec, minimumMode, nominalPipeSizeIn, pipingCode, previousInspectionYear, qualityFactor, serviceYearsMode, stressMode, structuralMinimumMode, temperatureFactor, unitSystem, weldFactor, yCoefficient]);
+  }), [api574ThicknessBasis, baseInput, buildYear, buildMonth, previousInspectionMonth, designFactor, fields, gradeKey, hydrogenFactor, hydrogenMaterialFactor, inspectionYearsMode, intervalYears, manualInspectionYears, manualServiceYears, materialSpec, minimumMode, nominalPipeSizeIn, pipingCode, previousInspectionYear, qualityFactor, serviceYearsMode, stressMode, structuralMinimumMode, temperatureFactor, unitSystem, weldFactor, yCoefficient]);
 
   const changeStressMode = (mode: AutomaticValueMode) => {
     if (mode === "manual" && stressResolution.allowableStressMpa !== null) {
@@ -308,7 +312,7 @@ export function Api570PipingCalculator({ onBack, onNeedProject, notify, projects
     setInspectionYearsMode(mode);
   };
   const reset = () => {
-    setUnitSystem("metric"); setFields(initialUnitFields()); setPipingCode("b31.3"); setBuildYear("2006"); setPreviousInspectionYear("2021");
+    setUnitSystem("metric"); setFields(initialUnitFields()); setPipingCode("b31.3"); setBuildMonth(""); setPreviousInspectionMonth(""); setBuildYear("2006"); setPreviousInspectionYear("2021");
     setMaterialSpec(DEFAULT_API570_MATERIAL_SPEC); setGradeKey(DEFAULT_API570_MATERIAL_GRADE); setStressMode("auto");
     setServiceYearsMode("auto"); setInspectionYearsMode("auto"); setNominalPipeSizeIn("12"); setApi574ThicknessBasis("structural"); setStructuralMinimumMode("auto"); setMinimumMode("auto"); setManualServiceYears("20"); setManualInspectionYears("5");
     setQualityFactor("0.85"); setWeldFactor("1"); setYCoefficient("0.4"); setDesignFactor("1"); setTemperatureFactor("1");
@@ -362,10 +366,10 @@ export function Api570PipingCalculator({ onBack, onNeedProject, notify, projects
           <section className="form-card">
             <div className="form-card-heading"><div><span>02</span><div><h2>Design and inspection data</h2><p>Automatic years remain highlighted and can be overridden manually.</p></div></div><Gauge size={19} /></div>
             <div className="form-grid">
-              <PlainInput label="Build year" value={buildYear} unit="year" help={`Whole year from 1900 to ${currentYear}.`} onChange={setBuildYear} />
-              <DerivedYearsInput label="Years in service" mode={serviceYearsMode} value={serviceYearsMode === "auto" ? String(serviceYears.yearsInService ?? "") : manualServiceYears} help={serviceYearsMode === "auto" ? serviceYears.message || `Automatically calculated: ${currentYear} − build year.` : "Manual override is active and highlighted."} onChange={setManualServiceYears} onModeChange={changeServiceMode} />
-              <PlainInput label="Previous inspection year" value={previousInspectionYear} unit="year" help={`Whole year from the build year to ${currentYear}.`} onChange={setPreviousInspectionYear} />
-              <DerivedYearsInput label="Years since previous inspection" mode={inspectionYearsMode} value={inspectionYearsMode === "auto" ? String(inspectionYears.yearsSincePreviousInspection ?? "") : manualInspectionYears} help={inspectionYearsMode === "auto" ? inspectionYears.message || `Automatically calculated: ${currentYear} − previous inspection year.` : "Manual override is active and highlighted."} onChange={setManualInspectionYears} onModeChange={changeInspectionMode} />
+              <MonthYearField label="Build year" value={buildYear} month={buildMonth} onChange={setBuildYear} onMonthChange={setBuildMonth} currentYear={currentYear} currentMonth={currentMonth} />
+              <DerivedYearsInput label="Years in service" mode={serviceYearsMode} value={serviceYearsMode === "auto" ? String(serviceYears.yearsInService ?? "") : manualServiceYears} help={serviceYearsMode === "auto" ? serviceYears.message || serviceDateHelp(buildMonth, currentYear, currentMonth) : "Manual override is active and highlighted."} onChange={setManualServiceYears} onModeChange={changeServiceMode} />
+              <MonthYearField label="Previous inspection year" value={previousInspectionYear} month={previousInspectionMonth} onChange={setPreviousInspectionYear} onMonthChange={setPreviousInspectionMonth} currentYear={currentYear} currentMonth={currentMonth} />
+              <DerivedYearsInput label="Years since previous inspection" mode={inspectionYearsMode} value={inspectionYearsMode === "auto" ? String(inspectionYears.yearsSincePreviousInspection ?? "") : manualInspectionYears} help={inspectionYearsMode === "auto" ? inspectionYears.message || serviceDateHelp(previousInspectionMonth, currentYear, currentMonth) : "Manual override is active and highlighted."} onChange={setManualInspectionYears} onModeChange={changeInspectionMode} />
               <UnitInput label="Original thickness" field={fields.originalThickness} options={lengthUnits} help="Original or nominal recorded wall thickness." onValueChange={(value) => updateFieldValue("originalThickness", value)} onUnitChange={(unit) => updateFieldUnit("originalThickness", unit)} />
               <UnitInput label="Previous measured thickness" field={fields.previousThickness} options={lengthUnits} help="Representative thickness at the previous inspection." onValueChange={(value) => updateFieldValue("previousThickness", value)} onUnitChange={(unit) => updateFieldUnit("previousThickness", unit)} />
               <UnitInput label="Current measured thickness" field={fields.actualThickness} options={lengthUnits} help="Current controlling CML/TML wall thickness." onValueChange={(value) => updateFieldValue("actualThickness", value)} onUnitChange={(unit) => updateFieldUnit("actualThickness", unit)} />

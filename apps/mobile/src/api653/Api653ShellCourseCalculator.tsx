@@ -1,3 +1,4 @@
+import { MonthYearField, useCurrentMonth, serviceDateHelp } from "../components/MonthYearField.tsx";
 import { useEffect, useMemo, useState } from "react";
 import {
   calculateApi653ShellAssessment,
@@ -42,7 +43,7 @@ import type { Api653CalculatorWorkflowProps, Api653WorkflowReportDefinition } fr
 const lengthUnits = listEngineeringUnitOptions("length");
 const pressureUnits = listEngineeringUnitOptions("pressure");
 const materials = listApi653ShellMaterials();
-const currentYear = new Date().getFullYear();
+
 
 function numberFrom(value: string): number {
   if (!value.trim()) return 0;
@@ -136,6 +137,9 @@ export function Api653ShellCourseCalculator({ onBack, projects, initialCalculati
   const [height, setHeight] = useState<UnitFieldState>(() => initialDraft?.height ?? { value: "18", unit: "m", quantity: "length" });
   const [specificGravity, setSpecificGravity] = useState(initialDraft?.specificGravity ?? "1.1");
   const [jointEfficiency, setJointEfficiency] = useState(initialDraft?.jointEfficiency ?? "0.85");
+  const { currentYear, currentMonth } = useCurrentMonth();
+  const [buildMonth, setBuildMonth] = useState(initialDraft?.buildMonth ?? "");
+  const [previousInspectionMonth, setPreviousInspectionMonth] = useState(initialDraft?.previousInspectionMonth ?? "");
   const [buildYear, setBuildYear] = useState(initialDraft?.buildYear ?? "2006");
   const [previousInspectionYear, setPreviousInspectionYear] = useState(initialDraft?.previousInspectionYear ?? "2021");
   const [serviceYearsMode, setServiceYearsMode] = useState<AutomaticValueMode>(initialDraft?.serviceYearsMode ?? "auto");
@@ -155,7 +159,7 @@ export function Api653ShellCourseCalculator({ onBack, projects, initialCalculati
       height,
       specificGravity,
       jointEfficiency,
-      buildYear,
+      buildYear, buildMonth, previousInspectionMonth,
       previousInspectionYear,
       serviceYearsMode,
       inspectionYearsMode,
@@ -164,11 +168,11 @@ export function Api653ShellCourseCalculator({ onBack, projects, initialCalculati
       courses,
     };
     setDraftSaveState(writeApi653ShellDraft(window.localStorage, draft) ? "saved" : "error");
-  }, [buildYear, courses, diameter, height, inspectionYearsMode, jointEfficiency, manualInspectionYears, manualServiceYears, previousInspectionYear, serviceYearsMode, specificGravity, unitSystem]);
+  }, [buildYear, buildMonth, previousInspectionMonth, courses, diameter, height, inspectionYearsMode, jointEfficiency, manualInspectionYears, manualServiceYears, previousInspectionYear, serviceYearsMode, specificGravity, unitSystem]);
 
   const numericBuildYear = numberFrom(buildYear);
-  const serviceYears = deriveYearsInService(numericBuildYear, currentYear);
-  const inspectionYears = deriveYearsSincePreviousInspection(numberFrom(previousInspectionYear), numericBuildYear, currentYear);
+  const serviceYears = deriveYearsInService(numericBuildYear, currentYear, buildMonth ? Number(buildMonth) : undefined, currentMonth);
+  const inspectionYears = deriveYearsSincePreviousInspection(numberFrom(previousInspectionYear), numericBuildYear, currentYear, { buildMonth: buildMonth ? Number(buildMonth) : undefined, previousInspectionMonth: previousInspectionMonth ? Number(previousInspectionMonth) : undefined, asOfMonth: currentMonth });
   const yearsInService = serviceYearsMode === "auto" ? serviceYears.yearsInService ?? 0 : numberFrom(manualServiceYears);
   const yearsSincePreviousInspection = inspectionYearsMode === "auto" ? inspectionYears.yearsSincePreviousInspection ?? 0 : numberFrom(manualInspectionYears);
 
@@ -259,6 +263,7 @@ export function Api653ShellCourseCalculator({ onBack, projects, initialCalculati
     setHeight({ value: "18", unit: "m", quantity: "length" });
     setSpecificGravity("1.1");
     setJointEfficiency("0.85");
+    setBuildMonth(""); setPreviousInspectionMonth("");
     setBuildYear("2006");
     setPreviousInspectionYear("2021");
     setServiceYearsMode("auto");
@@ -294,7 +299,7 @@ export function Api653ShellCourseCalculator({ onBack, projects, initialCalculati
     }
   };
 
-  const inputSnapshot = useMemo<Api653InputSnapshot>(() => ({ calculatorId: "shell-course", unitSystem, formState: { version: 1, unitSystem, diameter, height, specificGravity, jointEfficiency, buildYear, previousInspectionYear, serviceYearsMode, inspectionYearsMode, manualServiceYears, manualInspectionYears, courses }, engineInput: input }), [buildYear, courses, diameter, height, input, inspectionYearsMode, jointEfficiency, manualInspectionYears, manualServiceYears, previousInspectionYear, serviceYearsMode, specificGravity, unitSystem]);
+  const inputSnapshot = useMemo<Api653InputSnapshot>(() => ({ calculatorId: "shell-course", unitSystem, formState: { version: 1, unitSystem, diameter, height, specificGravity, jointEfficiency, buildYear, buildMonth, previousInspectionMonth, previousInspectionYear, serviceYearsMode, inspectionYearsMode, manualServiceYears, manualInspectionYears, courses }, engineInput: input }), [buildYear, buildMonth, previousInspectionMonth, courses, diameter, height, input, inspectionYearsMode, jointEfficiency, manualInspectionYears, manualServiceYears, previousInspectionYear, serviceYearsMode, specificGravity, unitSystem]);
   const reportDefinition: Api653WorkflowReportDefinition = {
     reportKind: "Shell course calculation report",
     basisTitle: "Tank and shell design basis",
@@ -340,10 +345,10 @@ export function Api653ShellCourseCalculator({ onBack, projects, initialCalculati
       </div><div className="form-note is-valid"><ShieldCheck size={17} /><p><strong>Protected Shell route connected.</strong> Tank geometry, material stress, minimum thickness, hydrostatic height, operating fill, corrosion rates, and remaining life share one normalized engine.</p></div></section>
 
       <section className="form-card"><div className="form-card-heading"><div><span>02</span><div><h2>Design and inspection data</h2><p>Automatic years stay highlighted and can be overridden manually.</p></div></div><Gauge size={19} /></div><div className="form-grid">
-        <NumberInput label="Build year" value={buildYear} suffix="year" help={`Whole year from 1900 to ${currentYear}.`} onChange={setBuildYear} />
-        <DerivedYearsInput label="Years in service" mode={serviceYearsMode} value={serviceYearsMode === "auto" ? String(serviceYears.yearsInService ?? "") : manualServiceYears} help={serviceYearsMode === "auto" ? serviceYears.message || `${currentYear} − build year.` : "Manual override is active and highlighted."} onChange={setManualServiceYears} onModeChange={changeServiceMode} />
-        <NumberInput label="Previous inspection year" value={previousInspectionYear} suffix="year" help={`Whole year from build year to ${currentYear}.`} onChange={setPreviousInspectionYear} />
-        <DerivedYearsInput label="Years since previous inspection" mode={inspectionYearsMode} value={inspectionYearsMode === "auto" ? String(inspectionYears.yearsSincePreviousInspection ?? "") : manualInspectionYears} help={inspectionYearsMode === "auto" ? inspectionYears.message || `${currentYear} − previous inspection year.` : "Manual override is active and highlighted."} onChange={setManualInspectionYears} onModeChange={changeInspectionMode} />
+        <MonthYearField label="Build year" value={buildYear} month={buildMonth} onChange={setBuildYear} onMonthChange={setBuildMonth} currentYear={currentYear} currentMonth={currentMonth} />
+        <DerivedYearsInput label="Years in service" mode={serviceYearsMode} value={serviceYearsMode === "auto" ? String(serviceYears.yearsInService ?? "") : manualServiceYears} help={serviceYearsMode === "auto" ? serviceYears.message || serviceDateHelp(buildMonth, currentYear, currentMonth) : "Manual override is active and highlighted."} onChange={setManualServiceYears} onModeChange={changeServiceMode} />
+        <MonthYearField label="Previous inspection year" value={previousInspectionYear} month={previousInspectionMonth} onChange={setPreviousInspectionYear} onMonthChange={setPreviousInspectionMonth} currentYear={currentYear} currentMonth={currentMonth} />
+        <DerivedYearsInput label="Years since previous inspection" mode={inspectionYearsMode} value={inspectionYearsMode === "auto" ? String(inspectionYears.yearsSincePreviousInspection ?? "") : manualInspectionYears} help={inspectionYearsMode === "auto" ? inspectionYears.message || serviceDateHelp(previousInspectionMonth, currentYear, currentMonth) : "Manual override is active and highlighted."} onChange={setManualInspectionYears} onModeChange={changeInspectionMode} />
       </div><div className={`form-note ${manualOverrideActive ? "is-manual" : "is-valid"}`}>{manualOverrideActive ? <TriangleAlert size={18} /> : <Info size={17} />}<p><strong>{manualOverrideActive ? "Manual override active." : "Automatic dependencies active."}</strong> {manualOverrideActive ? "Verify every highlighted manual field before engineering review." : "Both inspection periods update immediately from their recorded years."}</p></div><div className="unit-system-note"><Info size={17} /><p><strong>Mixed engineering units are active.</strong> Each field can use its site unit while results follow <b>{unitSystem === "metric" ? "Metric" : "U.S. customary"}</b>.</p></div></section>
 
       <section className="form-card shell-courses-section"><div className="shell-section-heading"><div className="form-card-heading"><div><span>03</span><div><h2>Shell courses</h2><p>Bottom-to-top sequence. No wide calculation table is used on mobile.</p></div></div><Layers3 size={19} /></div><div className="shell-course-actions"><button type="button" onClick={() => setCourses((current) => current.length < 15 ? [...current, makeCourse(current.length + 1)] : current)} disabled={courses.length >= 15}><Plus size={15} /> Add</button><button type="button" onClick={() => setCourses((current) => current.length > 1 ? current.slice(0, -1) : current)} disabled={courses.length <= 1}><Minus size={15} /> Remove</button></div></div>

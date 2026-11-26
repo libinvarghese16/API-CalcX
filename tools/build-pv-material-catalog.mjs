@@ -32,7 +32,7 @@ const generatedSource = `/* Auto-generated from the protected legacy PV material
 
 if (process.argv.includes("--check")) {
   const currentSource = await readFile(generatedPath, "utf8").catch(() => "");
-  if (currentSource !== generatedSource) {
+  if (currentSource.replace(/\r\n/g, "\n") !== generatedSource) {
     throw new Error("Generated pressure-vessel material catalog is missing or out of date.");
   }
   console.log(`Material catalog verified (${Object.keys(catalog).length} specifications).`);

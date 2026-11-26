@@ -1074,3 +1074,24 @@ body, .app-shell, .main-area { min-height: 100dvh; }
   .api571-dm-block h3 { font-size: 10.5px; }
   .api571-dm-block li { font-size: 13px; line-height: 1.6; }
 }
+.number-control.service-date-control { display: grid; grid-template-columns: minmax(70px, .8fr) minmax(120px, 1.2fr); }
+.number-control.service-date-control input { width: 100%; min-width: 0; }
+.number-control.service-date-control select { width: 100%; min-width: 0; border: 0; border-left: 1px solid var(--line); border-radius: 0; padding: 0 10px; color: var(--text); background: var(--surface-soft); font: inherit; }
+.post-repair-assessment { margin-top: 24px; padding: 22px; min-width: 0; }
+.post-repair-assessment > summary { cursor: pointer; font-size: 18px; font-weight: 700; }
+.post-repair-assessment > p, .post-repair-results p { color: var(--text-soft); font-size: 13px; line-height: 1.6; }
+.post-repair-assessment h3 { margin: 24px 0 14px; }
+.post-repair-check { display: flex; gap: 10px; align-items: start; margin: 14px 0; font-size: 13px; line-height: 1.5; }
+.post-repair-check input { flex-shrink: 0; width: 18px; height: 18px; }
+.post-repair-table-wrap { max-width: 100%; overflow: auto; margin: 16px 0; }
+.post-repair-table-wrap table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.post-repair-table-wrap td, .post-repair-table-wrap th { border: 1px solid var(--line); padding: 10px; text-align: left; }
+.post-repair-table-wrap th { background: var(--surface-soft); }
+.post-repair-patches { min-width: 1100px; }
+.post-repair-patches input:not([type=checkbox]) { width: 100%; min-width: 80px; padding: 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; }
+.post-repair-results { margin: 22px 0; padding: 18px; border: 1px solid var(--line); background: var(--surface-soft); border-radius: 12px; }
+.post-repair-results h3 { margin-top: 0; }
+.post-repair-results ul { padding-left: 20px; font-size: 13px; line-height: 1.6; }
+.post-repair-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+[data-theme="dark"] .post-repair-assessment { color-scheme: dark; }
+@media (max-width: 480px) { .post-repair-assessment { padding: 16px; } .post-repair-results { padding: 12px; } }

@@ -1,3 +1,4 @@
+import { MonthYearField, useCurrentMonth, serviceDateHelp } from "../components/MonthYearField.tsx";
 import { useMemo, useState } from "react";
 import {
   DEFAULT_API570_MATERIAL_GRADE,
@@ -122,7 +123,7 @@ export function Api570TubeCalculator({ onBack, onNeedProject, notify, projects, 
   onApprove: (input: ApproveApi570CalculationInput) => SavedApi570Calculation;
 }) {
   const initialInputs = initialCalculation?.inputs.calculatorId === "tube" ? initialCalculation.inputs : undefined;
-  const currentYear = new Date().getFullYear();
+
   const [unitSystem, setUnitSystem] = useState<UnitSystem>(initialInputs?.unitSystem ?? "metric");
   const [fields, setFields] = useState<UnitFieldMap>(() => initialUnitFields(initialInputs));
   const [materialSpec, setMaterialSpec] = useState(initialInputs?.materialSpec ?? DEFAULT_API570_MATERIAL_SPEC);
@@ -130,6 +131,9 @@ export function Api570TubeCalculator({ onBack, onNeedProject, notify, projects, 
   const [stressMode, setStressMode] = useState<AutomaticValueMode>(initialInputs?.stressMode ?? "auto");
   const [endCondition, setEndCondition] = useState<Api570TubeEndCondition>(initialInputs?.endCondition ?? "expanded");
   const [weldFactor, setWeldFactor] = useState(initialInputs?.weldFactor ?? "0.9");
+  const { currentYear, currentMonth } = useCurrentMonth();
+  const [buildMonth, setBuildMonth] = useState(initialInputs?.buildMonth ?? "");
+  const [previousInspectionMonth, setPreviousInspectionMonth] = useState(initialInputs?.previousInspectionMonth ?? "");
   const [buildYear, setBuildYear] = useState(initialInputs?.buildYear ?? "2006");
   const [previousInspectionYear, setPreviousInspectionYear] = useState(initialInputs?.previousInspectionYear ?? "2021");
   const [serviceYearsMode, setServiceYearsMode] = useState<AutomaticValueMode>(initialInputs?.serviceYearsMode ?? "auto");
@@ -140,8 +144,8 @@ export function Api570TubeCalculator({ onBack, onNeedProject, notify, projects, 
   const [intervalYears, setIntervalYears] = useState(initialInputs?.intervalYears ?? "5");
 
   const numericBuildYear = numberFrom(buildYear);
-  const serviceYears = deriveYearsInService(numericBuildYear, currentYear);
-  const inspectionYears = deriveYearsSincePreviousInspection(numberFrom(previousInspectionYear), numericBuildYear, currentYear);
+  const serviceYears = deriveYearsInService(numericBuildYear, currentYear, buildMonth ? Number(buildMonth) : undefined, currentMonth);
+  const inspectionYears = deriveYearsSincePreviousInspection(numberFrom(previousInspectionYear), numericBuildYear, currentYear, { buildMonth: buildMonth ? Number(buildMonth) : undefined, previousInspectionMonth: previousInspectionMonth ? Number(previousInspectionMonth) : undefined, asOfMonth: currentMonth });
   const yearsInService = serviceYearsMode === "auto" ? serviceYears.yearsInService ?? 0 : numberFrom(manualServiceYears);
   const yearsSinceInspection = inspectionYearsMode === "auto" ? inspectionYears.yearsSincePreviousInspection ?? 0 : numberFrom(manualInspectionYears);
 
@@ -196,7 +200,7 @@ export function Api570TubeCalculator({ onBack, onNeedProject, notify, projects, 
     unitSystem,
     fields: Object.fromEntries(Object.entries(fields).map(([fieldId, field]) => [fieldId, { ...field }])) as UnitFieldMap,
     endCondition,
-    buildYear,
+    buildYear, buildMonth, previousInspectionMonth,
     previousInspectionYear,
     serviceYearsMode,
     inspectionYearsMode,
@@ -209,7 +213,7 @@ export function Api570TubeCalculator({ onBack, onNeedProject, notify, projects, 
     gradeKey,
     stressMode,
     engineInput,
-  }), [buildYear, endCondition, engineInput, fields, gradeKey, inspectionYearsMode, intervalYears, manualInspectionYears, manualServiceYears, materialSpec, minimumMode, previousInspectionYear, serviceYearsMode, stressMode, unitSystem, weldFactor]);
+  }), [buildYear, buildMonth, previousInspectionMonth, endCondition, engineInput, fields, gradeKey, inspectionYearsMode, intervalYears, manualInspectionYears, manualServiceYears, materialSpec, minimumMode, previousInspectionYear, serviceYearsMode, stressMode, unitSystem, weldFactor]);
 
   const reportDefinition: Api570WorkflowReportDefinition = {
     reportKind: "Tube calculation report",
@@ -262,7 +266,7 @@ export function Api570TubeCalculator({ onBack, onNeedProject, notify, projects, 
   };
   const changeServiceMode = (mode: AutomaticValueMode) => { if (mode === "manual" && serviceYears.yearsInService !== null) setManualServiceYears(String(serviceYears.yearsInService)); setServiceYearsMode(mode); };
   const changeInspectionMode = (mode: AutomaticValueMode) => { if (mode === "manual" && inspectionYears.yearsSincePreviousInspection !== null) setManualInspectionYears(String(inspectionYears.yearsSincePreviousInspection)); setInspectionYearsMode(mode); };
-  const reset = () => { setUnitSystem("metric"); setFields(initialUnitFields()); setMaterialSpec(DEFAULT_API570_MATERIAL_SPEC); setGradeKey(DEFAULT_API570_MATERIAL_GRADE); setStressMode("auto"); setEndCondition("expanded"); setWeldFactor("0.9"); setBuildYear("2006"); setPreviousInspectionYear("2021"); setServiceYearsMode("auto"); setInspectionYearsMode("auto"); setManualServiceYears("20"); setManualInspectionYears("5"); setMinimumMode("auto"); setIntervalYears("5"); };
+  const reset = () => { setUnitSystem("metric"); setFields(initialUnitFields()); setMaterialSpec(DEFAULT_API570_MATERIAL_SPEC); setGradeKey(DEFAULT_API570_MATERIAL_GRADE); setStressMode("auto"); setEndCondition("expanded"); setWeldFactor("0.9"); setBuildMonth(""); setPreviousInspectionMonth(""); setBuildYear("2006"); setPreviousInspectionYear("2021"); setServiceYearsMode("auto"); setInspectionYearsMode("auto"); setManualServiceYears("20"); setManualInspectionYears("5"); setMinimumMode("auto"); setIntervalYears("5"); };
 
   const pressureUnit = unitSymbol(defaultUnitForSystem("pressure", unitSystem));
   const lengthUnit = unitSymbol(defaultUnitForSystem("length", unitSystem));
@@ -286,10 +290,10 @@ export function Api570TubeCalculator({ onBack, onNeedProject, notify, projects, 
           </div><div className="form-note is-valid"><ShieldCheck size={17} /><p><strong>Protected Tube route connected.</strong> The typed engine preserves the original end-condition dependency and PG-27.2.1 equation path.</p></div></section>
 
           <section className="form-card"><div className="form-card-heading"><div><span>02</span><div><h2>Design and inspection data</h2><p>Automatic years and minimum thickness remain highlighted and editable.</p></div></div><Gauge size={19} /></div><div className="form-grid">
-            <PlainInput label="Build year" value={buildYear} unit="year" help={`Whole year from 1900 to ${currentYear}.`} onChange={setBuildYear} />
-            <DerivedYearsInput label="Years in service" mode={serviceYearsMode} value={serviceYearsMode === "auto" ? String(serviceYears.yearsInService ?? "") : manualServiceYears} help={serviceYearsMode === "auto" ? serviceYears.message || `Automatically calculated: ${currentYear} − build year.` : "Manual override is active and highlighted."} onChange={setManualServiceYears} onModeChange={changeServiceMode} />
-            <PlainInput label="Previous inspection year" value={previousInspectionYear} unit="year" help={`Whole year from the build year to ${currentYear}.`} onChange={setPreviousInspectionYear} />
-            <DerivedYearsInput label="Years since previous inspection" mode={inspectionYearsMode} value={inspectionYearsMode === "auto" ? String(inspectionYears.yearsSincePreviousInspection ?? "") : manualInspectionYears} help={inspectionYearsMode === "auto" ? inspectionYears.message || `Automatically calculated: ${currentYear} − previous inspection year.` : "Manual override is active and highlighted."} onChange={setManualInspectionYears} onModeChange={changeInspectionMode} />
+            <MonthYearField label="Build year" value={buildYear} month={buildMonth} onChange={setBuildYear} onMonthChange={setBuildMonth} currentYear={currentYear} currentMonth={currentMonth} />
+            <DerivedYearsInput label="Years in service" mode={serviceYearsMode} value={serviceYearsMode === "auto" ? String(serviceYears.yearsInService ?? "") : manualServiceYears} help={serviceYearsMode === "auto" ? serviceYears.message || serviceDateHelp(buildMonth, currentYear, currentMonth) : "Manual override is active and highlighted."} onChange={setManualServiceYears} onModeChange={changeServiceMode} />
+            <MonthYearField label="Previous inspection year" value={previousInspectionYear} month={previousInspectionMonth} onChange={setPreviousInspectionYear} onMonthChange={setPreviousInspectionMonth} currentYear={currentYear} currentMonth={currentMonth} />
+            <DerivedYearsInput label="Years since previous inspection" mode={inspectionYearsMode} value={inspectionYearsMode === "auto" ? String(inspectionYears.yearsSincePreviousInspection ?? "") : manualInspectionYears} help={inspectionYearsMode === "auto" ? inspectionYears.message || serviceDateHelp(previousInspectionMonth, currentYear, currentMonth) : "Manual override is active and highlighted."} onChange={setManualInspectionYears} onModeChange={changeInspectionMode} />
             <UnitInput label="Original thickness" field={fields.originalThickness} options={lengthUnits} help="Original or nominal recorded tube-wall thickness." onValueChange={(value) => updateFieldValue("originalThickness", value)} onUnitChange={(unit) => updateFieldUnit("originalThickness", unit)} />
             <UnitInput label="Previous measured thickness" field={fields.previousThickness} options={lengthUnits} help="Representative thickness at the previous inspection." onValueChange={(value) => updateFieldValue("previousThickness", value)} onUnitChange={(unit) => updateFieldUnit("previousThickness", unit)} />
             <UnitInput label="Current measured thickness" field={fields.actualThickness} options={lengthUnits} help="Current controlling tube-wall thickness." onValueChange={(value) => updateFieldValue("actualThickness", value)} onUnitChange={(unit) => updateFieldUnit("actualThickness", unit)} />

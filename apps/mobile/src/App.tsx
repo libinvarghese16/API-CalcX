@@ -1,3 +1,4 @@
+import { MonthYearField, useCurrentMonth, serviceDateHelp } from "./components/MonthYearField.tsx";
 import { TankReferencePage } from "./reference/TankReferencePage.tsx";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
@@ -1104,7 +1105,7 @@ function CalculatorPreview({ onBack, onNeedProject, notify, projects, initialCal
   onReview: (input: ReviewCalculationInput) => SavedApi510Calculation;
   onApprove: (input: ApproveCalculationInput) => SavedApi510Calculation;
 }) {
-  const currentYear = new Date().getFullYear();
+  const { currentYear, currentMonth } = useCurrentMonth();
   const initialInputs = initialCalculation?.inputs;
   const initialProject = projects.find((project) => project.id === initialCalculation?.projectId);
   const initialEquipment = initialProject?.equipment.find((equipment) => equipment.id === initialCalculation?.equipmentId);
@@ -1140,6 +1141,8 @@ function CalculatorPreview({ onBack, onNeedProject, notify, projects, initialCal
   const [actualThickness, setActualThickness] = useState(initialInputs?.actualThickness ?? "15.80");
   const [minimumMode, setMinimumMode] = useState<AutomaticValueMode>(initialInputs?.minimumMode ?? "auto");
   const [manualMinimumThickness, setManualMinimumThickness] = useState(initialInputs?.manualMinimumThickness ?? "");
+  const [buildMonth, setBuildMonth] = useState(initialInputs?.buildMonth ?? "");
+  const [previousInspectionMonth, setPreviousInspectionMonth] = useState(initialInputs?.previousInspectionMonth ?? "");
   const [buildYear, setBuildYear] = useState(initialInputs?.buildYear ?? String(currentYear - 20));
   const [serviceYearsMode, setServiceYearsMode] = useState<AutomaticValueMode>(initialInputs?.serviceYearsMode ?? "auto");
   const [manualServiceYears, setManualServiceYears] = useState(initialInputs?.manualServiceYears ?? "20");
@@ -1177,12 +1180,12 @@ function CalculatorPreview({ onBack, onNeedProject, notify, projects, initialCal
   const resultLengthUnit = unitLabel("length", unitSystem);
   const resultPressureUnit = unitLabel("pressure", unitSystem);
   const serviceYears = useMemo(
-    () => deriveYearsInService(Number(buildYear), currentYear),
-    [buildYear, currentYear],
+    () => deriveYearsInService(Number(buildYear), currentYear, buildMonth ? Number(buildMonth) : undefined, currentMonth),
+    [buildYear, buildMonth, previousInspectionMonth, currentYear, currentMonth],
   );
   const inspectionYears = useMemo(
-    () => deriveYearsSincePreviousInspection(Number(previousInspectionYear), Number(buildYear), currentYear),
-    [buildYear, currentYear, previousInspectionYear],
+    () => deriveYearsSincePreviousInspection(Number(previousInspectionYear), Number(buildYear), currentYear, { buildMonth: buildMonth ? Number(buildMonth) : undefined, previousInspectionMonth: previousInspectionMonth ? Number(previousInspectionMonth) : undefined, asOfMonth: currentMonth }),
+    [buildYear, buildMonth, previousInspectionMonth, currentYear, currentMonth, previousInspectionYear],
   );
   const materialGrades = useMemo(
     () => listPressureVesselMaterialGrades(materialSpec),
@@ -1278,7 +1281,7 @@ function CalculatorPreview({ onBack, onNeedProject, notify, projects, initialCal
     actualThickness,
     minimumMode,
     manualMinimumThickness,
-    buildYear,
+    buildYear, buildMonth, previousInspectionMonth,
     serviceYearsMode,
     manualServiceYears,
     previousInspectionYear,
@@ -1641,10 +1644,10 @@ function CalculatorPreview({ onBack, onNeedProject, notify, projects, initialCal
               <NumberField label="Previous measured thickness" value={previousThickness} onChange={setPreviousThickness} unit={unitSymbol(previousThicknessInputUnit)} unitValue={previousThicknessInputUnit} unitOptions={lengthInputUnitOptions} onUnitChange={(nextUnit) => changeInputUnit(previousThickness, setPreviousThickness, "length", previousThicknessInputUnit, setPreviousThicknessInputUnit, nextUnit)} help="Representative thickness at the previous inspection." />
               <NumberField label="Current measured thickness" value={actualThickness} onChange={setActualThickness} unit={unitSymbol(actualThicknessInputUnit)} unitValue={actualThicknessInputUnit} unitOptions={lengthInputUnitOptions} onUnitChange={(nextUnit) => changeInputUnit(actualThickness, setActualThickness, "length", actualThicknessInputUnit, setActualThicknessInputUnit, nextUnit)} help="Representative current inspection thickness." />
               <AutomaticNumberField label="Minimum thickness used" value={minimumMode === "auto" ? automaticMinimumDisplay : manualMinimumThickness} onChange={setManualMinimumThickness} unit={unitSymbol(minimumThicknessInputUnit)} unitValue={minimumThicknessInputUnit} unitOptions={lengthInputUnitOptions} onUnitChange={(nextUnit) => changeInputUnit(minimumMode === "auto" ? automaticMinimumDisplay : manualMinimumThickness, setManualMinimumThickness, "length", minimumThicknessInputUnit, setMinimumThicknessInputUnit, nextUnit)} help={minimumMode === "auto" ? "Defaults to the calculated required thickness, rounded to 0.01 mm to match the live reference workflow." : "Manual override is active. Verify the controlled minimum thickness before engineering approval."} mode={minimumMode} onModeChange={changeMinimumMode} />
-              <NumberField label="Build year" value={buildYear} onChange={setBuildYear} unit="year" help={`Whole year from 1900 to ${currentYear}.`} min={1900} max={currentYear} step={1} />
-              <AutomaticNumberField label="Years in service" value={serviceYearsMode === "auto" ? serviceYears.yearsInService === null ? "" : String(serviceYears.yearsInService) : manualServiceYears} onChange={setManualServiceYears} unit="yr" help={serviceYearsMode === "auto" ? serviceYears.message ?? `Automatically calculated: ${currentYear} − build year.` : "Manual override is active. Build year remains recorded but does not set this value."} mode={serviceYearsMode} onModeChange={changeServiceYearsMode} />
-              <NumberField label="Previous inspection year" value={previousInspectionYear} onChange={setPreviousInspectionYear} unit="year" help={`Whole year from the build year to ${currentYear}.`} min={1900} max={currentYear} step={1} />
-              <AutomaticNumberField label="Years since previous inspection" value={inspectionYearsMode === "auto" ? inspectionYears.yearsSincePreviousInspection === null ? "" : String(inspectionYears.yearsSincePreviousInspection) : manualInspectionYears} onChange={setManualInspectionYears} unit="yr" help={inspectionYearsMode === "auto" ? inspectionYears.message ?? `Automatically calculated: ${currentYear} − previous inspection year.` : "Manual override is active. Previous inspection year remains recorded but does not set this value."} mode={inspectionYearsMode} onModeChange={changeInspectionYearsMode} />
+              <MonthYearField label="Build year" value={buildYear} month={buildMonth} onChange={setBuildYear} onMonthChange={setBuildMonth} currentYear={currentYear} currentMonth={currentMonth} />
+              <AutomaticNumberField label="Years in service" value={serviceYearsMode === "auto" ? serviceYears.yearsInService === null ? "" : String(serviceYears.yearsInService) : manualServiceYears} onChange={setManualServiceYears} unit="yr" help={serviceYearsMode === "auto" ? serviceYears.message ?? serviceDateHelp(buildMonth, currentYear, currentMonth) : "Manual override is active. Build year remains recorded but does not set this value."} mode={serviceYearsMode} onModeChange={changeServiceYearsMode} />
+              <MonthYearField label="Previous inspection year" value={previousInspectionYear} month={previousInspectionMonth} onChange={setPreviousInspectionYear} onMonthChange={setPreviousInspectionMonth} currentYear={currentYear} currentMonth={currentMonth} />
+              <AutomaticNumberField label="Years since previous inspection" value={inspectionYearsMode === "auto" ? inspectionYears.yearsSincePreviousInspection === null ? "" : String(inspectionYears.yearsSincePreviousInspection) : manualInspectionYears} onChange={setManualInspectionYears} unit="yr" help={inspectionYearsMode === "auto" ? inspectionYears.message ?? serviceDateHelp(previousInspectionMonth, currentYear, currentMonth) : "Manual override is active. Previous inspection year remains recorded but does not set this value."} mode={inspectionYearsMode} onModeChange={changeInspectionYearsMode} />
               <NumberField label="Next inspection interval" value={nextInspectionYears} onChange={setNextInspectionYears} unit="yr" help="Whole number from 1 to 10 years." />
             </div>
             <div className="unit-system-note"><RefreshCw size={17} /><p><strong>Mixed field units are active.</strong> Each selector converts its input live. Results and report values continue to follow the selected global <b>Unit system</b>.</p></div>

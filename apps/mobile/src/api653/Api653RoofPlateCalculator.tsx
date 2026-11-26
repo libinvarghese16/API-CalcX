@@ -1,3 +1,4 @@
+import { MonthYearField, useCurrentMonth, serviceDateHelp } from "../components/MonthYearField.tsx";
 import { useMemo, useState } from "react";
 import {
   calculateApi653RoofPlate,
@@ -29,7 +30,7 @@ type RoofFieldId = "originalThickness" | "previousThickness" | "actualThickness"
 type RoofFields = Record<RoofFieldId, UnitFieldState>;
 
 const lengthUnits = listEngineeringUnitOptions("length");
-const currentYear = new Date().getFullYear();
+
 
 function numberFrom(value: string): number {
   if (!value.trim()) return 0;
@@ -57,9 +58,6 @@ function UnitInput({ label, field, options, help, onValueChange, onUnitChange }:
   return <label className="field"><span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button></span><div className="number-control"><input aria-label={label} type="number" inputMode="decimal" value={field.value} onChange={(event) => onValueChange(event.target.value)} /><select className="unit-picker" aria-label={`${label} unit`} value={field.unit} onChange={(event) => onUnitChange(event.target.value as EngineeringUnit)}>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div><small>{help}</small></label>;
 }
 
-function YearInput({ label, value, help, onChange }: { label: string; value: string; help: string; onChange: (value: string) => void }) {
-  return <label className="field"><span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button></span><div className="number-control"><input aria-label={label} type="number" inputMode="numeric" value={value} onChange={(event) => onChange(event.target.value)} /><b>year</b></div><small>{help}</small></label>;
-}
 
 function DerivedYearsInput({ label, mode, value, help, onChange, onModeChange }: { label: string; mode: AutomaticValueMode; value: string; help: string; onChange: (value: string) => void; onModeChange: (mode: AutomaticValueMode) => void }) {
   return <label className="field automatic-field"><span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button><button type="button" className={`field-mode-toggle ${mode}`} onClick={() => onModeChange(mode === "auto" ? "manual" : "auto")} aria-label={`Switch ${label} to ${mode === "auto" ? "manual" : "auto"} mode`}>{mode}</button></span><div className={`number-control is-derived ${mode === "manual" ? "is-manual" : ""}`}><input aria-label={label} type="number" inputMode="numeric" value={value} readOnly={mode === "auto"} onChange={(event) => onChange(event.target.value)} /><b>yr</b></div><small>{help}</small></label>;
@@ -72,8 +70,11 @@ export function Api653RoofPlateCalculator({ onBack, projects, initialCalculation
     actualThickness: { value: "5", unit: "mm", quantity: "length" },
     minimumThickness: { value: "2.2", unit: "mm", quantity: "length" },
   };
-  const savedState = (initialCalculation?.inputs.formState ?? {}) as Partial<{ unitSystem: UnitSystem; buildYear: string; previousInspectionYear: string; serviceYearsMode: AutomaticValueMode; inspectionYearsMode: AutomaticValueMode; manualServiceYears: string; manualInspectionYears: string; roofType: Api653RoofPlateInputSI["roofType"]; minimumThicknessBasis: Api653RoofPlateInputSI["minimumThicknessBasis"]; areaAverageConfirmed: boolean; holesPresent: boolean; fields: RoofFields }>;
+  const savedState = (initialCalculation?.inputs.formState ?? {}) as Partial<{ unitSystem: UnitSystem; buildYear: string; buildMonth: string; previousInspectionMonth: string; previousInspectionYear: string; serviceYearsMode: AutomaticValueMode; inspectionYearsMode: AutomaticValueMode; manualServiceYears: string; manualInspectionYears: string; roofType: Api653RoofPlateInputSI["roofType"]; minimumThicknessBasis: Api653RoofPlateInputSI["minimumThicknessBasis"]; areaAverageConfirmed: boolean; holesPresent: boolean; fields: RoofFields }>;
   const [unitSystem, setUnitSystem] = useState<UnitSystem>(savedState.unitSystem ?? "metric");
+  const { currentYear, currentMonth } = useCurrentMonth();
+  const [buildMonth, setBuildMonth] = useState(savedState.buildMonth ?? "");
+  const [previousInspectionMonth, setPreviousInspectionMonth] = useState(savedState.previousInspectionMonth ?? "");
   const [buildYear, setBuildYear] = useState(savedState.buildYear ?? "2006");
   const [previousInspectionYear, setPreviousInspectionYear] = useState(savedState.previousInspectionYear ?? "2021");
   const [serviceYearsMode, setServiceYearsMode] = useState<AutomaticValueMode>(savedState.serviceYearsMode ?? "auto");
@@ -87,8 +88,8 @@ export function Api653RoofPlateCalculator({ onBack, projects, initialCalculation
   const [fields, setFields] = useState<RoofFields>(savedState.fields ?? defaultFields);
   const [recalculationRevision, setRecalculationRevision] = useState(0);
   const numericBuildYear = numberFrom(buildYear);
-  const serviceYears = deriveYearsInService(numericBuildYear, currentYear);
-  const inspectionYears = deriveYearsSincePreviousInspection(numberFrom(previousInspectionYear), numericBuildYear, currentYear);
+  const serviceYears = deriveYearsInService(numericBuildYear, currentYear, buildMonth ? Number(buildMonth) : undefined, currentMonth);
+  const inspectionYears = deriveYearsSincePreviousInspection(numberFrom(previousInspectionYear), numericBuildYear, currentYear, { buildMonth: buildMonth ? Number(buildMonth) : undefined, previousInspectionMonth: previousInspectionMonth ? Number(previousInspectionMonth) : undefined, asOfMonth: currentMonth });
   const yearsInService = serviceYearsMode === "auto" ? serviceYears.yearsInService ?? 0 : numberFrom(manualServiceYears);
   const yearsSincePreviousInspection = inspectionYearsMode === "auto" ? inspectionYears.yearsSincePreviousInspection ?? 0 : numberFrom(manualInspectionYears);
   const input = useMemo<Api653RoofPlateInputSI>(() => ({
@@ -124,11 +125,11 @@ export function Api653RoofPlateCalculator({ onBack, projects, initialCalculation
   const changeServiceMode = (mode: AutomaticValueMode) => { if (mode === "manual" && serviceYears.yearsInService !== null) setManualServiceYears(String(serviceYears.yearsInService)); setServiceYearsMode(mode); };
   const changeInspectionMode = (mode: AutomaticValueMode) => { if (mode === "manual" && inspectionYears.yearsSincePreviousInspection !== null) setManualInspectionYears(String(inspectionYears.yearsSincePreviousInspection)); setInspectionYearsMode(mode); };
   const reset = () => {
-    setUnitSystem("metric"); setBuildYear("2006"); setPreviousInspectionYear("2021"); setServiceYearsMode("auto"); setInspectionYearsMode("auto"); setManualServiceYears("20"); setManualInspectionYears("5"); setRoofType("supported-cone"); setMinimumThicknessBasis("api653-2.2mm-area-average"); setAreaAverageConfirmed(true); setHolesPresent(false);
+    setUnitSystem("metric"); setBuildMonth(""); setPreviousInspectionMonth(""); setBuildYear("2006"); setPreviousInspectionYear("2021"); setServiceYearsMode("auto"); setInspectionYearsMode("auto"); setManualServiceYears("20"); setManualInspectionYears("5"); setRoofType("supported-cone"); setMinimumThicknessBasis("api653-2.2mm-area-average"); setAreaAverageConfirmed(true); setHolesPresent(false);
     setFields({ originalThickness: { value: "6", unit: "mm", quantity: "length" }, previousThickness: { value: "5.5", unit: "mm", quantity: "length" }, actualThickness: { value: "5", unit: "mm", quantity: "length" }, minimumThickness: { value: "2.2", unit: "mm", quantity: "length" } });
   };
 
-  const inputSnapshot = useMemo<Api653InputSnapshot>(() => ({ calculatorId: "roof-plate", unitSystem, formState: { unitSystem, buildYear, previousInspectionYear, serviceYearsMode, inspectionYearsMode, manualServiceYears, manualInspectionYears, roofType, minimumThicknessBasis, areaAverageConfirmed, holesPresent, fields }, engineInput: input }), [areaAverageConfirmed, buildYear, fields, holesPresent, input, inspectionYearsMode, manualInspectionYears, manualServiceYears, minimumThicknessBasis, previousInspectionYear, roofType, serviceYearsMode, unitSystem]);
+  const inputSnapshot = useMemo<Api653InputSnapshot>(() => ({ calculatorId: "roof-plate", unitSystem, formState: { unitSystem, buildYear, buildMonth, previousInspectionMonth, previousInspectionYear, serviceYearsMode, inspectionYearsMode, manualServiceYears, manualInspectionYears, roofType, minimumThicknessBasis, areaAverageConfirmed, holesPresent, fields }, engineInput: input }), [areaAverageConfirmed, buildYear, buildMonth, previousInspectionMonth, fields, holesPresent, input, inspectionYearsMode, manualInspectionYears, manualServiceYears, minimumThicknessBasis, previousInspectionYear, roofType, serviceYearsMode, unitSystem]);
   const reportDefinition: Api653WorkflowReportDefinition = {
     reportKind: "Roof plate calculation report",
     basisTitle: "Roof and minimum-thickness basis",
@@ -171,10 +172,10 @@ export function Api653RoofPlateCalculator({ onBack, projects, initialCalculation
       </div><div className="form-note is-valid"><ShieldCheck size={17} /><p><strong>Protected Roof route connected.</strong> Minimum thickness, thickness history, both corrosion periods, governing rate, and remaining life share one normalized engine.</p></div></section>
 
       <section className="form-card"><div className="form-card-heading"><div><span>02</span><div><h2>Design and inspection data</h2><p>Automatic years stay highlighted and can be overridden manually.</p></div></div><Gauge size={19} /></div><div className="form-grid">
-        <YearInput label="Build year" value={buildYear} help={`Whole year from 1900 to ${currentYear}.`} onChange={setBuildYear} />
-        <DerivedYearsInput label="Years in service" mode={serviceYearsMode} value={serviceYearsMode === "auto" ? String(serviceYears.yearsInService ?? "") : manualServiceYears} help={serviceYearsMode === "auto" ? serviceYears.message || `Automatically calculated: ${currentYear} − build year.` : "Manual override is active and highlighted."} onChange={setManualServiceYears} onModeChange={changeServiceMode} />
-        <YearInput label="Previous inspection year" value={previousInspectionYear} help={`Whole year from the build year to ${currentYear}.`} onChange={setPreviousInspectionYear} />
-        <DerivedYearsInput label="Years since previous inspection" mode={inspectionYearsMode} value={inspectionYearsMode === "auto" ? String(inspectionYears.yearsSincePreviousInspection ?? "") : manualInspectionYears} help={inspectionYearsMode === "auto" ? inspectionYears.message || `Automatically calculated: ${currentYear} − previous inspection year.` : "Manual override is active and highlighted."} onChange={setManualInspectionYears} onModeChange={changeInspectionMode} />
+        <MonthYearField label="Build year" value={buildYear} month={buildMonth} onChange={setBuildYear} onMonthChange={setBuildMonth} currentYear={currentYear} currentMonth={currentMonth} />
+        <DerivedYearsInput label="Years in service" mode={serviceYearsMode} value={serviceYearsMode === "auto" ? String(serviceYears.yearsInService ?? "") : manualServiceYears} help={serviceYearsMode === "auto" ? serviceYears.message || serviceDateHelp(buildMonth, currentYear, currentMonth) : "Manual override is active and highlighted."} onChange={setManualServiceYears} onModeChange={changeServiceMode} />
+        <MonthYearField label="Previous inspection year" value={previousInspectionYear} month={previousInspectionMonth} onChange={setPreviousInspectionYear} onMonthChange={setPreviousInspectionMonth} currentYear={currentYear} currentMonth={currentMonth} />
+        <DerivedYearsInput label="Years since previous inspection" mode={inspectionYearsMode} value={inspectionYearsMode === "auto" ? String(inspectionYears.yearsSincePreviousInspection ?? "") : manualInspectionYears} help={inspectionYearsMode === "auto" ? inspectionYears.message || serviceDateHelp(previousInspectionMonth, currentYear, currentMonth) : "Manual override is active and highlighted."} onChange={setManualInspectionYears} onModeChange={changeInspectionMode} />
         <UnitInput label="Original roof thickness" field={fields.originalThickness} options={lengthUnits} help="Original/as-built roof plate thickness used for the long-term corrosion rate." onValueChange={(value) => updateFieldValue("originalThickness", value)} onUnitChange={(unit) => updateFieldUnit("originalThickness", unit)} />
         <UnitInput label="Previous measured thickness" field={fields.previousThickness} options={lengthUnits} help="Roof plate thickness measured during the previous inspection." onValueChange={(value) => updateFieldValue("previousThickness", value)} onUnitChange={(unit) => updateFieldUnit("previousThickness", unit)} />
         <UnitInput label="Current measured thickness" field={fields.actualThickness} options={lengthUnits} help="Current roof thickness used for corrosion allowance and remaining life." onValueChange={(value) => updateFieldValue("actualThickness", value)} onUnitChange={(unit) => updateFieldUnit("actualThickness", unit)} />

@@ -1,3 +1,4 @@
+import { MonthYearField, useCurrentMonth, serviceDateHelp } from "../components/MonthYearField.tsx";
 import { useMemo, useState } from "react";
 import {
   calculateApi653Other432,
@@ -34,7 +35,7 @@ type InputFields = Record<InputFieldId, UnitFieldState>;
 type DerivedFields = Record<DerivedFieldId, UnitFieldState>;
 
 const lengthUnits = listEngineeringUnitOptions("length");
-const currentYear = new Date().getFullYear();
+
 const profileFieldIds: readonly InputFieldId[] = ["profile1", "profile2", "profile3", "profile4", "profile5"];
 
 function numberFrom(value: string): number {
@@ -76,9 +77,6 @@ function AutomaticUnitInput({ label, field, options, mode, help, onValueChange, 
   return <label className="field automatic-field"><span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button><button type="button" className={`field-mode-toggle ${mode}`} onClick={() => onModeChange(mode === "auto" ? "manual" : "auto")} aria-label={`Switch ${label} to ${mode === "auto" ? "manual" : "auto"} mode`}>{mode}</button></span><div className={`number-control is-derived ${mode === "manual" ? "is-manual" : ""}`}><input aria-label={label} type="number" inputMode="decimal" value={field.value} readOnly={mode === "auto"} onChange={(event) => onValueChange(event.target.value)} /><select className="unit-picker" aria-label={`${label} unit`} value={field.unit} onChange={(event) => onUnitChange(event.target.value as EngineeringUnit)}>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div><small>{help}</small></label>;
 }
 
-function YearInput({ label, value, help, onChange }: { label: string; value: string; help: string; onChange: (value: string) => void }) {
-  return <label className="field"><span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button></span><div className="number-control"><input aria-label={label} type="number" inputMode="numeric" value={value} onChange={(event) => onChange(event.target.value)} /><b>year</b></div><small>{help}</small></label>;
-}
 
 function DerivedYearsInput({ label, mode, value, help, onChange, onModeChange }: { label: string; mode: AutomaticValueMode; value: string; help: string; onChange: (value: string) => void; onModeChange: (mode: AutomaticValueMode) => void }) {
   return <label className="field automatic-field"><span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button><button type="button" className={`field-mode-toggle ${mode}`} onClick={() => onModeChange(mode === "auto" ? "manual" : "auto")} aria-label={`Switch ${label} to ${mode === "auto" ? "manual" : "auto"} mode`}>{mode}</button></span><div className={`number-control is-derived ${mode === "manual" ? "is-manual" : ""}`}><input aria-label={label} type="number" inputMode="numeric" value={value} readOnly={mode === "auto"} onChange={(event) => onChange(event.target.value)} /><b>yr</b></div><small>{help}</small></label>;
@@ -119,8 +117,11 @@ function initialDerived(): DerivedFields {
 }
 
 export function Api653Other432Calculator({ onBack, projects, initialCalculation, onSave, onReview, onApprove, onNeedProject, notify }: Api653CalculatorWorkflowProps & { onBack: () => void }) {
-  const savedState = (initialCalculation?.inputs.formState ?? {}) as Partial<{ unitSystem: UnitSystem; buildYear: string; previousInspectionYear: string; serviceYearsMode: AutomaticValueMode; inspectionYearsMode: AutomaticValueMode; manualServiceYears: string; manualInspectionYears: string; fields: InputFields; derivedFields: DerivedFields; criticalLengthMode: AutomaticValueMode; averageThicknessMode: AutomaticValueMode; adjustedMinimumMode: AutomaticValueMode; adjustedSixtyMode: AutomaticValueMode }>;
+  const savedState = (initialCalculation?.inputs.formState ?? {}) as Partial<{ unitSystem: UnitSystem; buildYear: string; buildMonth: string; previousInspectionMonth: string; previousInspectionYear: string; serviceYearsMode: AutomaticValueMode; inspectionYearsMode: AutomaticValueMode; manualServiceYears: string; manualInspectionYears: string; fields: InputFields; derivedFields: DerivedFields; criticalLengthMode: AutomaticValueMode; averageThicknessMode: AutomaticValueMode; adjustedMinimumMode: AutomaticValueMode; adjustedSixtyMode: AutomaticValueMode }>;
   const [unitSystem, setUnitSystem] = useState<UnitSystem>(savedState.unitSystem ?? "metric");
+  const { currentYear, currentMonth } = useCurrentMonth();
+  const [buildMonth, setBuildMonth] = useState(savedState.buildMonth ?? "");
+  const [previousInspectionMonth, setPreviousInspectionMonth] = useState(savedState.previousInspectionMonth ?? "");
   const [buildYear, setBuildYear] = useState(savedState.buildYear ?? "2006");
   const [previousInspectionYear, setPreviousInspectionYear] = useState(savedState.previousInspectionYear ?? "2021");
   const [serviceYearsMode, setServiceYearsMode] = useState<AutomaticValueMode>(savedState.serviceYearsMode ?? "auto");
@@ -136,8 +137,8 @@ export function Api653Other432Calculator({ onBack, projects, initialCalculation,
   const [recalculationRevision, setRecalculationRevision] = useState(0);
 
   const numericBuildYear = numberFrom(buildYear);
-  const serviceYears = deriveYearsInService(numericBuildYear, currentYear);
-  const inspectionYears = deriveYearsSincePreviousInspection(numberFrom(previousInspectionYear), numericBuildYear, currentYear);
+  const serviceYears = deriveYearsInService(numericBuildYear, currentYear, buildMonth ? Number(buildMonth) : undefined, currentMonth);
+  const inspectionYears = deriveYearsSincePreviousInspection(numberFrom(previousInspectionYear), numericBuildYear, currentYear, { buildMonth: buildMonth ? Number(buildMonth) : undefined, previousInspectionMonth: previousInspectionMonth ? Number(previousInspectionMonth) : undefined, asOfMonth: currentMonth });
   const yearsInService = serviceYearsMode === "auto" ? serviceYears.yearsInService ?? 0 : numberFrom(manualServiceYears);
   const yearsSincePreviousInspection = inspectionYearsMode === "auto" ? inspectionYears.yearsSincePreviousInspection ?? 0 : numberFrom(manualInspectionYears);
   const toMm = (field: UnitFieldState) => convertUnitToSI(numberFrom(field.value), "length", field.unit);
@@ -189,7 +190,7 @@ export function Api653Other432Calculator({ onBack, projects, initialCalculation,
   const changeServiceMode = (mode: AutomaticValueMode) => { if (mode === "manual" && serviceYears.yearsInService !== null) setManualServiceYears(String(serviceYears.yearsInService)); setServiceYearsMode(mode); };
   const changeInspectionMode = (mode: AutomaticValueMode) => { if (mode === "manual" && inspectionYears.yearsSincePreviousInspection !== null) setManualInspectionYears(String(inspectionYears.yearsSincePreviousInspection)); setInspectionYearsMode(mode); };
   const reset = () => {
-    setUnitSystem("metric"); setBuildYear("2006"); setPreviousInspectionYear("2021"); setServiceYearsMode("auto"); setInspectionYearsMode("auto"); setManualServiceYears("20"); setManualInspectionYears("5"); setFields(initialInputs()); setDerivedFields(initialDerived()); setCriticalLengthMode("auto"); setAverageThicknessMode("auto"); setAdjustedMinimumMode("auto"); setAdjustedSixtyMode("auto");
+    setUnitSystem("metric"); setBuildMonth(""); setPreviousInspectionMonth(""); setBuildYear("2006"); setPreviousInspectionYear("2021"); setServiceYearsMode("auto"); setInspectionYearsMode("auto"); setManualServiceYears("20"); setManualInspectionYears("5"); setFields(initialInputs()); setDerivedFields(initialDerived()); setCriticalLengthMode("auto"); setAverageThicknessMode("auto"); setAdjustedMinimumMode("auto"); setAdjustedSixtyMode("auto");
   };
 
   const manualOverrideActive = serviceYearsMode === "manual" || inspectionYearsMode === "manual" || Object.values(derivedModes).some((mode) => mode === "manual");
@@ -201,7 +202,7 @@ export function Api653Other432Calculator({ onBack, projects, initialCalculation,
   const pitDetail = result.pitStatus === "optional" ? "Provide both pit values only when the pit screen is required." : result.pitStatus === "pending" ? "Enter tmin and both pit values to complete the optional screen." : `Clause (a): ${formatLength(result.deepestPitRemainingThicknessMmUsed ?? 0)} ${lengthUnit} ${result.pitCheckAPass ? "≥" : "<"} ${formatLength(pitLimit)} ${lengthUnit}; clause (b): ${formatLength(result.pitDimensionSumMmUsed ?? 0)} ${lengthUnit} ${result.pitCheckBPass ? "≤" : ">"} ${formatLength(50)} ${lengthUnit}.`;
   const error = result.issues.find((issue) => issue.severity === "error");
   const overallDetail = result.overallStatus === "pass" ? result.pitStatus === "pass" ? "Core criteria and both pit clauses pass." : "Core criteria pass; pit screening is not fully evaluated." : result.overallStatus === "fail" ? "One or more evaluated acceptance checks are below the required limit." : "Complete the required thickness profile and threshold inputs.";
-  const inputSnapshot = useMemo<Api653InputSnapshot>(() => ({ calculatorId: "other-4-3-2", unitSystem, formState: { unitSystem, buildYear, previousInspectionYear, serviceYearsMode, inspectionYearsMode, manualServiceYears, manualInspectionYears, fields, derivedFields, criticalLengthMode, averageThicknessMode, adjustedMinimumMode, adjustedSixtyMode }, engineInput: input }), [adjustedMinimumMode, adjustedSixtyMode, averageThicknessMode, buildYear, criticalLengthMode, derivedFields, fields, input, inspectionYearsMode, manualInspectionYears, manualServiceYears, previousInspectionYear, serviceYearsMode, unitSystem]);
+  const inputSnapshot = useMemo<Api653InputSnapshot>(() => ({ calculatorId: "other-4-3-2", unitSystem, formState: { unitSystem, buildYear, buildMonth, previousInspectionMonth, previousInspectionYear, serviceYearsMode, inspectionYearsMode, manualServiceYears, manualInspectionYears, fields, derivedFields, criticalLengthMode, averageThicknessMode, adjustedMinimumMode, adjustedSixtyMode }, engineInput: input }), [adjustedMinimumMode, adjustedSixtyMode, averageThicknessMode, buildYear, buildMonth, previousInspectionMonth, criticalLengthMode, derivedFields, fields, input, inspectionYearsMode, manualInspectionYears, manualServiceYears, previousInspectionYear, serviceYearsMode, unitSystem]);
   const reportDefinition: Api653WorkflowReportDefinition = {
     reportKind: "Local thin-area calculation report",
     basisTitle: "Local thin-area assessment basis",
@@ -243,10 +244,10 @@ export function Api653Other432Calculator({ onBack, projects, initialCalculation,
       </div><div className="form-note is-valid"><ShieldCheck size={17} /><p><strong>Protected 4.3.2 route connected.</strong> L = 34 × √(D × t2), with the protected 1000 mm cap, feeds the visible trace.</p></div></section>
 
       <section className="form-card"><div className="form-card-heading"><div><span>02</span><div><h2>Design and inspection data</h2><p>Equipment chronology is recorded consistently across every API 653 workspace.</p></div></div><Gauge size={19} /></div><div className="form-grid">
-        <YearInput label="Build year" value={buildYear} help={`Whole year from 1900 to ${currentYear}.`} onChange={setBuildYear} />
-        <DerivedYearsInput label="Years in service" mode={serviceYearsMode} value={serviceYearsMode === "auto" ? String(serviceYears.yearsInService ?? "") : manualServiceYears} help={serviceYearsMode === "auto" ? serviceYears.message || `${currentYear} − build year.` : "Manual override is active and highlighted."} onChange={setManualServiceYears} onModeChange={changeServiceMode} />
-        <YearInput label="Previous inspection year" value={previousInspectionYear} help={`Whole year from the build year to ${currentYear}.`} onChange={setPreviousInspectionYear} />
-        <DerivedYearsInput label="Years since previous inspection" mode={inspectionYearsMode} value={inspectionYearsMode === "auto" ? String(inspectionYears.yearsSincePreviousInspection ?? "") : manualInspectionYears} help={inspectionYearsMode === "auto" ? inspectionYears.message || `${currentYear} − previous inspection year.` : "Manual override is active and highlighted."} onChange={setManualInspectionYears} onModeChange={changeInspectionMode} />
+        <MonthYearField label="Build year" value={buildYear} month={buildMonth} onChange={setBuildYear} onMonthChange={setBuildMonth} currentYear={currentYear} currentMonth={currentMonth} />
+        <DerivedYearsInput label="Years in service" mode={serviceYearsMode} value={serviceYearsMode === "auto" ? String(serviceYears.yearsInService ?? "") : manualServiceYears} help={serviceYearsMode === "auto" ? serviceYears.message || serviceDateHelp(buildMonth, currentYear, currentMonth) : "Manual override is active and highlighted."} onChange={setManualServiceYears} onModeChange={changeServiceMode} />
+        <MonthYearField label="Previous inspection year" value={previousInspectionYear} month={previousInspectionMonth} onChange={setPreviousInspectionYear} onMonthChange={setPreviousInspectionMonth} currentYear={currentYear} currentMonth={currentMonth} />
+        <DerivedYearsInput label="Years since previous inspection" mode={inspectionYearsMode} value={inspectionYearsMode === "auto" ? String(inspectionYears.yearsSincePreviousInspection ?? "") : manualInspectionYears} help={inspectionYearsMode === "auto" ? inspectionYears.message || serviceDateHelp(previousInspectionMonth, currentYear, currentMonth) : "Manual override is active and highlighted."} onChange={setManualInspectionYears} onModeChange={changeInspectionMode} />
       </div><div className={`form-note ${serviceYearsMode === "manual" || inspectionYearsMode === "manual" ? "is-manual" : "is-valid"}`}><Info size={17} /><p><strong>Inspection context only.</strong> These recorded years remain automatic/editable and highlighted, but the protected 4.3.2 equations do not use time or corrosion rate.</p></div></section>
 
       <section className="form-card"><div className="form-card-heading"><div><span>03</span><div><h2>Thickness profile</h2><p>Five individual readings replace the protected wide input presentation.</p></div></div><Gauge size={19} /></div><div className="form-grid">

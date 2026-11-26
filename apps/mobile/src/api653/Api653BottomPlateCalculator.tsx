@@ -1,3 +1,6 @@
+import { Api653PostRepairAssessment, createPostRepairInput } from "./Api653PostRepairAssessment.tsx";
+import type { Api653PostRepairInput } from "@api-calc-pro/calc-engine";
+import { MonthYearField, useCurrentMonth, serviceDateHelp } from "../components/MonthYearField.tsx";
 import { useMemo, useState } from "react";
 import {
   calculateApi653AnnularPlate,
@@ -35,7 +38,7 @@ type UnitFieldMap = Record<UnitFieldId, UnitFieldState>;
 
 const lengthUnits = listEngineeringUnitOptions("length");
 const pressureUnits = listEngineeringUnitOptions("pressure");
-const currentYear = new Date().getFullYear();
+
 
 export type Api653PlateVariant = "bottom" | "annular";
 
@@ -106,9 +109,6 @@ function UnitInput({ label, field, options, help, onValueChange, onUnitChange }:
   return <label className="field"><span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button></span><div className="number-control"><input aria-label={label} type="number" inputMode="decimal" value={field.value} onChange={(event) => onValueChange(event.target.value)} /><select className="unit-picker" aria-label={`${label} unit`} value={field.unit} onChange={(event) => onUnitChange(event.target.value as EngineeringUnit)}>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div><small>{help}</small></label>;
 }
 
-function YearInput({ label, value, help, onChange }: { label: string; value: string; help: string; onChange: (value: string) => void }) {
-  return <label className="field"><span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button></span><div className="number-control"><input aria-label={label} type="number" inputMode="numeric" value={value} onChange={(event) => onChange(event.target.value)} /><b>year</b></div><small>{help}</small></label>;
-}
 
 function DerivedYearsInput({ label, mode, value, help, onChange, onModeChange }: { label: string; mode: AutomaticValueMode; value: string; help: string; onChange: (value: string) => void; onModeChange: (mode: AutomaticValueMode) => void }) {
   return <label className="field automatic-field"><span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button><button type="button" className={`field-mode-toggle ${mode}`} onClick={() => onModeChange(mode === "auto" ? "manual" : "auto")} aria-label={`Switch ${label} to ${mode === "auto" ? "manual" : "auto"} mode`}>{mode}</button></span><div className={`number-control is-derived ${mode === "manual" ? "is-manual" : ""}`}><input aria-label={label} type="number" inputMode="decimal" value={value} readOnly={mode === "auto"} onChange={(event) => onChange(event.target.value)} /><b>yr</b></div><small>{help}</small></label>;
@@ -131,7 +131,8 @@ type PlateWorkflowProps = Api653CalculatorWorkflowProps & { onBack: () => void; 
 
 export function Api653PlateRemainingLifeCalculator({ onBack, variant, projects, initialCalculation, onSave, onReview, onApprove, onNeedProject, notify }: PlateWorkflowProps) {
   const isAnnular = variant === "annular";
-  const savedState = (initialCalculation?.inputs.formState ?? {}) as Partial<{ unitSystem: UnitSystem; fields: UnitFieldMap; specificGravity: string; calculatedStressMode: AutomaticValueMode; minimumThicknessMode: AutomaticValueMode; bottomMinimumBasis: Api653BottomMinimumThicknessBasis; reducedMinimumCriteriaConfirmed: boolean; projectionYears: string; undersideRateMode: Api653BottomCorrosionRateMode; topSideRateMode: Api653BottomCorrosionRateMode; highSpecificGravityBasisConfirmed: boolean; buildYear: string; previousInspectionYear: string; serviceYearsMode: AutomaticValueMode; inspectionYearsMode: AutomaticValueMode; manualServiceYears: string; manualInspectionYears: string }>;
+  const savedState = (initialCalculation?.inputs.formState ?? {}) as Partial<{ postRepair: Api653PostRepairInput; unitSystem: UnitSystem; fields: UnitFieldMap; specificGravity: string; calculatedStressMode: AutomaticValueMode; minimumThicknessMode: AutomaticValueMode; bottomMinimumBasis: Api653BottomMinimumThicknessBasis; reducedMinimumCriteriaConfirmed: boolean; projectionYears: string; undersideRateMode: Api653BottomCorrosionRateMode; topSideRateMode: Api653BottomCorrosionRateMode; highSpecificGravityBasisConfirmed: boolean; buildYear: string; buildMonth: string; previousInspectionMonth: string; previousInspectionYear: string; serviceYearsMode: AutomaticValueMode; inspectionYearsMode: AutomaticValueMode; manualServiceYears: string; manualInspectionYears: string }>;
+  const [postRepair, setPostRepair] = useState<Api653PostRepairInput>(() => savedState.postRepair ?? createPostRepairInput());
   const [unitSystem, setUnitSystem] = useState<UnitSystem>(savedState.unitSystem ?? "metric");
   const [fields, setFields] = useState<UnitFieldMap>(() => savedState.fields ?? initialUnitFields(variant));
   const [specificGravity, setSpecificGravity] = useState(savedState.specificGravity ?? "0.9");
@@ -143,6 +144,9 @@ export function Api653PlateRemainingLifeCalculator({ onBack, variant, projects, 
   const [undersideRateMode, setUndersideRateMode] = useState<Api653BottomCorrosionRateMode>(savedState.undersideRateMode ?? "auto");
   const [topSideRateMode, setTopSideRateMode] = useState<Api653BottomCorrosionRateMode>(savedState.topSideRateMode ?? "auto");
   const [highSpecificGravityBasisConfirmed, setHighSpecificGravityBasisConfirmed] = useState(savedState.highSpecificGravityBasisConfirmed ?? false);
+  const { currentYear, currentMonth } = useCurrentMonth();
+  const [buildMonth, setBuildMonth] = useState(savedState.buildMonth ?? "");
+  const [previousInspectionMonth, setPreviousInspectionMonth] = useState(savedState.previousInspectionMonth ?? "");
   const [buildYear, setBuildYear] = useState(savedState.buildYear ?? "2006");
   const [previousInspectionYear, setPreviousInspectionYear] = useState(savedState.previousInspectionYear ?? "2021");
   const [serviceYearsMode, setServiceYearsMode] = useState<AutomaticValueMode>(savedState.serviceYearsMode ?? "auto");
@@ -152,8 +156,8 @@ export function Api653PlateRemainingLifeCalculator({ onBack, variant, projects, 
   const [recalculationRevision, setRecalculationRevision] = useState(0);
 
   const numericBuildYear = numberFrom(buildYear);
-  const serviceYears = deriveYearsInService(numericBuildYear, currentYear);
-  const inspectionYears = deriveYearsSincePreviousInspection(numberFrom(previousInspectionYear), numericBuildYear, currentYear);
+  const serviceYears = deriveYearsInService(numericBuildYear, currentYear, buildMonth ? Number(buildMonth) : undefined, currentMonth);
+  const inspectionYears = deriveYearsSincePreviousInspection(numberFrom(previousInspectionYear), numericBuildYear, currentYear, { buildMonth: buildMonth ? Number(buildMonth) : undefined, previousInspectionMonth: previousInspectionMonth ? Number(previousInspectionMonth) : undefined, asOfMonth: currentMonth });
   const yearsInService = serviceYearsMode === "auto" ? serviceYears.yearsInService ?? 0 : numberFrom(manualServiceYears);
   const yearsSincePreviousInspection = inspectionYearsMode === "auto" ? inspectionYears.yearsSincePreviousInspection ?? 0 : numberFrom(manualInspectionYears);
 
@@ -227,7 +231,8 @@ export function Api653PlateRemainingLifeCalculator({ onBack, variant, projects, 
     setInspectionYearsMode(mode);
   };
   const reset = () => {
-    setUnitSystem("metric"); setFields(initialUnitFields(variant)); setSpecificGravity("0.9"); setCalculatedStressMode("auto"); setMinimumThicknessMode("auto"); setBottomMinimumBasis("table-4.4-standard"); setReducedMinimumCriteriaConfirmed(false); setProjectionYears("10"); setUndersideRateMode("auto"); setTopSideRateMode("auto"); setHighSpecificGravityBasisConfirmed(false); setBuildYear("2006"); setPreviousInspectionYear("2021"); setServiceYearsMode("auto"); setInspectionYearsMode("auto"); setManualServiceYears("20"); setManualInspectionYears("5");
+    setPostRepair(createPostRepairInput());
+    setUnitSystem("metric"); setFields(initialUnitFields(variant)); setSpecificGravity("0.9"); setCalculatedStressMode("auto"); setMinimumThicknessMode("auto"); setBottomMinimumBasis("table-4.4-standard"); setReducedMinimumCriteriaConfirmed(false); setProjectionYears("10"); setUndersideRateMode("auto"); setTopSideRateMode("auto"); setHighSpecificGravityBasisConfirmed(false); setBuildMonth(""); setPreviousInspectionMonth(""); setBuildYear("2006"); setPreviousInspectionYear("2021"); setServiceYearsMode("auto"); setInspectionYearsMode("auto"); setManualServiceYears("20"); setManualInspectionYears("5");
   };
 
   const lengthUnit = unitSymbol(defaultUnitForSystem("length", unitSystem));
@@ -302,9 +307,9 @@ export function Api653PlateRemainingLifeCalculator({ onBack, variant, projects, 
   const inputSnapshot = useMemo<Api653InputSnapshot>(() => ({
     calculatorId,
     unitSystem,
-    formState: { unitSystem, fields, specificGravity, calculatedStressMode, minimumThicknessMode, bottomMinimumBasis, reducedMinimumCriteriaConfirmed, projectionYears, undersideRateMode, topSideRateMode, highSpecificGravityBasisConfirmed, buildYear, previousInspectionYear, serviceYearsMode, inspectionYearsMode, manualServiceYears, manualInspectionYears },
+    formState: { postRepair, unitSystem, fields, specificGravity, calculatedStressMode, minimumThicknessMode, bottomMinimumBasis, reducedMinimumCriteriaConfirmed, projectionYears, undersideRateMode, topSideRateMode, highSpecificGravityBasisConfirmed, buildYear, buildMonth, previousInspectionMonth, previousInspectionYear, serviceYearsMode, inspectionYearsMode, manualServiceYears, manualInspectionYears },
     engineInput: isAnnular ? annularInput : bottomInput,
-  }), [annularInput, bottomInput, bottomMinimumBasis, buildYear, calculatedStressMode, calculatorId, fields, highSpecificGravityBasisConfirmed, inspectionYearsMode, isAnnular, manualInspectionYears, manualServiceYears, minimumThicknessMode, previousInspectionYear, projectionYears, reducedMinimumCriteriaConfirmed, serviceYearsMode, specificGravity, topSideRateMode, undersideRateMode, unitSystem]);
+  }), [postRepair, annularInput, bottomInput, bottomMinimumBasis, buildYear, buildMonth, previousInspectionMonth, calculatedStressMode, calculatorId, fields, highSpecificGravityBasisConfirmed, inspectionYearsMode, isAnnular, manualInspectionYears, manualServiceYears, minimumThicknessMode, previousInspectionYear, projectionYears, reducedMinimumCriteriaConfirmed, serviceYearsMode, specificGravity, topSideRateMode, undersideRateMode, unitSystem]);
   const reportDefinition: Api653WorkflowReportDefinition = {
     reportKind: isAnnular ? "Annular plate calculation report" : "Bottom plate calculation report",
     basisTitle: isAnnular ? "Tank and annular basis" : "Bottom MRT basis",
@@ -369,10 +374,10 @@ export function Api653PlateRemainingLifeCalculator({ onBack, variant, projects, 
       <section className="form-card">
         <div className="form-card-heading"><div><span>02</span><div><h2>Design and inspection data</h2><p>Automatic years and corrosion rates stay highlighted and can be overridden manually.</p></div></div><Gauge size={19} /></div>
         <div className="form-grid">
-          <YearInput label="Build year" value={buildYear} help={`Whole year from 1900 to ${currentYear}.`} onChange={setBuildYear} />
-          <DerivedYearsInput label="Years in service" mode={serviceYearsMode} value={serviceYearsMode === "auto" ? String(serviceYears.yearsInService ?? "") : manualServiceYears} help={serviceYearsMode === "auto" ? serviceYears.message || `Automatically calculated: ${currentYear} − build year.` : "Manual override is active and highlighted."} onChange={setManualServiceYears} onModeChange={changeServiceMode} />
-          <YearInput label="Previous inspection year" value={previousInspectionYear} help={`Whole year from the build year to ${currentYear}.`} onChange={setPreviousInspectionYear} />
-          <DerivedYearsInput label="Years since previous inspection" mode={inspectionYearsMode} value={inspectionYearsMode === "auto" ? String(inspectionYears.yearsSincePreviousInspection ?? "") : manualInspectionYears} help={inspectionYearsMode === "auto" ? inspectionYears.message || `Automatically calculated: ${currentYear} − previous inspection year.` : "Manual override is active and highlighted."} onChange={setManualInspectionYears} onModeChange={changeInspectionMode} />
+          <MonthYearField label="Build year" value={buildYear} month={buildMonth} onChange={setBuildYear} onMonthChange={setBuildMonth} currentYear={currentYear} currentMonth={currentMonth} />
+          <DerivedYearsInput label="Years in service" mode={serviceYearsMode} value={serviceYearsMode === "auto" ? String(serviceYears.yearsInService ?? "") : manualServiceYears} help={serviceYearsMode === "auto" ? serviceYears.message || serviceDateHelp(buildMonth, currentYear, currentMonth) : "Manual override is active and highlighted."} onChange={setManualServiceYears} onModeChange={changeServiceMode} />
+          <MonthYearField label="Previous inspection year" value={previousInspectionYear} month={previousInspectionMonth} onChange={setPreviousInspectionYear} onMonthChange={setPreviousInspectionMonth} currentYear={currentYear} currentMonth={currentMonth} />
+          <DerivedYearsInput label="Years since previous inspection" mode={inspectionYearsMode} value={inspectionYearsMode === "auto" ? String(inspectionYears.yearsSincePreviousInspection ?? "") : manualInspectionYears} help={inspectionYearsMode === "auto" ? inspectionYears.message || serviceDateHelp(previousInspectionMonth, currentYear, currentMonth) : "Manual override is active and highlighted."} onChange={setManualInspectionYears} onModeChange={changeInspectionMode} />
           <UnitInput label={copy.originalLabel} field={fields.originalThickness} options={lengthUnits} help={copy.originalHelp} onValueChange={(value) => updateFieldValue("originalThickness", value)} onUnitChange={(unit) => updateFieldUnit("originalThickness", unit)} />
           <UnitInput label="Previous measured thickness" field={fields.previousThickness} options={lengthUnits} help={copy.previousHelp} onValueChange={(value) => updateFieldValue("previousThickness", value)} onUnitChange={(unit) => updateFieldUnit("previousThickness", unit)} />
           <UnitInput label={isAnnular ? "Current annular thickness" : "Current bottom remaining thickness RTbc"} field={fields.actualThickness} options={lengthUnits} help={copy.currentHelp} onValueChange={(value) => updateFieldValue("actualThickness", value)} onUnitChange={(unit) => updateFieldUnit("actualThickness", unit)} />
@@ -444,6 +449,7 @@ export function Api653PlateRemainingLifeCalculator({ onBack, variant, projects, 
         <div><span>Minimum required thickness used</span><strong>{formatOutput(result.minimumThicknessMmUsed, "length", unitSystem)} {lengthUnit}</strong></div>
       </section>
     </aside></div>
+    {!isAnnular && <Api653PostRepairAssessment value={postRepair} onChange={setPostRepair} />}
   </div>;
 }
 

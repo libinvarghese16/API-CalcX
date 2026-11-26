@@ -1,0 +1,27 @@
+{
+  "date": "2026-11-26",
+  "target": "https://api-calc-x-mobile.vercel.app/",
+  "scope": "Month-aware service history in the existing API 510, API 570 and API 653 calculators; isolated API 653 post-repair bottom assessment.",
+  "existingCalculations": {
+    "unchanged": "Existing pressure, thickness, MAWP, corrosion and unit-conversion equations and material tables remain unchanged. Only elapsed-time derivation gains optional months.",
+    "compatibility": "Unknown months retain the previous year-only result; saved records without month fields load as unknown. Existing manual time overrides remain supported.",
+    "dateConvention": "Selected year/month uses elapsed calendar months / 12; the post-repair panel's full inspection dates use actual UTC calendar days / 365.25. Current month/year updates automatically.",
+    "mobileUi": "16 calculator views checked with build February 2006 and previous inspection February 2024; at November 2026 expected periods are 20.75 and 2.75 years.",
+    "liveComparison": "Pre-deployment production API 570 piping result cards match the updated local app exactly with unknown months. Recorded in tmp/live-piping-parity.json.",
+    "legacyBaseline": "The August 2026 root-browser SHA baseline already differs from the pre-task source for index.html and scripts.js. Root-browser files were restored byte-for-byte to pre-task backups. No baseline hashes or engineering tables were replaced. The material verification tool now ignores CRLF versus LF; all 61 material specifications match."
+  },
+  "goldenCases": [
+    { "rtbcMm": 2.5, "rtipMm": 2.46, "minimumMm": 2.54, "uprMmPerYear": 0.292, "stprMmPerYear": 0.295, "expectedLifeYears": 0 },
+    { "rtbcMm": 3.72, "rtipMm": 3.72, "minimumMm": 2.54, "uprMmPerYear": 0.19, "stprMmPerYear": 0, "expectedLifeYears": 6.210526315789474 },
+    { "rtbcMm": 3.72, "rtipMm": 3.72, "minimumMm": 2.54, "uprMmPerYear": 0.41044776119402987, "stprMmPerYear": 0, "expectedLifeYears": 2.874909090909091, "projectedMrtAt6_21YearsMm": 1.1711194029850747 }
+  ],
+  "tolerance": "Absolute 1e-10 for golden engineering values; 1e-9 for browser decimal-year fields.",
+  "validation": [
+    "npm test: existing and new mobile/engine tests",
+    "npm run typecheck",
+    "npm run verify:materials",
+    "npm run build",
+    "node tools/test-month-repair-browser.cjs: 16 actual component views, known and unknown months, add/delete patches, actual report download, light/dark, phone/tablet/desktop, keyboard focus and no overflow"
+  ],
+  "limits": "Regression checks verify the changed paths and specified inputs; they do not independently certify every possible engineering case. Post-repair supported intervals require the entered inspection, repair, lining and separate zone-review evidence."
+}

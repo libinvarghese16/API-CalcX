@@ -78,6 +78,8 @@ export interface Api510InputSnapshot {
   minimumMode?: AutomaticValueMode;
   manualMinimumThickness?: string;
   buildYear: string;
+  buildMonth?: string;
+  previousInspectionMonth?: string;
   serviceYearsMode: AutomaticValueMode;
   manualServiceYears: string;
   previousInspectionYear: string;
@@ -190,6 +192,8 @@ export interface Api570PipingInputSnapshot {
   fields: Record<Api570PipingUnitFieldId, Api570PipingUnitFieldSnapshot>;
   pipingCode: Api570PipingCode;
   buildYear: string;
+  buildMonth?: string;
+  previousInspectionMonth?: string;
   previousInspectionYear: string;
   serviceYearsMode: AutomaticValueMode;
   inspectionYearsMode: AutomaticValueMode;
@@ -237,6 +241,8 @@ export interface Api570TubeInputSnapshot {
   fields: Record<Api570TubeUnitFieldId, Api570TubeUnitFieldSnapshot>;
   endCondition: Api570TubeEndCondition;
   buildYear: string;
+  buildMonth?: string;
+  previousInspectionMonth?: string;
   previousInspectionYear: string;
   serviceYearsMode: AutomaticValueMode;
   inspectionYearsMode: AutomaticValueMode;
@@ -264,6 +270,8 @@ export interface Api570HeaderInputSnapshot {
   jointEfficiency: string;
   yCoefficient: string;
   buildYear: string;
+  buildMonth?: string;
+  previousInspectionMonth?: string;
   previousInspectionYear: string;
   serviceYearsMode: AutomaticValueMode;
   inspectionYearsMode: AutomaticValueMode;

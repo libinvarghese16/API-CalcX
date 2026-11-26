@@ -20,7 +20,7 @@ export interface PreviousInspectionYearsResult {
  * build year. The calling UI supplies the current/as-of year so the engine
  * remains deterministic and testable.
  */
-export function deriveYearsInService(buildYear: number, asOfYear: number): ServiceYearsResult {
+export function deriveYearsInService(buildYear: number, asOfYear: number, buildMonth?: number, asOfMonth?: number): ServiceYearsResult {
   if (!Number.isInteger(asOfYear) || asOfYear < 1900) {
     return {
       buildYear,
@@ -51,10 +51,15 @@ export function deriveYearsInService(buildYear: number, asOfYear: number): Servi
     };
   }
 
+  if (buildMonth !== undefined && (!validMonth(buildMonth) || !validMonth(asOfMonth))) {
+    return { buildYear, asOfYear, yearsInService: null, valid: false, message: "Select valid build and current months from January to December." };
+  }
+  const years = buildMonth === undefined ? asOfYear - buildYear : ((asOfYear - buildYear) * 12 + asOfMonth! - buildMonth) / 12;
+  if (years < 0) return { buildYear, asOfYear, yearsInService: null, valid: false, message: "Build date cannot be after the current month." };
   return {
     buildYear,
     asOfYear,
-    yearsInService: asOfYear - buildYear,
+    yearsInService: years,
     valid: true,
     message: null,
   };
@@ -64,6 +69,7 @@ export function deriveYearsSincePreviousInspection(
   previousInspectionYear: number,
   buildYear: number,
   asOfYear: number,
+  months: { buildMonth?: number; previousInspectionMonth?: number; asOfMonth?: number } = {},
 ): PreviousInspectionYearsResult {
   const base = { previousInspectionYear, buildYear, asOfYear };
 
@@ -83,10 +89,23 @@ export function deriveYearsSincePreviousInspection(
     return { ...base, yearsSincePreviousInspection: null, valid: false, message: `Previous inspection year cannot be later than ${asOfYear}.` };
   }
 
+  const { previousInspectionMonth, buildMonth, asOfMonth } = months;
+  if (previousInspectionMonth !== undefined && (!validMonth(previousInspectionMonth) || !validMonth(asOfMonth)) || buildMonth !== undefined && !validMonth(buildMonth)) {
+    return { ...base, yearsSincePreviousInspection: null, valid: false, message: "Select valid months from January to December." };
+  }
+  if (buildMonth !== undefined && previousInspectionMonth !== undefined && previousInspectionYear === buildYear && previousInspectionMonth < buildMonth) {
+    return { ...base, yearsSincePreviousInspection: null, valid: false, message: "Previous inspection date cannot precede the build date." };
+  }
+  const years = previousInspectionMonth === undefined ? asOfYear - previousInspectionYear : ((asOfYear - previousInspectionYear) * 12 + asOfMonth! - previousInspectionMonth) / 12;
+  if (years < 0) return { ...base, yearsSincePreviousInspection: null, valid: false, message: "Previous inspection date cannot be after the current month." };
   return {
     ...base,
-    yearsSincePreviousInspection: asOfYear - previousInspectionYear,
+    yearsSincePreviousInspection: years,
     valid: true,
     message: null,
   };
+}
+
+function validMonth(value: number | undefined): boolean {
+  return value !== undefined && Number.isInteger(value) && value >= 1 && value <= 12;
 }

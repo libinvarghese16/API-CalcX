@@ -1,3 +1,4 @@
+import { MonthYearField, useCurrentMonth, serviceDateHelp } from "../components/MonthYearField.tsx";
 import { useMemo, useState } from "react";
 import {
   API653_NOZZLE_PRESSURE_CLASSES,
@@ -43,7 +44,7 @@ type NozzleState = {
 const lengthUnits = listEngineeringUnitOptions("length");
 const temperatureUnits = listEngineeringUnitOptions("temperature");
 const materials = listApi653NozzleMaterials();
-const currentYear = new Date().getFullYear();
+
 
 function numberFrom(value: string): number {
   if (!value.trim()) return 0;
@@ -99,9 +100,6 @@ function UnitInput({ label, field, options, help, automaticMode, onValueChange, 
   </label>;
 }
 
-function NumberInput({ label, value, suffix, help, onChange }: { label: string; value: string; suffix: string; help: string; onChange: (value: string) => void }) {
-  return <label className="field"><span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button></span><div className="number-control"><input aria-label={label} type="number" inputMode="numeric" value={value} onChange={(event) => onChange(event.target.value)} /><b>{suffix}</b></div><small>{help}</small></label>;
-}
 
 function DerivedYearsInput({ label, mode, value, help, onChange, onModeChange }: { label: string; mode: AutomaticValueMode; value: string; help: string; onChange: (value: string) => void; onModeChange: (mode: AutomaticValueMode) => void }) {
   return <label className="field automatic-field"><span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button><button type="button" className={`field-mode-toggle ${mode}`} onClick={() => onModeChange(mode === "auto" ? "manual" : "auto")} aria-label={`Switch ${label} to ${mode === "auto" ? "manual" : "auto"} mode`}>{mode}</button></span><div className={`number-control is-derived ${mode === "manual" ? "is-manual" : ""}`}><input aria-label={label} type="number" inputMode="numeric" value={value} readOnly={mode === "auto"} onChange={(event) => onChange(event.target.value)} /><b>yr</b></div><small>{help}</small></label>;
@@ -114,11 +112,14 @@ function lifeDisplay(value: number | null): string {
 }
 
 export function Api653NozzleCalculator({ onBack, projects, initialCalculation, onSave, onReview, onApprove, onNeedProject, notify }: Api653CalculatorWorkflowProps & { onBack: () => void }) {
-  const savedState = (initialCalculation?.inputs.formState ?? {}) as Partial<{ unitSystem: UnitSystem; material: Api653NozzleMaterial; operatingTemperature: UnitFieldState; pressureClass: Api653NozzlePressureClass; buildYear: string; previousInspectionYear: string; serviceYearsMode: AutomaticValueMode; inspectionYearsMode: AutomaticValueMode; manualServiceYears: string; manualInspectionYears: string; nozzles: NozzleState[] }>;
+  const savedState = (initialCalculation?.inputs.formState ?? {}) as Partial<{ unitSystem: UnitSystem; material: Api653NozzleMaterial; operatingTemperature: UnitFieldState; pressureClass: Api653NozzlePressureClass; buildYear: string; buildMonth: string; previousInspectionMonth: string; previousInspectionYear: string; serviceYearsMode: AutomaticValueMode; inspectionYearsMode: AutomaticValueMode; manualServiceYears: string; manualInspectionYears: string; nozzles: NozzleState[] }>;
   const [unitSystem, setUnitSystem] = useState<UnitSystem>(savedState.unitSystem ?? "metric");
   const [material, setMaterial] = useState<Api653NozzleMaterial>(savedState.material ?? "carbon steel");
   const [operatingTemperature, setOperatingTemperature] = useState<UnitFieldState>(savedState.operatingTemperature ?? { value: "200", unit: "C", quantity: "temperature" });
   const [pressureClass, setPressureClass] = useState<Api653NozzlePressureClass>(savedState.pressureClass ?? "300");
+  const { currentYear, currentMonth } = useCurrentMonth();
+  const [buildMonth, setBuildMonth] = useState(savedState.buildMonth ?? "");
+  const [previousInspectionMonth, setPreviousInspectionMonth] = useState(savedState.previousInspectionMonth ?? "");
   const [buildYear, setBuildYear] = useState(savedState.buildYear ?? "2006");
   const [previousInspectionYear, setPreviousInspectionYear] = useState(savedState.previousInspectionYear ?? "2021");
   const [serviceYearsMode, setServiceYearsMode] = useState<AutomaticValueMode>(savedState.serviceYearsMode ?? "auto");
@@ -129,8 +130,8 @@ export function Api653NozzleCalculator({ onBack, projects, initialCalculation, o
   const [recalculationRevision, setRecalculationRevision] = useState(0);
 
   const numericBuildYear = numberFrom(buildYear);
-  const serviceYears = deriveYearsInService(numericBuildYear, currentYear);
-  const inspectionYears = deriveYearsSincePreviousInspection(numberFrom(previousInspectionYear), numericBuildYear, currentYear);
+  const serviceYears = deriveYearsInService(numericBuildYear, currentYear, buildMonth ? Number(buildMonth) : undefined, currentMonth);
+  const inspectionYears = deriveYearsSincePreviousInspection(numberFrom(previousInspectionYear), numericBuildYear, currentYear, { buildMonth: buildMonth ? Number(buildMonth) : undefined, previousInspectionMonth: previousInspectionMonth ? Number(previousInspectionMonth) : undefined, asOfMonth: currentMonth });
   const yearsInService = serviceYearsMode === "auto" ? serviceYears.yearsInService ?? 0 : numberFrom(manualServiceYears);
   const yearsSincePreviousInspection = inspectionYearsMode === "auto" ? inspectionYears.yearsSincePreviousInspection ?? 0 : numberFrom(manualInspectionYears);
   const input = useMemo<Api653NozzleAssessmentInputSI>(() => ({
@@ -181,11 +182,12 @@ export function Api653NozzleCalculator({ onBack, projects, initialCalculation, o
   const changeInspectionMode = (mode: AutomaticValueMode) => { if (mode === "manual" && inspectionYears.yearsSincePreviousInspection !== null) setManualInspectionYears(String(inspectionYears.yearsSincePreviousInspection)); setInspectionYearsMode(mode); };
   const reset = () => {
     setUnitSystem("metric"); setMaterial("carbon steel"); setOperatingTemperature({ value: "200", unit: "C", quantity: "temperature" }); setPressureClass("300");
+    setBuildMonth(""); setPreviousInspectionMonth("");
     setBuildYear("2006"); setPreviousInspectionYear("2021"); setServiceYearsMode("auto"); setInspectionYearsMode("auto"); setManualServiceYears("20"); setManualInspectionYears("5");
     setNozzles(Array.from({ length: 7 }, (_, index) => makeNozzle(index + 1)));
   };
 
-  const inputSnapshot = useMemo<Api653InputSnapshot>(() => ({ calculatorId: "nozzle", unitSystem, formState: { unitSystem, material, operatingTemperature, pressureClass, buildYear, previousInspectionYear, serviceYearsMode, inspectionYearsMode, manualServiceYears, manualInspectionYears, nozzles }, engineInput: input }), [buildYear, input, inspectionYearsMode, manualInspectionYears, manualServiceYears, material, nozzles, operatingTemperature, pressureClass, previousInspectionYear, serviceYearsMode, unitSystem]);
+  const inputSnapshot = useMemo<Api653InputSnapshot>(() => ({ calculatorId: "nozzle", unitSystem, formState: { unitSystem, material, operatingTemperature, pressureClass, buildYear, buildMonth, previousInspectionMonth, previousInspectionYear, serviceYearsMode, inspectionYearsMode, manualServiceYears, manualInspectionYears, nozzles }, engineInput: input }), [buildYear, buildMonth, previousInspectionMonth, input, inspectionYearsMode, manualInspectionYears, manualServiceYears, material, nozzles, operatingTemperature, pressureClass, previousInspectionYear, serviceYearsMode, unitSystem]);
   const governingNozzle = result.minimumRemainingLifeNozzleIndex ? result.nozzles[result.minimumRemainingLifeNozzleIndex - 1] : null;
   const reportDefinition: Api653WorkflowReportDefinition = {
     reportKind: "Tank nozzle calculation report",
@@ -225,10 +227,10 @@ export function Api653NozzleCalculator({ onBack, projects, initialCalculation, o
       </div><div className="form-note is-valid"><ShieldCheck size={17} /><p><strong>Protected Nozzle route connected.</strong> Material, temperature, pressure class, size lookup, minimum thickness, corrosion rates, and remaining life share one normalized engine.</p></div></section>
 
       <section className="form-card"><div className="form-card-heading"><div><span>02</span><div><h2>Design and inspection data</h2><p>Automatic years stay highlighted and can be overridden manually.</p></div></div><Gauge size={19} /></div><div className="form-grid">
-        <NumberInput label="Build year" value={buildYear} suffix="year" help={`Whole year from 1900 to ${currentYear}.`} onChange={setBuildYear} />
-        <DerivedYearsInput label="Years in service" mode={serviceYearsMode} value={serviceYearsMode === "auto" ? String(serviceYears.yearsInService ?? "") : manualServiceYears} help={serviceYearsMode === "auto" ? serviceYears.message || `${currentYear} − build year.` : "Manual override is active and highlighted."} onChange={setManualServiceYears} onModeChange={changeServiceMode} />
-        <NumberInput label="Previous inspection year" value={previousInspectionYear} suffix="year" help={`Whole year from build year to ${currentYear}.`} onChange={setPreviousInspectionYear} />
-        <DerivedYearsInput label="Years since previous inspection" mode={inspectionYearsMode} value={inspectionYearsMode === "auto" ? String(inspectionYears.yearsSincePreviousInspection ?? "") : manualInspectionYears} help={inspectionYearsMode === "auto" ? inspectionYears.message || `${currentYear} − previous inspection year.` : "Manual override is active and highlighted."} onChange={setManualInspectionYears} onModeChange={changeInspectionMode} />
+        <MonthYearField label="Build year" value={buildYear} month={buildMonth} onChange={setBuildYear} onMonthChange={setBuildMonth} currentYear={currentYear} currentMonth={currentMonth} />
+        <DerivedYearsInput label="Years in service" mode={serviceYearsMode} value={serviceYearsMode === "auto" ? String(serviceYears.yearsInService ?? "") : manualServiceYears} help={serviceYearsMode === "auto" ? serviceYears.message || serviceDateHelp(buildMonth, currentYear, currentMonth) : "Manual override is active and highlighted."} onChange={setManualServiceYears} onModeChange={changeServiceMode} />
+        <MonthYearField label="Previous inspection year" value={previousInspectionYear} month={previousInspectionMonth} onChange={setPreviousInspectionYear} onMonthChange={setPreviousInspectionMonth} currentYear={currentYear} currentMonth={currentMonth} />
+        <DerivedYearsInput label="Years since previous inspection" mode={inspectionYearsMode} value={inspectionYearsMode === "auto" ? String(inspectionYears.yearsSincePreviousInspection ?? "") : manualInspectionYears} help={inspectionYearsMode === "auto" ? inspectionYears.message || serviceDateHelp(previousInspectionMonth, currentYear, currentMonth) : "Manual override is active and highlighted."} onChange={setManualInspectionYears} onModeChange={changeInspectionMode} />
       </div><div className={`form-note ${manualOverrideActive ? "is-manual" : "is-valid"}`}>{manualOverrideActive ? <TriangleAlert size={18} /> : <Info size={17} />}<p><strong>{manualOverrideActive ? "Manual override active." : "Automatic dependencies active."}</strong> {manualOverrideActive ? "Verify every highlighted manual field before engineering review." : "Inspection periods and every nozzle minimum update immediately from their source inputs."}</p></div><div className="unit-system-note"><Info size={17} /><p><strong>Mixed engineering units are active.</strong> Each field can use its site unit while results follow <b>{unitSystem === "metric" ? "Metric" : "U.S. customary"}</b>.</p></div></section>
 
       <section className="form-card shell-courses-section"><div className="shell-section-heading"><div className="form-card-heading"><div><span>03</span><div><h2>Nozzle entries</h2><p>Review each nozzle in a mobile inspection card.</p></div></div><Layers3 size={19} /></div><div className="shell-course-actions"><button type="button" onClick={() => setNozzles((current) => current.length < 15 ? [...current, makeNozzle(current.length + 1)] : current)} disabled={nozzles.length >= 15}><Plus size={15} /> Add</button><button type="button" onClick={() => setNozzles((current) => current.length > 1 ? current.slice(0, -1) : current)} disabled={nozzles.length <= 1}><Minus size={15} /> Remove</button></div></div>

@@ -31,6 +31,8 @@ export type Api653ShellDraft = {
   specificGravity: string;
   jointEfficiency: string;
   buildYear: string;
+  buildMonth?: string;
+  previousInspectionMonth?: string;
   previousInspectionYear: string;
   serviceYearsMode: AutomaticValueMode;
   inspectionYearsMode: AutomaticValueMode;
