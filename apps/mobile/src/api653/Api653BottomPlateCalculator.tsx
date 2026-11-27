@@ -449,7 +449,12 @@ export function Api653PlateRemainingLifeCalculator({ onBack, variant, projects, 
         <div><span>Minimum required thickness used</span><strong>{formatOutput(result.minimumThicknessMmUsed, "length", unitSystem)} {lengthUnit}</strong></div>
       </section>
     </aside></div>
-    {!isAnnular && <Api653PostRepairAssessment value={postRepair} onChange={setPostRepair} />}
+    {!isAnnular && <Api653PostRepairAssessment value={postRepair} onChange={setPostRepair}
+      minimumThickness={bottomResult.minimumThicknessMmUsed}
+      longRate={bottomInput.yearsInService > 0 ? bottomResult.undersideLongTermCorrosionRateMmPerYear : null}
+      shortRate={bottomInput.yearsSincePreviousInspection > 0 && bottomInput.previousThicknessMm > 0 ? bottomResult.undersideShortTermCorrosionRateMmPerYear : null}
+      topRate={bottomResult.topSideCorrosionRateMmPerYear}
+      basisReady={bottomResult.generalBottomAssessmentReady} />}
   </div>;
 }
 

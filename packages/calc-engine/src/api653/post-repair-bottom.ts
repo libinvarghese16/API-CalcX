@@ -2,6 +2,7 @@ export interface Api653PostRepairPatch {
  name?: string; rtbc?: string | number; rtip?: string | number; patchThickness?: string | number; rate?: string | number; basis?: string; causeRemoved?: boolean; removalEvidence?: string;
 }
 export interface Api653PostRepairInput {
+ remainingThicknessAfterRepair?: string | number;
  buildDate?: string; previousDate?: string; assessmentDate?: string;
  originalThickness?: string | number; rtbc?: string | number; rtip?: string | number; minimumThickness?: string | number; proposedYears?: string | number;
  minimumBasis?: string; retainedVerified?: boolean; thicknessEvidence?: string; repairsComplete?: boolean; criticalReviewed?: boolean; annularReviewed?: boolean; reviewReference?: string;
@@ -101,3 +102,33 @@ export function calculateApi653PostRepair(input: Api653PostRepairInput) {
 }
 
 export type Api653PostRepairResult = ReturnType<typeof calculateApi653PostRepair>;
+
+export interface Api653PostRepairLifeInput {
+ remainingThickness: Numeric;
+ minimumThickness: number;
+ longRate: number | null;
+ shortRate: number | null;
+ topRate: number;
+}
+
+/** Retained-floor life only: repairs change the thickness basis, never the history rates. */
+export function calculateApi653PostRepairLife(input: Api653PostRepairLifeInput) {
+    const errors: string[] = [];
+    if (!positive(input.remainingThickness)) errors.push('Enter the lowest remaining thickness after repair.');
+    if (!positive(input.minimumThickness)) errors.push('Complete the minimum thickness basis above.');
+    const validRate = (rate: number | null) => rate !== null && Number.isFinite(rate) && rate >= 0;
+    if (input.longRate !== null && !validRate(input.longRate)) errors.push('Correct the long-term corrosion rate basis above.');
+    if (input.shortRate !== null && !validRate(input.shortRate)) errors.push('Correct the short-term corrosion rate basis above.');
+    if (input.longRate === null && input.shortRate === null) errors.push('Enter inspection history above to calculate a corrosion rate.');
+    if (!Number.isFinite(input.topRate) || input.topRate < 0) errors.push('Correct the product-side corrosion rate above.');
+    const governingRate = Math.max(input.longRate ?? 0, input.shortRate ?? 0);
+    const totalRate = governingRate + input.topRate;
+    const thickness = Number(input.remainingThickness);
+    const remainingLife = errors.length ? null : thickness <= input.minimumThickness ? 0
+        : totalRate > 0 ? (thickness - input.minimumThickness) / totalRate : Infinity;
+    const selected = input.shortRate !== null && (input.longRate === null || input.shortRate > input.longRate)
+        ? 'Short-term' : input.longRate !== null && input.longRate === input.shortRate ? 'Equal rates' : 'Long-term';
+    return { ...input, thickness, governingRate, totalRate, selected, remainingLife, errors };
+}
+
+export type Api653PostRepairLifeResult = ReturnType<typeof calculateApi653PostRepairLife>;
