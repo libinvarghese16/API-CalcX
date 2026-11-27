@@ -46,15 +46,34 @@ const origin = process.env.TEST_URL || 'http://127.0.0.1:4316';
   checks.push(name+(extra?.initialComponent?':'+extra.initialComponent:''));
  }
  await mount('api653/Api653BottomPlateCalculator.tsx','Api653BottomPlateCalculator');
- await page.getByText('Post-Repair Bottom Assessment',{exact:true}).click();
- const values={'Build / in-service date':'2014-10-01','Current assessment date':'2026-10-01','Original steel thickness (mm)':'6','Retained RTbc after repairs (mm)':'3.72','Retained RTip after repairs (mm)':'3.72','Proposed operating interval (years)':'6','Manual underside rate (mm/year)':'.190','Manual rate engineering justification':'Verified retained-area basis','Top-side StPr (mm/year)':'0','Top-side rate basis':'Documented zero rate','Section 6.4.2 interval limit (years)':'10','Inspection-limit basis / review reference':'Interval review','Critical-zone / annular review reference':'CZ-01','Thickness / inspection record reference':'UT-01'};
+ await page.locator('.post-repair-assessment > summary').click();
+ await page.getByRole('combobox',{name:'Post-repair rate selection'}).selectOption('manual');
+ const values={'Build / in-service date':'2014-10-01','Current assessment date':'2026-10-01','Original steel thickness (mm)':'6','Soil-side remaining thickness (mm)':'3.72','Product-side remaining thickness (mm)':'3.72','Years until next planned inspection':'6','Manual underside rate (mm/year)':'.190','Manual rate engineering justification':'Verified retained-area basis','Product-side corrosion rate (mm/year)':'0','Top-side rate basis':'Documented zero rate','Section 6.4.2 interval limit (years)':'10','Inspection-limit basis / review reference':'Interval review','Critical-zone / annular review reference':'CZ-01','Thickness / inspection record reference':'UT-01'};
  for(const [label,value]of Object.entries(values))await page.getByLabel(label,{exact:true}).fill(value);
  await page.getByRole('combobox',{name:'Post-repair rate selection'}).selectOption('manual');
  for(const text of ['Retained thicknesses and coverage','Every repaired area','Separate critical-zone assessment','Separate annular assessment'])await page.getByRole('checkbox',{name:new RegExp(text)}).check();
  assert.match(await page.locator('.post-repair-results').innerText(),/6\.2105/);assert.match(await page.locator('.post-repair-results').innerText(),/Proposed interval meets/);
+ await page.getByRole('combobox',{name:'Post-repair rate selection'}).selectOption('auto');
+ assert.equal(await page.getByLabel('Manual underside rate (mm/year)',{exact:true}).count(),0);
+ await page.getByRole('combobox',{name:'Post-repair rate selection'}).selectOption('manual');
+ assert.equal(await page.getByLabel('Manual underside rate (mm/year)',{exact:true}).inputValue(),'.190');
+ await page.getByText('Inspection history and MFL options',{exact:true}).click();
+ await page.getByRole('checkbox',{name:/Include short-term history/}).check();
+ assert.ok(await page.getByLabel('Previous inspection date',{exact:true}).isVisible());
+ await page.getByRole('checkbox',{name:/Include short-term history/}).uncheck();
+ assert.equal(await page.getByLabel('Previous inspection date',{exact:true}).count(),0);
+ await page.getByRole('checkbox',{name:/MFL was used/}).check();
+ assert.ok(await page.getByLabel('MFL detection threshold (remaining mm)',{exact:true}).isVisible());
+ await page.getByRole('checkbox',{name:/MFL was used/}).uncheck();
+ await page.getByRole('checkbox',{name:/Use zero product-side/}).check();
+ assert.ok(await page.getByLabel('Lining installation date',{exact:true}).isVisible());
+ assert.equal(await page.getByLabel('Product-side corrosion rate (mm/year)',{exact:true}).count(),0);
+ await page.getByRole('checkbox',{name:/Use zero product-side/}).uncheck();
+ assert.equal(await page.getByLabel('Product-side corrosion rate (mm/year)',{exact:true}).inputValue(),'0');
+ assert.match(await page.locator('.post-repair-results').innerText(),/6\.2105/);
  await page.getByLabel('Manual underside rate (mm/year)',{exact:true}).fill(String(1.1/2.68));assert.match(await page.locator('.post-repair-results').innerText(),/2\.8749/);
- await page.getByRole('button',{name:'Add patch area'}).click();assert.equal(await page.locator('.post-repair-patches tbody tr').count(),1);
- assert.match(await page.locator('.post-repair-results').innerText(),/Correct these inputs/);await page.locator('.post-repair-patches').getByRole('button',{name:'Delete',exact:true}).click();
+ await page.getByRole('button',{name:'Add patch area'}).click();assert.equal(await page.locator('.post-repair-patch').count(),1);
+ assert.match(await page.locator('.post-repair-results').innerText(),/Complete or correct these inputs/);await page.locator('.post-repair-patches').getByRole('button',{name:'Delete',exact:true}).click();
  const downloaded=page.waitForEvent('download');await page.getByRole('button',{name:'Download post-repair report',exact:true}).click();await (await downloaded).saveAs('tmp/post-repair-mobile-report.html');assert.match(fs.readFileSync('tmp/post-repair-mobile-report.html','utf8'),/2\.8749/);
  for(const width of [390,820,1440])for(const theme of ['light','dark']){
   await page.setViewportSize({width,height:1000});await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;document.querySelector('.post-repair-assessment').scrollIntoView({block:'start'});},theme);
@@ -62,6 +81,22 @@ const origin = process.env.TEST_URL || 'http://127.0.0.1:4316';
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),`overflow at ${width}`);
   await page.screenshot({path:`tmp/post-repair-mobile-${width}-${theme}.png`,animations:'disabled'});
  }
+ await page.getByRole('button',{name:'Add patch area'}).click();
+ for(const width of [390,820,1440]) {
+  await page.setViewportSize({width,height:1000});
+  const alignment=await page.evaluate(()=>{
+   const original=document.querySelector('#qa-components .calculator-page > .calculator-workspace');
+   const repair=document.querySelector('.post-repair-assessment .calculator-workspace');
+   const a=original.getBoundingClientRect(),b=repair.getBoundingClientRect();
+   return {left:Math.abs(a.left-b.left),width:Math.abs(a.width-b.width),paddingA:getComputedStyle(original.querySelector('.form-card')).padding,paddingB:getComputedStyle(repair.querySelector('.form-card')).padding};
+  });
+  assert.ok(alignment.left<1 && alignment.width<1,JSON.stringify(alignment));
+  assert.equal(alignment.paddingA,alignment.paddingB);
+  await page.locator('.post-repair-patch').scrollIntoViewIfNeeded();
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),'patch overflow');
+  await page.screenshot({path:'tmp/post-repair-patch-'+width+'.png',animations:'disabled'});
+ }
+ await page.locator('.post-repair-patch').getByRole('button',{name:'Delete',exact:true}).click();
  await page.getByRole('combobox',{name:'Build month',exact:true}).focus();assert.equal(await page.locator(':focus').getAttribute('aria-label'),'Build month');
  assert.deepEqual(errors,[]);
  fs.writeFileSync('tmp/month-repair-browser.json',JSON.stringify({calculatorChecks:checks,checks:checks.length,errors,reportDownload:true,viewports:[390,820,1440],themes:['light','dark']},null,2));
