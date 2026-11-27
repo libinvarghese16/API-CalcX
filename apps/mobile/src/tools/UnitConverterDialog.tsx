@@ -1,3 +1,4 @@
+import { DecimalNumberInput } from "../components/DecimalNumberInput.tsx";
 import { useMemo, useState } from "react";
 import type { UnitSystem } from "@api-calc-pro/calc-engine";
 import { ArrowLeftRight, Calculator, X } from "lucide-react";
@@ -57,7 +58,7 @@ export function UnitConverterDialog({ preferredUnitSystem, onClose }: { preferre
         <div className="converter-grid">
           <label className="converter-field">
             <span>From</span>
-            <div><input aria-label="Value to convert" type="number" inputMode="decimal" value={value} onChange={(event) => setValue(event.target.value)} /><select aria-label="Source unit" value={fromUnit} onChange={(event) => setFromUnit(event.target.value)}>{options.map((option) => <option key={option.value} value={option.value}>{formatConverterUnit(option.value, kind)}</option>)}</select></div>
+            <div><DecimalNumberInput aria-label="Value to convert" type="number" inputMode="decimal" value={value} onChange={(event) => setValue(event.target.value)} /><select aria-label="Source unit" value={fromUnit} onChange={(event) => setFromUnit(event.target.value)}>{options.map((option) => <option key={option.value} value={option.value}>{formatConverterUnit(option.value, kind)}</option>)}</select></div>
           </label>
           <button className="converter-swap" onClick={swapUnits} aria-label="Swap source and destination units"><ArrowLeftRight size={19} /></button>
           <label className="converter-field">

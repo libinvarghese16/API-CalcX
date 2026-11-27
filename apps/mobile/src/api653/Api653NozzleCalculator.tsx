@@ -1,3 +1,6 @@
+import { DecimalNumberInput } from "../components/DecimalNumberInput.tsx";
+import { RemainingLifeAdditions } from "../components/RemainingLifeAdditions.tsx";
+import type { RemainingLifeAdditionsState } from "../components/RemainingLifeAdditions.tsx";
 import { MonthYearField, useCurrentMonth, serviceDateHelp } from "../components/MonthYearField.tsx";
 import { useMemo, useState } from "react";
 import {
@@ -35,6 +38,7 @@ import type { Api653CalculatorWorkflowProps, Api653WorkflowReportDefinition } fr
 type UnitFieldState = { value: string; unit: EngineeringUnit; quantity: EngineeringQuantity };
 type NozzleUnitFieldId = "minimumThickness" | "pressureMinimumThickness" | "originalThickness" | "previousThickness" | "actualThickness";
 type NozzleState = {
+  repairId?: string;
   detail: string;
   nominalPipeSizeIn: string;
   minimumThicknessMode: Api653NozzleMinimumThicknessMode;
@@ -68,7 +72,7 @@ function convertedField(field: UnitFieldState, nextUnit: EngineeringUnit): UnitF
 
 function makeNozzle(index: number): NozzleState {
   const golden = index === 1;
-  return {
+  return { repairId: crypto.randomUUID(),
     detail: golden ? "N1 product inlet" : "",
     nominalPipeSizeIn: golden ? "4" : "",
     minimumThicknessMode: "auto",
@@ -95,14 +99,14 @@ function UnitInput({ label, field, options, help, automaticMode, onValueChange, 
   const automatic = automaticMode !== undefined;
   return <label className={`field ${automatic ? "automatic-field" : ""}`}>
     <span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button>{automatic && <button type="button" className={`field-mode-toggle ${automaticMode}`} onClick={() => onModeChange?.(automaticMode === "auto" ? "manual" : "auto")} aria-label={`Switch ${label} to ${automaticMode === "auto" ? "manual" : "auto"} mode`}>{automaticMode}</button>}</span>
-    <div className={`number-control ${automatic ? "is-derived" : ""} ${automaticMode === "manual" ? "is-manual" : ""}`}><input aria-label={label} type="number" inputMode="decimal" value={field.value} readOnly={automaticMode === "auto"} onChange={(event) => onValueChange(event.target.value)} /><select className="unit-picker" aria-label={`${label} unit`} value={field.unit} onChange={(event) => onUnitChange(event.target.value as EngineeringUnit)}>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
+    <div className={`number-control ${automatic ? "is-derived" : ""} ${automaticMode === "manual" ? "is-manual" : ""}`}><DecimalNumberInput aria-label={label} type="number" inputMode="decimal" value={field.value} readOnly={automaticMode === "auto"} onChange={(event) => onValueChange(event.target.value)} /><select className="unit-picker" aria-label={`${label} unit`} value={field.unit} onChange={(event) => onUnitChange(event.target.value as EngineeringUnit)}>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
     <small>{help}</small>
   </label>;
 }
 
 
 function DerivedYearsInput({ label, mode, value, help, onChange, onModeChange }: { label: string; mode: AutomaticValueMode; value: string; help: string; onChange: (value: string) => void; onModeChange: (mode: AutomaticValueMode) => void }) {
-  return <label className="field automatic-field"><span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button><button type="button" className={`field-mode-toggle ${mode}`} onClick={() => onModeChange(mode === "auto" ? "manual" : "auto")} aria-label={`Switch ${label} to ${mode === "auto" ? "manual" : "auto"} mode`}>{mode}</button></span><div className={`number-control is-derived ${mode === "manual" ? "is-manual" : ""}`}><input aria-label={label} type="number" inputMode="numeric" value={value} readOnly={mode === "auto"} onChange={(event) => onChange(event.target.value)} /><b>yr</b></div><small>{help}</small></label>;
+  return <label className="field automatic-field"><span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button><button type="button" className={`field-mode-toggle ${mode}`} onClick={() => onModeChange(mode === "auto" ? "manual" : "auto")} aria-label={`Switch ${label} to ${mode === "auto" ? "manual" : "auto"} mode`}>{mode}</button></span><div className={`number-control is-derived ${mode === "manual" ? "is-manual" : ""}`}><DecimalNumberInput aria-label={label} type="number" inputMode="numeric" value={value} readOnly={mode === "auto"} onChange={(event) => onChange(event.target.value)} /><b>yr</b></div><small>{help}</small></label>;
 }
 
 function lifeDisplay(value: number | null): string {
@@ -113,6 +117,7 @@ function lifeDisplay(value: number | null): string {
 
 export function Api653NozzleCalculator({ onBack, projects, initialCalculation, onSave, onReview, onApprove, onNeedProject, notify }: Api653CalculatorWorkflowProps & { onBack: () => void }) {
   const savedState = (initialCalculation?.inputs.formState ?? {}) as Partial<{ unitSystem: UnitSystem; material: Api653NozzleMaterial; operatingTemperature: UnitFieldState; pressureClass: Api653NozzlePressureClass; buildYear: string; buildMonth: string; previousInspectionMonth: string; previousInspectionYear: string; serviceYearsMode: AutomaticValueMode; inspectionYearsMode: AutomaticValueMode; manualServiceYears: string; manualInspectionYears: string; nozzles: NozzleState[] }>;
+  const [repairAdditions, setRepairAdditions] = useState<RemainingLifeAdditionsState>(() => (initialCalculation?.inputs.formState?.repairAdditions as RemainingLifeAdditionsState | undefined) ?? {});
   const [unitSystem, setUnitSystem] = useState<UnitSystem>(savedState.unitSystem ?? "metric");
   const [material, setMaterial] = useState<Api653NozzleMaterial>(savedState.material ?? "carbon steel");
   const [operatingTemperature, setOperatingTemperature] = useState<UnitFieldState>(savedState.operatingTemperature ?? { value: "200", unit: "C", quantity: "temperature" });
@@ -126,7 +131,7 @@ export function Api653NozzleCalculator({ onBack, projects, initialCalculation, o
   const [inspectionYearsMode, setInspectionYearsMode] = useState<AutomaticValueMode>(savedState.inspectionYearsMode ?? "auto");
   const [manualServiceYears, setManualServiceYears] = useState(savedState.manualServiceYears ?? "20");
   const [manualInspectionYears, setManualInspectionYears] = useState(savedState.manualInspectionYears ?? "5");
-  const [nozzles, setNozzles] = useState<NozzleState[]>(() => savedState.nozzles ?? Array.from({ length: 7 }, (_, index) => makeNozzle(index + 1)));
+  const [nozzles, setNozzles] = useState<NozzleState[]>(() => (savedState.nozzles ?? Array.from({ length: 7 }, (_, index) => makeNozzle(index + 1))).map(nozzle => ({ ...nozzle, repairId: nozzle.repairId ?? crypto.randomUUID() })));
   const [recalculationRevision, setRecalculationRevision] = useState(0);
 
   const numericBuildYear = numberFrom(buildYear);
@@ -180,14 +185,14 @@ export function Api653NozzleCalculator({ onBack, projects, initialCalculation, o
   };
   const changeServiceMode = (mode: AutomaticValueMode) => { if (mode === "manual" && serviceYears.yearsInService !== null) setManualServiceYears(String(serviceYears.yearsInService)); setServiceYearsMode(mode); };
   const changeInspectionMode = (mode: AutomaticValueMode) => { if (mode === "manual" && inspectionYears.yearsSincePreviousInspection !== null) setManualInspectionYears(String(inspectionYears.yearsSincePreviousInspection)); setInspectionYearsMode(mode); };
-  const reset = () => {
+  const reset = () => { setRepairAdditions({});
     setUnitSystem("metric"); setMaterial("carbon steel"); setOperatingTemperature({ value: "200", unit: "C", quantity: "temperature" }); setPressureClass("300");
     setBuildMonth(""); setPreviousInspectionMonth("");
     setBuildYear("2006"); setPreviousInspectionYear("2021"); setServiceYearsMode("auto"); setInspectionYearsMode("auto"); setManualServiceYears("20"); setManualInspectionYears("5");
     setNozzles(Array.from({ length: 7 }, (_, index) => makeNozzle(index + 1)));
   };
 
-  const inputSnapshot = useMemo<Api653InputSnapshot>(() => ({ calculatorId: "nozzle", unitSystem, formState: { unitSystem, material, operatingTemperature, pressureClass, buildYear, buildMonth, previousInspectionMonth, previousInspectionYear, serviceYearsMode, inspectionYearsMode, manualServiceYears, manualInspectionYears, nozzles }, engineInput: input }), [buildYear, buildMonth, previousInspectionMonth, input, inspectionYearsMode, manualInspectionYears, manualServiceYears, material, nozzles, operatingTemperature, pressureClass, previousInspectionYear, serviceYearsMode, unitSystem]);
+  const inputSnapshot = useMemo<Api653InputSnapshot>(() => ({ calculatorId: "nozzle", unitSystem, formState: { repairAdditions, unitSystem, material, operatingTemperature, pressureClass, buildYear, buildMonth, previousInspectionMonth, previousInspectionYear, serviceYearsMode, inspectionYearsMode, manualServiceYears, manualInspectionYears, nozzles }, engineInput: input }), [repairAdditions, buildYear, buildMonth, previousInspectionMonth, input, inspectionYearsMode, manualInspectionYears, manualServiceYears, material, nozzles, operatingTemperature, pressureClass, previousInspectionYear, serviceYearsMode, unitSystem]);
   const governingNozzle = result.minimumRemainingLifeNozzleIndex ? result.nozzles[result.minimumRemainingLifeNozzleIndex - 1] : null;
   const reportDefinition: Api653WorkflowReportDefinition = {
     reportKind: "Tank nozzle calculation report",
@@ -259,7 +264,8 @@ export function Api653NozzleCalculator({ onBack, projects, initialCalculation, o
     </div>
 
     <aside className="result-column"><section className="result-card shell-summary-card"><div className="result-card-top"><Gauge size={17} /> Calculation results</div><div className="result-primary-grid"><div className="result-primary"><p>Minimum remaining life</p><div className="result-primary-value"><strong>{lifeDisplay(result.minimumRemainingLifeYears)}</strong><span>yr</span></div></div><div className="result-primary"><p>Maximum corrosion rate</p><div className="result-primary-value"><strong>{result.assessedNozzleCount ? formatRate(result.maximumCorrosionRateMmPerYear) : "—"}</strong><span>{rateUnit}</span></div></div></div><div className="result-comparison"><span>Governing nozzle<strong>{result.minimumRemainingLifeNozzleIndex ? `Nozzle ${result.minimumRemainingLifeNozzleIndex}` : "—"}</strong></span><span>Assessed nozzles<strong>{result.assessedNozzleCount}</strong></span></div><div className="result-comparison"><span>Maximum remaining life<strong>{lifeDisplay(result.maximumRemainingLifeYears)}{result.maximumRemainingLifeYears !== null ? " yr" : ""}</strong></span><span>Rate nozzle<strong>{result.maximumCorrosionRateNozzleIndex ? `Nozzle ${result.maximumCorrosionRateNozzleIndex}` : "—"}</strong></span></div><div className={`result-status ${result.ok ? manualOverrideActive ? "is-manual" : "is-valid" : ""}`}>{result.ok && !manualOverrideActive ? <CircleCheck size={18} /> : <TriangleAlert size={18} />}<div><strong>{error ? "Resolve input issues" : manualOverrideActive ? "Calculation includes manual inputs" : warning ? "Calculation completed with review note" : "Calculation completed"}</strong><span>{error?.message ?? warning?.message ?? (manualOverrideActive ? "Verify highlighted overrides before engineering approval." : "Review the remaining-life and corrosion-rate results before use.")}</span></div></div></section>
-      <section className="trace-card"><p className="eyebrow">Supporting results</p><h3>Calculation details</h3><div><span>Active nozzles</span><strong>{result.assessedNozzleCount}</strong></div><div><span>Years in service</span><strong>{result.yearsInServiceUsed}</strong></div><div><span>Years since previous</span><strong>{result.yearsSincePreviousInspectionUsed}</strong></div><div><span>Material / class</span><strong>{result.materialLabel} / {result.pressureClass}</strong></div><div><span>Operating temperature</span><strong>{formatTemperature(result.operatingTemperatureCUsed)} {temperatureUnit}</strong></div><div><span>Manual overrides</span><strong>{manualOverrideActive ? "Active" : "None"}</strong></div><div><span>Open-ended life</span><strong>{result.hasOpenEndedRemainingLife ? "Present" : "None"}</strong></div></section>
+      <section className="trace-card"><p className="eyebrow">Supporting results</p><h3>Calculation details</h3><div><span>Active nozzles</span><strong>{result.assessedNozzleCount}</strong></div><div><span>Years in service</span><strong>{formatDisplayNumber(result.yearsInServiceUsed)}</strong></div><div><span>Years since previous</span><strong>{formatDisplayNumber(result.yearsSincePreviousInspectionUsed)}</strong></div><div><span>Material / class</span><strong>{result.materialLabel} / {result.pressureClass}</strong></div><div><span>Operating temperature</span><strong>{formatTemperature(result.operatingTemperatureCUsed)} {temperatureUnit}</strong></div><div><span>Manual overrides</span><strong>{manualOverrideActive ? "Active" : "None"}</strong></div><div><span>Open-ended life</span><strong>{result.hasOpenEndedRemainingLife ? "Present" : "None"}</strong></div></section>
     </aside></div>
+    <RemainingLifeAdditions value={repairAdditions} onChange={setRepairAdditions} sources={result.nozzles.filter(row => row.active).map(row => ({ id: nozzles[row.nozzleIndex - 1]?.repairId ?? String(row.nozzleIndex), label: "Nozzle " + row.nozzleIndex, originalThickness: row.originalThicknessMmUsed, minimumThickness: row.minimumThicknessMmUsed, longRate: input.yearsInService > 0 ? row.longTermCorrosionRateMmPerYear : null, shortRate: input.yearsSincePreviousInspection > 0 && row.previousThicknessMmUsed > 0 ? row.shortTermCorrosionRateMmPerYear : null, ready: result.ok && row.actualThicknessMmUsed > 0 && row.minimumThicknessMmUsed > 0 && row.originalThicknessMmUsed > 0 }))} />
   </div>;
 }

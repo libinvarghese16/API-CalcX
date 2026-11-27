@@ -1,3 +1,6 @@
+import { DecimalNumberInput } from "./components/DecimalNumberInput.tsx";
+import { RemainingLifeAdditions } from "./components/RemainingLifeAdditions.tsx";
+import type { RemainingLifeAdditionsState } from "./components/RemainingLifeAdditions.tsx";
 import { MonthYearField, useCurrentMonth, serviceDateHelp } from "./components/MonthYearField.tsx";
 import { TankReferencePage } from "./reference/TankReferencePage.tsx";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
@@ -1138,6 +1141,7 @@ function CalculatorPreview({ onBack, onNeedProject, notify, projects, initialCal
   const [manualStress, setManualStress] = useState(initialInputs?.manualStress ?? "138");
   const [originalThickness, setOriginalThickness] = useState(initialInputs?.originalThickness ?? "18.00");
   const [previousThickness, setPreviousThickness] = useState(initialInputs?.previousThickness ?? "16.50");
+  const [repairAdditions, setRepairAdditions] = useState<RemainingLifeAdditionsState>(() => initialInputs?.repairAdditions ?? {});
   const [actualThickness, setActualThickness] = useState(initialInputs?.actualThickness ?? "15.80");
   const [minimumMode, setMinimumMode] = useState<AutomaticValueMode>(initialInputs?.minimumMode ?? "auto");
   const [manualMinimumThickness, setManualMinimumThickness] = useState(initialInputs?.manualMinimumThickness ?? "");
@@ -1249,7 +1253,7 @@ function CalculatorPreview({ onBack, onNeedProject, notify, projects, initialCal
     : "";
   const calculatorDefinition = api510CalculatorFor(component);
   const componentLabel = calculatorDefinition.title;
-  const inputSnapshot: Api510InputSnapshot = {
+  const inputSnapshot: Api510InputSnapshot = { repairAdditions,
     component,
     unitSystem,
     pressureUnit: pressureInputUnit,
@@ -1681,8 +1685,8 @@ function CalculatorPreview({ onBack, onNeedProject, notify, projects, initialCal
             <div><span>Short-term corrosion rate</span><strong>{result.ok ? `${formatDisplayNumber(convertFromSI(result.shortTermCorrosionRateMmPerYear, "length", unitSystem), "corrosion-rate")} ${resultLengthUnit}/yr` : "—"}</strong></div>
             <div><span>Governing corrosion rate</span><strong>{result.ok ? `${formatDisplayNumber(convertFromSI(result.governingCorrosionRateMmPerYear, "length", unitSystem), "corrosion-rate")} ${resultLengthUnit}/yr` : "—"}</strong></div>
             <div><span>Corrosion allowance</span><strong>{result.ok ? `${formatDisplayNumber(convertFromSI(result.corrosionAllowanceMm, "length", unitSystem))} ${resultLengthUnit}` : "—"}</strong></div>
-            <div><span>Projected thickness ({result.intervalYears} yr)</span><strong>{result.ok ? `${formatDisplayNumber(convertFromSI(result.projectedThicknessMm, "length", unitSystem))} ${resultLengthUnit}` : "—"}</strong></div>
-            <div><span>Future MAWP thickness ({result.intervalYears} yr)</span><strong>{result.ok ? `${formatDisplayNumber(convertFromSI(result.futureMawpThicknessMm, "length", unitSystem))} ${resultLengthUnit}` : "—"}</strong></div>
+            <div><span>Projected thickness ({formatDisplayNumber(result.intervalYears)} yr)</span><strong>{result.ok ? `${formatDisplayNumber(convertFromSI(result.projectedThicknessMm, "length", unitSystem))} ${resultLengthUnit}` : "—"}</strong></div>
+            <div><span>Future MAWP thickness ({formatDisplayNumber(result.intervalYears)} yr)</span><strong>{result.ok ? `${formatDisplayNumber(convertFromSI(result.futureMawpThicknessMm, "length", unitSystem))} ${resultLengthUnit}` : "—"}</strong></div>
             <div><span>Future MAWP</span><strong>{result.ok ? `${formatDisplayNumber(convertFromSI(result.futureMawpMpa, "pressure", unitSystem))} ${resultPressureUnit}` : "—"}</strong></div>
             <div><span>Hydrostatic planning pressure</span><strong>{result.ok ? `${formatDisplayNumber(convertFromSI(result.hydrostaticTestPressureMpa, "pressure", unitSystem))} ${resultPressureUnit}` : "—"}</strong></div>
             <div><span>Pneumatic planning pressure</span><strong>{result.ok ? `${formatDisplayNumber(convertFromSI(result.pneumaticTestPressureMpa, "pressure", unitSystem))} ${resultPressureUnit}` : "—"}</strong></div>
@@ -1692,6 +1696,7 @@ function CalculatorPreview({ onBack, onNeedProject, notify, projects, initialCal
           <div className="sticky-actions"><button className="secondary-button" onClick={openReview}><ShieldCheck size={17} /> Review</button><button className="primary-button report-preview-button" onClick={openReportPreview}><FileText size={17} /> Report</button></div>
         </aside>
       </div>
+      <RemainingLifeAdditions value={repairAdditions} onChange={setRepairAdditions} sources={[{ id: component, label: componentLabel, originalThickness: originalThicknessMm, minimumThickness: result.minimumThicknessUsedMm, longRate: selectedServiceYears.value > 0 ? result.longTermCorrosionRateMmPerYear : null, shortRate: selectedInspectionYears.value > 0 && previousThicknessMm > 0 ? result.shortTermCorrosionRateMmPerYear : null, ready: result.ok }]} />
       {saveDialogOpen ? (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSaveDialogOpen(false); }}>
           <section className="modal-card save-calculation-modal" role="dialog" aria-modal="true" aria-labelledby="save-calculation-title">
@@ -1737,11 +1742,11 @@ function UnitControl({ label, unit, unitValue, unitOptions, onUnitChange }: Unit
 
 function AutomaticNumberField({ label, value, onChange, unit, unitValue, unitOptions, onUnitChange, help, mode, onModeChange }: { label: string; value: string; onChange: (value: string) => void; help: string; mode: AutomaticValueMode; onModeChange: (mode: AutomaticValueMode) => void } & UnitSelectorProps) {
   const nextMode = mode === "auto" ? "manual" : "auto";
-  return <label className="field automatic-field"><span>{label}<button type="button" aria-label={`${label} help`} title={help}>?</button><button type="button" className={`field-mode-toggle ${mode}`} onClick={() => onModeChange(nextMode)} aria-label={`Switch ${label} to ${nextMode} mode`}>{mode}</button></span><div className={`number-control is-derived ${mode === "manual" ? "is-manual" : ""}`}><input type="number" inputMode="decimal" value={value} onChange={(event) => onChange(event.target.value)} readOnly={mode === "auto"} /><UnitControl label={label} unit={unit} unitValue={unitValue} unitOptions={unitOptions} onUnitChange={onUnitChange} /></div><small>{help}</small></label>;
+  return <label className="field automatic-field"><span>{label}<button type="button" aria-label={`${label} help`} title={help}>?</button><button type="button" className={`field-mode-toggle ${mode}`} onClick={() => onModeChange(nextMode)} aria-label={`Switch ${label} to ${nextMode} mode`}>{mode}</button></span><div className={`number-control is-derived ${mode === "manual" ? "is-manual" : ""}`}><DecimalNumberInput type="number" inputMode="decimal" value={value} onChange={(event) => onChange(event.target.value)} readOnly={mode === "auto"} /><UnitControl label={label} unit={unit} unitValue={unitValue} unitOptions={unitOptions} onUnitChange={onUnitChange} /></div><small>{help}</small></label>;
 }
 
 function NumberField({ label, value, onChange, unit, unitValue, unitOptions, onUnitChange, help, min, max, step, derived = false }: { label: string; value: string; onChange?: (value: string) => void; help: string; min?: number; max?: number; step?: number; derived?: boolean } & UnitSelectorProps) {
-  return <label className="field"><span>{label}<button type="button" aria-label={`${label} help`} title={help}>?</button></span><div className={`number-control ${derived ? "is-derived" : ""}`}><input type="number" inputMode="decimal" value={value} onChange={(event) => onChange?.(event.target.value)} readOnly={!onChange} min={min} max={max} step={step} /><UnitControl label={label} unit={unit} unitValue={unitValue} unitOptions={unitOptions} onUnitChange={onUnitChange} /></div><small>{help}</small></label>;
+  return <label className="field"><span>{label}<button type="button" aria-label={`${label} help`} title={help}>?</button></span><div className={`number-control ${derived ? "is-derived" : ""}`}><DecimalNumberInput type="number" inputMode="decimal" value={value} onChange={(event) => onChange?.(event.target.value)} readOnly={!onChange} min={min} max={max} step={step} /><UnitControl label={label} unit={unit} unitValue={unitValue} unitOptions={unitOptions} onUnitChange={onUnitChange} /></div><small>{help}</small></label>;
 }
 
 export default App;

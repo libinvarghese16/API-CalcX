@@ -1081,11 +1081,14 @@ body, .app-shell, .main-area { min-height: 100dvh; }
 .post-repair-assessment { min-width: 0; }
 .api653-bottom-page > .calculator-workspace { padding-bottom: 16px; align-items: start; }
 .post-repair-heading { width: min(1390px,100%); box-sizing: border-box; margin: 0 auto; padding: 0 clamp(22px,4vw,58px); font-size: 18px; font-weight: 700; }
-.post-repair-assessment > .calculator-workspace { padding-top: 16px; }
-.post-repair-assessment > .calculator-workspace:not(:last-child) { padding-bottom: 16px; }
+.post-repair-assessment > .calculator-workspace { padding-top: 16px; align-items: start; }
+.post-repair-additions-heading { margin: 0; font-size: 18px; }
+.calculator-page:has(.remaining-life-additions) > .calculator-workspace { padding-bottom: 16px; align-items: start; }
+.repair-target-picker { width: min(1390px,100%); box-sizing: border-box; margin: 0 auto 16px; padding: 0 clamp(22px,4vw,58px); }
+.repair-target-picker .field { max-width: 460px; }
+@media (max-width: 600px) { .repair-target-picker { padding: 0 16px; } }
 .post-repair-check { display: flex; align-items: center; gap: 10px; margin: 0 0 18px; color: var(--text-soft); font-size: 12px; line-height: 1.5; }
 .post-repair-check input { flex-shrink: 0; width: 18px; height: 18px; accent-color: var(--primary); }
-.post-repair-additions { align-items: start; }
 .post-repair-mfl .post-repair-help { margin: 16px 0; }
 .post-repair-mfl .post-repair-help p { margin: 0; }
 .post-repair-interval p { color: var(--text-soft); font-size: 12px; line-height: 1.6; }

@@ -1,6 +1,6 @@
 importScripts("/precache-manifest.js");
 
-const CACHE_NAME = "api-calc-pro-mobile-v9-editable-mfl";
+const CACHE_NAME = "api-calc-pro-mobile-v10-repair-all";
 const APP_SHELL = self.__API_CALC_PRECACHE ?? ["/", "/manifest.webmanifest", "/brand/api-calc-mark.png"];
 
 self.addEventListener("install", (event) => {

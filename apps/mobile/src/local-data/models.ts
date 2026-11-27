@@ -1,3 +1,4 @@
+import type { RemainingLifeAdditionsState } from "./repair-life-state.ts";
 import type {
   Api653AnnularPlateInputSI,
   Api653AnnularPlateResultSI,
@@ -46,6 +47,7 @@ import type {
 export type PressureVesselComponent = "cylindrical" | "spherical" | "ellipsoidal" | "torispherical" | "hemispherical" | "conical" | "flat-circular";
 
 export interface Api510InputSnapshot {
+  repairAdditions?: RemainingLifeAdditionsState;
   component: PressureVesselComponent;
   unitSystem: UnitSystem;
   pressureUnit?: EngineeringUnit;
@@ -187,6 +189,7 @@ export interface Api570PipingUnitFieldSnapshot {
 }
 
 export interface Api570PipingInputSnapshot {
+  repairAdditions?: RemainingLifeAdditionsState;
   calculatorId: "piping";
   unitSystem: UnitSystem;
   fields: Record<Api570PipingUnitFieldId, Api570PipingUnitFieldSnapshot>;
@@ -236,6 +239,7 @@ export interface Api570TubeUnitFieldSnapshot {
 }
 
 export interface Api570TubeInputSnapshot {
+  repairAdditions?: RemainingLifeAdditionsState;
   calculatorId: "tube";
   unitSystem: UnitSystem;
   fields: Record<Api570TubeUnitFieldId, Api570TubeUnitFieldSnapshot>;
@@ -264,6 +268,7 @@ export interface Api570UnitFieldSnapshot {
 }
 
 export interface Api570HeaderInputSnapshot {
+  repairAdditions?: RemainingLifeAdditionsState;
   calculatorId: "header";
   unitSystem: UnitSystem;
   fields: Record<"designPressure" | "outsideDiameter" | "designTemperature" | "allowableStress" | "originalThickness" | "previousThickness" | "actualThickness" | "structuralMinimum" | "manualMinimum", Api570UnitFieldSnapshot>;

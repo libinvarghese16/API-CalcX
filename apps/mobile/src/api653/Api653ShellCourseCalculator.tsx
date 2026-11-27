@@ -1,3 +1,6 @@
+import { DecimalNumberInput } from "../components/DecimalNumberInput.tsx";
+import { RemainingLifeAdditions } from "../components/RemainingLifeAdditions.tsx";
+import type { RemainingLifeAdditionsState } from "../components/RemainingLifeAdditions.tsx";
 import { MonthYearField, useCurrentMonth, serviceDateHelp } from "../components/MonthYearField.tsx";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -65,7 +68,7 @@ function makeCourse(courseIndex: number): CourseState {
     : courseIndex === 2
       ? { product: "172", hydro: "189", asBuilt: "22", previous: "20.5", actual: "20" }
       : { product: "189", hydro: "208", asBuilt: "18", previous: "17", actual: "16.5" };
-  return {
+  return { repairId: crypto.randomUUID(),
     materialId: "A36",
     productStressMode: "auto",
     hydroStressMode: "auto",
@@ -109,17 +112,17 @@ function UnitInput({ label, field, options, help, automaticMode, automaticAvaila
   const modeToggleDisabled = automaticMode === "manual" && !automaticAvailable;
   return <label className={`field ${automatic ? "automatic-field" : ""}`}>
     <span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button>{automatic && <button type="button" className={`field-mode-toggle ${automaticMode}`} disabled={modeToggleDisabled} onClick={() => onModeChange?.(automaticMode === "auto" ? "manual" : "auto")} aria-label={modeToggleDisabled ? `${label} requires a manual value` : `Switch ${label} to ${automaticMode === "auto" ? "manual" : "auto"} mode`}>{modeLabel}</button>}</span>
-    <div className={`number-control ${automatic ? "is-derived" : ""} ${automaticMode === "manual" ? "is-manual" : ""}`}><input aria-label={label} type="number" inputMode="decimal" value={field.value} readOnly={automaticMode === "auto"} onChange={(event) => onValueChange(event.target.value)} /><select className="unit-picker" aria-label={`${label} unit`} value={field.unit} onChange={(event) => onUnitChange(event.target.value as EngineeringUnit)}>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
+    <div className={`number-control ${automatic ? "is-derived" : ""} ${automaticMode === "manual" ? "is-manual" : ""}`}><DecimalNumberInput aria-label={label} type="number" inputMode="decimal" value={field.value} readOnly={automaticMode === "auto"} onChange={(event) => onValueChange(event.target.value)} /><select className="unit-picker" aria-label={`${label} unit`} value={field.unit} onChange={(event) => onUnitChange(event.target.value as EngineeringUnit)}>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
     <small>{help}</small>
   </label>;
 }
 
 function NumberInput({ label, value, suffix, help, onChange }: { label: string; value: string; suffix: string; help: string; onChange: (value: string) => void }) {
-  return <label className="field"><span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button></span><div className="number-control"><input aria-label={label} type="number" inputMode="decimal" value={value} onChange={(event) => onChange(event.target.value)} /><b>{suffix}</b></div><small>{help}</small></label>;
+  return <label className="field"><span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button></span><div className="number-control"><DecimalNumberInput aria-label={label} type="number" inputMode="decimal" value={value} onChange={(event) => onChange(event.target.value)} /><b>{suffix}</b></div><small>{help}</small></label>;
 }
 
 function DerivedYearsInput({ label, mode, value, help, onChange, onModeChange }: { label: string; mode: AutomaticValueMode; value: string; help: string; onChange: (value: string) => void; onModeChange: (mode: AutomaticValueMode) => void }) {
-  return <label className="field automatic-field"><span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button><button type="button" className={`field-mode-toggle ${mode}`} onClick={() => onModeChange(mode === "auto" ? "manual" : "auto")} aria-label={`Switch ${label} to ${mode === "auto" ? "manual" : "auto"} mode`}>{mode}</button></span><div className={`number-control is-derived ${mode === "manual" ? "is-manual" : ""}`}><input aria-label={label} type="number" inputMode="numeric" value={value} readOnly={mode === "auto"} onChange={(event) => onChange(event.target.value)} /><b>yr</b></div><small>{help}</small></label>;
+  return <label className="field automatic-field"><span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button><button type="button" className={`field-mode-toggle ${mode}`} onClick={() => onModeChange(mode === "auto" ? "manual" : "auto")} aria-label={`Switch ${label} to ${mode === "auto" ? "manual" : "auto"} mode`}>{mode}</button></span><div className={`number-control is-derived ${mode === "manual" ? "is-manual" : ""}`}><DecimalNumberInput aria-label={label} type="number" inputMode="numeric" value={value} readOnly={mode === "auto"} onChange={(event) => onChange(event.target.value)} /><b>yr</b></div><small>{help}</small></label>;
 }
 
 function lifeDisplay(value: number): string {
@@ -132,6 +135,7 @@ export function Api653ShellCourseCalculator({ onBack, projects, initialCalculati
     const saved = initialCalculation?.calculatorId === "shell-course" ? initialCalculation.inputs.formState as Partial<Api653ShellDraft> : null;
     return saved ? { ...stored, ...saved, version: 1 } as Api653ShellDraft : stored;
   });
+  const [repairAdditions, setRepairAdditions] = useState<RemainingLifeAdditionsState>(() => (initialDraft?.repairAdditions) ?? {});
   const [unitSystem, setUnitSystem] = useState<UnitSystem>(initialDraft?.unitSystem ?? "metric");
   const [diameter, setDiameter] = useState<UnitFieldState>(() => initialDraft?.diameter ?? { value: "30", unit: "m", quantity: "length" });
   const [height, setHeight] = useState<UnitFieldState>(() => initialDraft?.height ?? { value: "18", unit: "m", quantity: "length" });
@@ -146,13 +150,13 @@ export function Api653ShellCourseCalculator({ onBack, projects, initialCalculati
   const [inspectionYearsMode, setInspectionYearsMode] = useState<AutomaticValueMode>(initialDraft?.inspectionYearsMode ?? "auto");
   const [manualServiceYears, setManualServiceYears] = useState(initialDraft?.manualServiceYears ?? "20");
   const [manualInspectionYears, setManualInspectionYears] = useState(initialDraft?.manualInspectionYears ?? "5");
-  const [courses, setCourses] = useState<CourseState[]>(() => initialDraft?.courses ?? [makeCourse(1), makeCourse(2), makeCourse(3)]);
+  const [courses, setCourses] = useState<CourseState[]>(() => (initialDraft?.courses ?? [makeCourse(1), makeCourse(2), makeCourse(3)]).map(course => ({ ...course, repairId: course.repairId ?? crypto.randomUUID() })));
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
   const [draftSaveState, setDraftSaveState] = useState<"saved" | "error">("saved");
   const [recalculationRevision, setRecalculationRevision] = useState(0);
 
   useEffect(() => {
-    const draft: Api653ShellDraft = {
+    const draft: Api653ShellDraft = { repairAdditions,
       version: 1,
       unitSystem,
       diameter,
@@ -168,7 +172,7 @@ export function Api653ShellCourseCalculator({ onBack, projects, initialCalculati
       courses,
     };
     setDraftSaveState(writeApi653ShellDraft(window.localStorage, draft) ? "saved" : "error");
-  }, [buildYear, buildMonth, previousInspectionMonth, courses, diameter, height, inspectionYearsMode, jointEfficiency, manualInspectionYears, manualServiceYears, previousInspectionYear, serviceYearsMode, specificGravity, unitSystem]);
+  }, [repairAdditions, buildYear, buildMonth, previousInspectionMonth, courses, diameter, height, inspectionYearsMode, jointEfficiency, manualInspectionYears, manualServiceYears, previousInspectionYear, serviceYearsMode, specificGravity, unitSystem]);
 
   const numericBuildYear = numberFrom(buildYear);
   const serviceYears = deriveYearsInService(numericBuildYear, currentYear, buildMonth ? Number(buildMonth) : undefined, currentMonth);
@@ -257,7 +261,7 @@ export function Api653ShellCourseCalculator({ onBack, projects, initialCalculati
     if (mode === "manual" && inspectionYears.yearsSincePreviousInspection !== null) setManualInspectionYears(String(inspectionYears.yearsSincePreviousInspection));
     setInspectionYearsMode(mode);
   };
-  const reset = () => {
+  const reset = () => { setRepairAdditions({});
     setUnitSystem("metric");
     setDiameter({ value: "30", unit: "m", quantity: "length" });
     setHeight({ value: "18", unit: "m", quantity: "length" });
@@ -299,7 +303,7 @@ export function Api653ShellCourseCalculator({ onBack, projects, initialCalculati
     }
   };
 
-  const inputSnapshot = useMemo<Api653InputSnapshot>(() => ({ calculatorId: "shell-course", unitSystem, formState: { version: 1, unitSystem, diameter, height, specificGravity, jointEfficiency, buildYear, buildMonth, previousInspectionMonth, previousInspectionYear, serviceYearsMode, inspectionYearsMode, manualServiceYears, manualInspectionYears, courses }, engineInput: input }), [buildYear, buildMonth, previousInspectionMonth, courses, diameter, height, input, inspectionYearsMode, jointEfficiency, manualInspectionYears, manualServiceYears, previousInspectionYear, serviceYearsMode, specificGravity, unitSystem]);
+  const inputSnapshot = useMemo<Api653InputSnapshot>(() => ({ calculatorId: "shell-course", unitSystem, formState: { repairAdditions, version: 1, unitSystem, diameter, height, specificGravity, jointEfficiency, buildYear, buildMonth, previousInspectionMonth, previousInspectionYear, serviceYearsMode, inspectionYearsMode, manualServiceYears, manualInspectionYears, courses }, engineInput: input }), [repairAdditions, buildYear, buildMonth, previousInspectionMonth, courses, diameter, height, input, inspectionYearsMode, jointEfficiency, manualInspectionYears, manualServiceYears, previousInspectionYear, serviceYearsMode, specificGravity, unitSystem]);
   const reportDefinition: Api653WorkflowReportDefinition = {
     reportKind: "Shell course calculation report",
     basisTitle: "Tank and shell design basis",
@@ -379,7 +383,8 @@ export function Api653ShellCourseCalculator({ onBack, projects, initialCalculati
     </div>
 
     <aside className="result-column"><section className="result-card shell-summary-card"><div className="result-card-top"><Gauge size={17} /> Calculation results <small>{result.ok ? "Calculated" : "Check inputs"}</small></div><div className="result-primary-grid"><div className="result-primary"><p>Governing remaining life</p><div className="result-primary-value"><strong>{lifeDisplay(result.minimumRemainingLifeYears)}</strong><span>yr</span></div></div><div className="result-primary"><p>Maximum corrosion rate</p><div className="result-primary-value"><strong>{formatRate(result.maximumCorrosionRateMmPerYear)}</strong><span>{rateUnit}</span></div></div></div><div className="result-comparison"><span>Governing course<strong>{result.governingRemainingLifeCourseIndex ? `Course ${result.governingRemainingLifeCourseIndex}` : "—"}</strong></span><span>Active courses<strong>{result.courses.length}</strong></span></div><div className="result-comparison"><span>Rate course<strong>{result.governingCorrosionRateCourseIndex ? `Course ${result.governingCorrosionRateCourseIndex}` : "—"}</strong></span><span>Limiting operating fill<strong>{formatHeight(result.limitingOperatingFillHeightM)} {heightUnit}</strong></span></div><div className={`result-status ${result.ok ? manualOverrideActive ? "is-manual" : "is-valid" : ""}`}>{result.ok && !manualOverrideActive ? <CircleCheck size={18} /> : <TriangleAlert size={18} />}<div><strong>{error ? "Resolve input issues" : manualOverrideActive ? "Calculation includes manual inputs" : warning ? "Calculation completed with review note" : "Calculation completed"}</strong><span>{error?.message ?? warning?.message ?? (manualOverrideActive ? "Verify highlighted overrides before engineering approval." : "Review the governing course, remaining life, and fill-height results before use.")}</span></div></div></section>
-      <section className="trace-card"><p className="eyebrow">Supporting results</p><h3>Calculation details</h3><div><span>Active courses</span><strong>{result.courses.length}</strong></div><div><span>Years in service</span><strong>{result.yearsInServiceUsed}</strong></div><div><span>Years since previous</span><strong>{result.yearsSincePreviousInspectionUsed}</strong></div><div><span>Tank basis</span><strong>{formatHeight(result.diameterMUsed)} × {formatHeight(result.totalHeightMUsed)} {heightUnit}</strong></div><div><span>Specific gravity / E</span><strong>{result.specificGravityUsed} / {result.jointEfficiencyUsed}</strong></div><div><span>Manual overrides</span><strong>{manualOverrideActive ? "Active" : "None"}</strong></div><div><span>Limiting fill course</span><strong>{result.limitingOperatingFillCourseIndex ? `Course ${result.limitingOperatingFillCourseIndex}` : "—"}</strong></div></section>
+      <section className="trace-card"><p className="eyebrow">Supporting results</p><h3>Calculation details</h3><div><span>Active courses</span><strong>{result.courses.length}</strong></div><div><span>Years in service</span><strong>{formatDisplayNumber(result.yearsInServiceUsed)}</strong></div><div><span>Years since previous</span><strong>{formatDisplayNumber(result.yearsSincePreviousInspectionUsed)}</strong></div><div><span>Tank basis</span><strong>{formatHeight(result.diameterMUsed)} × {formatHeight(result.totalHeightMUsed)} {heightUnit}</strong></div><div><span>Specific gravity / E</span><strong>{formatDisplayNumber(result.specificGravityUsed)} / {formatDisplayNumber(result.jointEfficiencyUsed)}</strong></div><div><span>Manual overrides</span><strong>{manualOverrideActive ? "Active" : "None"}</strong></div><div><span>Limiting fill course</span><strong>{result.limitingOperatingFillCourseIndex ? `Course ${result.limitingOperatingFillCourseIndex}` : "—"}</strong></div></section>
     </aside></div>
+    <RemainingLifeAdditions value={repairAdditions} onChange={setRepairAdditions} sources={result.courses.map(row => ({ id: courses[row.courseIndex - 1]?.repairId ?? String(row.courseIndex), label: "Shell course " + row.courseIndex, originalThickness: row.asBuiltThicknessMmUsed, minimumThickness: row.minimumThicknessMm, longRate: result.yearsInServiceUsed > 0 ? row.longTermCorrosionRateMmPerYear : null, shortRate: result.yearsSincePreviousInspectionUsed > 0 && row.previousThicknessMmUsed > 0 ? row.shortTermCorrosionRateMmPerYear : null, ready: result.ok && row.actualThicknessMmUsed > 0 && row.minimumThicknessMm > 0 && row.asBuiltThicknessMmUsed > 0 }))} />
   </div>;
 }

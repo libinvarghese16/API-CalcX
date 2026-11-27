@@ -1,3 +1,4 @@
+import { DecimalNumberInput } from "../components/DecimalNumberInput.tsx";
 import { useMemo, useState } from "react";
 import {
   DEFAULT_API570_MATERIAL_GRADE,
@@ -82,7 +83,7 @@ function UnitInput({
     <label className="field">
       <span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button></span>
       <div className="number-control">
-        <input aria-label={label} type="number" inputMode="decimal" value={field.value} onChange={(event) => onValueChange(event.target.value)} />
+        <DecimalNumberInput aria-label={label} type="number" inputMode="decimal" value={field.value} onChange={(event) => onValueChange(event.target.value)} />
         <select className="unit-picker" aria-label={`${label} unit`} value={field.unit} onChange={(event) => onUnitChange(event.target.value as EngineeringUnit)}>
           {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
@@ -252,7 +253,7 @@ export function Api570HydroTestCalculator({ onBack, onNeedProject, notify, proje
               <label className="field automatic-field">
                 <span>Stress ratio Rr<button type="button" title="Auto calculates ST / S. Manual mode uses the highlighted override." aria-label="Stress ratio Rr help">?</button><button type="button" className={`field-mode-toggle ${ratioMode}`} onClick={() => changeRatioMode(ratioMode === "auto" ? "manual" : "auto")} aria-label={`Switch Stress ratio Rr to ${ratioMode === "auto" ? "manual" : "auto"} mode`}>{ratioMode}</button></span>
                 <div className={`number-control is-derived ${hasManualOverride ? "is-manual" : ""}`}>
-                  <input aria-label="Stress ratio Rr" type="number" inputMode="decimal" value={hasManualOverride ? manualStressRatio : formatInput(automaticResult.stressRatioUsed)} onChange={(event) => setManualStressRatio(event.target.value)} readOnly={!hasManualOverride} />
+                  <DecimalNumberInput aria-label="Stress ratio Rr" type="number" inputMode="decimal" value={hasManualOverride ? manualStressRatio : formatInput(automaticResult.stressRatioUsed)} onChange={(event) => setManualStressRatio(event.target.value)} readOnly={!hasManualOverride} />
                   <b>ratio</b>
                 </div>
                 <small>{hasManualOverride ? "Manual Rr override is active and highlighted; the protected 6.50 cap still applies." : "Automatically uses ST / S when both stresses are positive, otherwise the protected default Rr = 1.00."}</small>

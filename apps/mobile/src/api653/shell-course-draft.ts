@@ -1,3 +1,4 @@
+import type { RemainingLifeAdditionsState } from "../local-data/repair-life-state.ts";
 import {
   listApi653ShellMaterials,
   listEngineeringUnitOptions,
@@ -17,6 +18,7 @@ export type ShellUnitFieldState = { value: string; unit: EngineeringUnit; quanti
 export type ShellCourseUnitFields = Record<ShellCourseUnitFieldId, ShellUnitFieldState>;
 
 export type ShellCourseDraft = {
+  repairId?: string;
   materialId: string;
   productStressMode: Api653ShellStressMode;
   hydroStressMode: Api653ShellStressMode;
@@ -24,6 +26,7 @@ export type ShellCourseDraft = {
 };
 
 export type Api653ShellDraft = {
+  repairAdditions?: RemainingLifeAdditionsState;
   version: 1;
   unitSystem: UnitSystem;
   diameter: ShellUnitFieldState;

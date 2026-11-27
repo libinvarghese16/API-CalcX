@@ -1,3 +1,4 @@
+import { DecimalNumberInput } from "../components/DecimalNumberInput.tsx";
 import { useMemo, useState } from "react";
 import {
   DEFAULT_API570_MATERIAL_GRADE,
@@ -84,7 +85,7 @@ function UnitInput({
     <label className="field">
       <span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button></span>
       <div className="number-control">
-        <input aria-label={label} type="number" inputMode="decimal" value={field.value} onChange={(event) => onValueChange(event.target.value)} />
+        <DecimalNumberInput aria-label={label} type="number" inputMode="decimal" value={field.value} onChange={(event) => onValueChange(event.target.value)} />
         <select className="unit-picker" aria-label={`${label} unit`} value={field.unit} onChange={(event) => onUnitChange(event.target.value as EngineeringUnit)}>
           {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
@@ -229,7 +230,7 @@ export function Api570PressureDesignCalculator({ onBack, onNeedProject, notify, 
               <Api570MaterialStressFields materialSpec={materialSpec} gradeKey={gradeKey} temperatureField={fields.designTemperature} stressField={fields.allowableStress} stressMode={stressMode} stressResolution={stressResolution} temperatureUnits={temperatureUnits} pressureUnits={pressureUnits} onMaterialChange={(nextSpec, firstGradeKey) => { setMaterialSpec(nextSpec); setGradeKey(firstGradeKey); }} onGradeChange={setGradeKey} onTemperatureValueChange={(value) => updateFieldValue("designTemperature", value)} onTemperatureUnitChange={(unit) => updateFieldUnit("designTemperature", unit)} onStressValueChange={(value) => updateFieldValue("allowableStress", value)} onStressUnitChange={(unit) => updateFieldUnit("allowableStress", unit)} onStressModeChange={changeStressMode} />
               <label className="field">
                 <span>Longitudinal quality factor E<button type="button" title="Blank or non-positive values use E = 1.00, matching the protected calculator." aria-label="Longitudinal quality factor E help">?</button></span>
-                <input aria-label="Longitudinal quality factor E" type="number" inputMode="decimal" value={qualityFactor} onChange={(event) => setQualityFactor(event.target.value)} />
+                <DecimalNumberInput aria-label="Longitudinal quality factor E" type="number" inputMode="decimal" value={qualityFactor} onChange={(event) => setQualityFactor(event.target.value)} />
                 <small>Blank or non-positive values use the protected default E = 1.00 and are disclosed in the result trace.</small>
               </label>
               <UnitInput label="Available corroded thickness" field={fields.availableThickness} options={lengthUnits} help="Optional thickness t used only for the inverse allowable-working-pressure result." onValueChange={(value) => updateFieldValue("availableThickness", value)} onUnitChange={(unit) => updateFieldUnit("availableThickness", unit)} />

@@ -1,3 +1,6 @@
+import { DecimalNumberInput } from "../components/DecimalNumberInput.tsx";
+import { RemainingLifeAdditions } from "../components/RemainingLifeAdditions.tsx";
+import type { RemainingLifeAdditionsState } from "../components/RemainingLifeAdditions.tsx";
 import { Api653PostRepairAssessment, createPostRepairInput } from "./Api653PostRepairAssessment.tsx";
 import type { Api653PostRepairInput } from "@api-calc-pro/calc-engine";
 import { MonthYearField, useCurrentMonth, serviceDateHelp } from "../components/MonthYearField.tsx";
@@ -106,12 +109,12 @@ function UnitInput({ label, field, options, help, onValueChange, onUnitChange }:
   onValueChange: (value: string) => void;
   onUnitChange: (unit: EngineeringUnit) => void;
 }) {
-  return <label className="field"><span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button></span><div className="number-control"><input aria-label={label} type="number" inputMode="decimal" value={field.value} onChange={(event) => onValueChange(event.target.value)} /><select className="unit-picker" aria-label={`${label} unit`} value={field.unit} onChange={(event) => onUnitChange(event.target.value as EngineeringUnit)}>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div><small>{help}</small></label>;
+  return <label className="field"><span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button></span><div className="number-control"><DecimalNumberInput aria-label={label} type="number" inputMode="decimal" value={field.value} onChange={(event) => onValueChange(event.target.value)} /><select className="unit-picker" aria-label={`${label} unit`} value={field.unit} onChange={(event) => onUnitChange(event.target.value as EngineeringUnit)}>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div><small>{help}</small></label>;
 }
 
 
 function DerivedYearsInput({ label, mode, value, help, onChange, onModeChange }: { label: string; mode: AutomaticValueMode; value: string; help: string; onChange: (value: string) => void; onModeChange: (mode: AutomaticValueMode) => void }) {
-  return <label className="field automatic-field"><span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button><button type="button" className={`field-mode-toggle ${mode}`} onClick={() => onModeChange(mode === "auto" ? "manual" : "auto")} aria-label={`Switch ${label} to ${mode === "auto" ? "manual" : "auto"} mode`}>{mode}</button></span><div className={`number-control is-derived ${mode === "manual" ? "is-manual" : ""}`}><input aria-label={label} type="number" inputMode="decimal" value={value} readOnly={mode === "auto"} onChange={(event) => onChange(event.target.value)} /><b>yr</b></div><small>{help}</small></label>;
+  return <label className="field automatic-field"><span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button><button type="button" className={`field-mode-toggle ${mode}`} onClick={() => onModeChange(mode === "auto" ? "manual" : "auto")} aria-label={`Switch ${label} to ${mode === "auto" ? "manual" : "auto"} mode`}>{mode}</button></span><div className={`number-control is-derived ${mode === "manual" ? "is-manual" : ""}`}><DecimalNumberInput aria-label={label} type="number" inputMode="decimal" value={value} readOnly={mode === "auto"} onChange={(event) => onChange(event.target.value)} /><b>yr</b></div><small>{help}</small></label>;
 }
 
 function AutomaticUnitInput({ label, field, options, mode, help, onValueChange, onUnitChange, onModeChange }: {
@@ -124,7 +127,7 @@ function AutomaticUnitInput({ label, field, options, mode, help, onValueChange, 
   onUnitChange: (unit: EngineeringUnit) => void;
   onModeChange: (mode: AutomaticValueMode) => void;
 }) {
-  return <label className="field automatic-field"><span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button><button type="button" className={`field-mode-toggle ${mode}`} onClick={() => onModeChange(mode === "auto" ? "manual" : "auto")} aria-label={`Switch ${label} to ${mode === "auto" ? "manual" : "auto"} mode`}>{mode}</button></span><div className={`number-control is-derived ${mode === "manual" ? "is-manual" : ""}`}><input aria-label={label} type="number" inputMode="decimal" value={field.value} readOnly={mode === "auto"} onChange={(event) => onValueChange(event.target.value)} /><select className="unit-picker" aria-label={`${label} unit`} value={field.unit} onChange={(event) => onUnitChange(event.target.value as EngineeringUnit)}>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div><small>{help}</small></label>;
+  return <label className="field automatic-field"><span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button><button type="button" className={`field-mode-toggle ${mode}`} onClick={() => onModeChange(mode === "auto" ? "manual" : "auto")} aria-label={`Switch ${label} to ${mode === "auto" ? "manual" : "auto"} mode`}>{mode}</button></span><div className={`number-control is-derived ${mode === "manual" ? "is-manual" : ""}`}><DecimalNumberInput aria-label={label} type="number" inputMode="decimal" value={field.value} readOnly={mode === "auto"} onChange={(event) => onValueChange(event.target.value)} /><select className="unit-picker" aria-label={`${label} unit`} value={field.unit} onChange={(event) => onUnitChange(event.target.value as EngineeringUnit)}>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div><small>{help}</small></label>;
 }
 
 type PlateWorkflowProps = Api653CalculatorWorkflowProps & { onBack: () => void; variant: Api653PlateVariant };
@@ -132,6 +135,7 @@ type PlateWorkflowProps = Api653CalculatorWorkflowProps & { onBack: () => void; 
 export function Api653PlateRemainingLifeCalculator({ onBack, variant, projects, initialCalculation, onSave, onReview, onApprove, onNeedProject, notify }: PlateWorkflowProps) {
   const isAnnular = variant === "annular";
   const savedState = (initialCalculation?.inputs.formState ?? {}) as Partial<{ postRepair: Api653PostRepairInput; unitSystem: UnitSystem; fields: UnitFieldMap; specificGravity: string; calculatedStressMode: AutomaticValueMode; minimumThicknessMode: AutomaticValueMode; bottomMinimumBasis: Api653BottomMinimumThicknessBasis; reducedMinimumCriteriaConfirmed: boolean; projectionYears: string; undersideRateMode: Api653BottomCorrosionRateMode; topSideRateMode: Api653BottomCorrosionRateMode; highSpecificGravityBasisConfirmed: boolean; buildYear: string; buildMonth: string; previousInspectionMonth: string; previousInspectionYear: string; serviceYearsMode: AutomaticValueMode; inspectionYearsMode: AutomaticValueMode; manualServiceYears: string; manualInspectionYears: string }>;
+  const [repairAdditions, setRepairAdditions] = useState<RemainingLifeAdditionsState>(() => (initialCalculation?.inputs.formState?.repairAdditions as RemainingLifeAdditionsState | undefined) ?? {});
   const [postRepair, setPostRepair] = useState<Api653PostRepairInput>(() => savedState.postRepair ?? createPostRepairInput());
   const [unitSystem, setUnitSystem] = useState<UnitSystem>(savedState.unitSystem ?? "metric");
   const [fields, setFields] = useState<UnitFieldMap>(() => savedState.fields ?? initialUnitFields(variant));
@@ -231,7 +235,7 @@ export function Api653PlateRemainingLifeCalculator({ onBack, variant, projects, 
     setInspectionYearsMode(mode);
   };
   const reset = () => {
-    setPostRepair(createPostRepairInput());
+    setPostRepair(createPostRepairInput()); setRepairAdditions({});
     setUnitSystem("metric"); setFields(initialUnitFields(variant)); setSpecificGravity("0.9"); setCalculatedStressMode("auto"); setMinimumThicknessMode("auto"); setBottomMinimumBasis("table-4.4-standard"); setReducedMinimumCriteriaConfirmed(false); setProjectionYears("10"); setUndersideRateMode("auto"); setTopSideRateMode("auto"); setHighSpecificGravityBasisConfirmed(false); setBuildMonth(""); setPreviousInspectionMonth(""); setBuildYear("2006"); setPreviousInspectionYear("2021"); setServiceYearsMode("auto"); setInspectionYearsMode("auto"); setManualServiceYears("20"); setManualInspectionYears("5");
   };
 
@@ -244,7 +248,7 @@ export function Api653PlateRemainingLifeCalculator({ onBack, variant, projects, 
   };
   const displayedStressField = isAnnular && calculatedStressMode === "auto" ? automaticStressField : fields.calculatedStress;
   const stressHelp = calculatedStressMode === "auto"
-    ? `Automatic S = [2.34 × D(ft) × (H(ft) − 1)] ÷ t(in). Internal value: ${annularResult.automaticCalculatedStressMpa.toFixed(3)} MPa.`
+    ? `Automatic S = [2.34 × D(ft) × (H(ft) − 1)] ÷ t(in). Internal value: ${annularResult.automaticCalculatedStressMpa.toFixed(2)} MPa.`
     : `Manual shell stress is active and highlighted. Automatic recommendation: ${annularResult.automaticCalculatedStressMpa > 0 ? `${formatDisplayNumber(annularResult.automaticCalculatedStressMpa)} MPa` : "unavailable"}.`;
   const automaticMinimumField: UnitFieldState = {
     ...fields.minimumThickness,
@@ -307,9 +311,9 @@ export function Api653PlateRemainingLifeCalculator({ onBack, variant, projects, 
   const inputSnapshot = useMemo<Api653InputSnapshot>(() => ({
     calculatorId,
     unitSystem,
-    formState: { postRepair, unitSystem, fields, specificGravity, calculatedStressMode, minimumThicknessMode, bottomMinimumBasis, reducedMinimumCriteriaConfirmed, projectionYears, undersideRateMode, topSideRateMode, highSpecificGravityBasisConfirmed, buildYear, buildMonth, previousInspectionMonth, previousInspectionYear, serviceYearsMode, inspectionYearsMode, manualServiceYears, manualInspectionYears },
+    formState: { repairAdditions, postRepair, unitSystem, fields, specificGravity, calculatedStressMode, minimumThicknessMode, bottomMinimumBasis, reducedMinimumCriteriaConfirmed, projectionYears, undersideRateMode, topSideRateMode, highSpecificGravityBasisConfirmed, buildYear, buildMonth, previousInspectionMonth, previousInspectionYear, serviceYearsMode, inspectionYearsMode, manualServiceYears, manualInspectionYears },
     engineInput: isAnnular ? annularInput : bottomInput,
-  }), [postRepair, annularInput, bottomInput, bottomMinimumBasis, buildYear, buildMonth, previousInspectionMonth, calculatedStressMode, calculatorId, fields, highSpecificGravityBasisConfirmed, inspectionYearsMode, isAnnular, manualInspectionYears, manualServiceYears, minimumThicknessMode, previousInspectionYear, projectionYears, reducedMinimumCriteriaConfirmed, serviceYearsMode, specificGravity, topSideRateMode, undersideRateMode, unitSystem]);
+  }), [repairAdditions, postRepair, annularInput, bottomInput, bottomMinimumBasis, buildYear, buildMonth, previousInspectionMonth, calculatedStressMode, calculatorId, fields, highSpecificGravityBasisConfirmed, inspectionYearsMode, isAnnular, manualInspectionYears, manualServiceYears, minimumThicknessMode, previousInspectionYear, projectionYears, reducedMinimumCriteriaConfirmed, serviceYearsMode, specificGravity, topSideRateMode, undersideRateMode, unitSystem]);
   const reportDefinition: Api653WorkflowReportDefinition = {
     reportKind: isAnnular ? "Annular plate calculation report" : "Bottom plate calculation report",
     basisTitle: isAnnular ? "Tank and annular basis" : "Bottom MRT basis",
@@ -356,7 +360,7 @@ export function Api653PlateRemainingLifeCalculator({ onBack, variant, projects, 
             <UnitInput label="Tank diameter" field={fields.tankDiameter} options={lengthUnits} help="Tank diameter D used by the protected shell-stress equation." onValueChange={(value) => updateFieldValue("tankDiameter", value)} onUnitChange={(unit) => updateFieldUnit("tankDiameter", unit)} />
             <UnitInput label="Maximum liquid height" field={fields.liquidHeight} options={lengthUnits} help="Maximum liquid height H; the protected USC equation deducts one foot." onValueChange={(value) => updateFieldValue("liquidHeight", value)} onUnitChange={(unit) => updateFieldUnit("liquidHeight", unit)} />
             <UnitInput label="First shell thickness" field={fields.firstShellThickness} options={lengthUnits} help="First shell course thickness t used for calculated stress and Annular Tmin selection." onValueChange={(value) => updateFieldValue("firstShellThickness", value)} onUnitChange={(unit) => updateFieldUnit("firstShellThickness", unit)} />
-            <label className="field"><span>Specific gravity<button type="button" title="Product specific gravity used for H × G and selection routing." aria-label="Specific gravity help">?</button></span><div className="number-control"><input aria-label="Specific gravity" type="number" inputMode="decimal" value={specificGravity} onChange={(event) => setSpecificGravity(event.target.value)} /><b>SG</b></div><small>Values below 1.0 and values of 1.0 or above use the original application's respective selection routes.</small></label>
+            <label className="field"><span>Specific gravity<button type="button" title="Product specific gravity used for H × G and selection routing." aria-label="Specific gravity help">?</button></span><div className="number-control"><DecimalNumberInput aria-label="Specific gravity" type="number" inputMode="decimal" value={specificGravity} onChange={(event) => setSpecificGravity(event.target.value)} /><b>SG</b></div><small>Values below 1.0 and values of 1.0 or above use the original application's respective selection routes.</small></label>
             {numberFrom(specificGravity) >= 1 && <label className="field"><span>High-SG structural basis</span><label className="check-row"><input type="checkbox" checked={highSpecificGravityBasisConfirmed} onChange={(event) => setHighSpecificGravityBasisConfirmed(event.target.checked)} /> Controlled API 650 table or elastic-analysis basis confirmed</label><small>Required before the SG ≥ 1 automatic annular minimum can be treated as complete.</small></label>}
             <AutomaticUnitInput label="Calculated shell stress" field={displayedStressField} options={pressureUnits} mode={calculatedStressMode} help={stressHelp} onValueChange={(value) => updateFieldValue("calculatedStress", value)} onUnitChange={(unit) => updateFieldUnit("calculatedStress", unit)} onModeChange={(mode) => { if (mode === "manual" && annularResult.automaticCalculatedStressMpa > 0) updateFieldValue("calculatedStress", formatInput(convertSIToUnit(annularResult.automaticCalculatedStressMpa, "pressure", fields.calculatedStress.unit))); setCalculatedStressMode(mode); }} />
             <AutomaticUnitInput label="Annular minimum required thickness" field={displayedMinimumField} options={lengthUnits} mode={minimumThicknessMode} help={minimumHelp} onValueChange={(value) => updateFieldValue("minimumThickness", value)} onUnitChange={(unit) => updateFieldUnit("minimumThickness", unit)} onModeChange={(mode) => { if (mode === "manual" && annularResult.automaticMinimumThicknessMm !== null) updateFieldValue("minimumThickness", formatInput(convertSIToUnit(annularResult.automaticMinimumThicknessMm, "length", fields.minimumThickness.unit))); setMinimumThicknessMode(mode); }} />
@@ -365,7 +369,7 @@ export function Api653PlateRemainingLifeCalculator({ onBack, variant, projects, 
             <label className="field"><span>Bottom minimum basis</span><select aria-label="Bottom minimum basis" className="select-control native-select" value={bottomMinimumBasis} onChange={(event) => setBottomMinimumBasis(event.target.value as Api653BottomMinimumThicknessBasis)}><option value="table-4.4-standard">Table 4.4 standard · 2.54 mm</option><option value="table-4.4-reduced">Table 4.4 reduced · 1.27 mm</option><option value="manual-controlled">Controlled manual minimum</option></select><small>Select the applicable route; the reduced route requires explicit condition confirmation.</small></label>
             {bottomMinimumBasis === "table-4.4-reduced" && <label className="field"><span>Reduced-minimum conditions</span><label className="check-row"><input type="checkbox" checked={reducedMinimumCriteriaConfirmed} onChange={(event) => setReducedMinimumCriteriaConfirmed(event.target.checked)} /> All applicable Table 4.4 conditions are confirmed</label><small>The calculation is blocked until this engineering condition is confirmed.</small></label>}
             {bottomMinimumBasis === "manual-controlled" && <UnitInput label="Controlled minimum thickness" field={fields.minimumThickness} options={lengthUnits} help={minimumHelp} onValueChange={(value) => updateFieldValue("minimumThickness", value)} onUnitChange={(unit) => updateFieldUnit("minimumThickness", unit)} />}
-            <label className="field"><span>Projection interval Or</span><div className="number-control"><input aria-label="Projection interval Or" type="number" inputMode="decimal" value={projectionYears} onChange={(event) => setProjectionYears(event.target.value)} /><b>yr</b></div><small>Future interval used directly in MRT = min(RTbc, RTip) − Or(StPr + UPr).</small></label>
+            <label className="field"><span>Projection interval Or</span><div className="number-control"><DecimalNumberInput aria-label="Projection interval Or" type="number" inputMode="decimal" value={projectionYears} onChange={(event) => setProjectionYears(event.target.value)} /><b>yr</b></div><small>Future interval used directly in MRT = min(RTbc, RTip) − Or(StPr + UPr).</small></label>
           </>}
         </div>
         <div className={`form-note ${isAnnular && !annularBasisOk ? "" : "is-valid"}`}>{isAnnular && !annularBasisOk ? <TriangleAlert size={17} /> : <ShieldCheck size={17} />}<p><strong>{copy.routeLabel}</strong> {isAnnular && !annularBasisOk ? error?.message ?? annularResult.minimumSelectionMessage : copy.routeMessage}</p></div>
@@ -456,6 +460,7 @@ export function Api653PlateRemainingLifeCalculator({ onBack, variant, projects, 
       shortRate={bottomInput.yearsSincePreviousInspection > 0 && bottomInput.previousThicknessMm > 0 ? bottomResult.undersideShortTermCorrosionRateMmPerYear : null}
       topRate={bottomResult.topSideCorrosionRateMmPerYear}
       basisReady={bottomResult.generalBottomAssessmentReady} />}
+    {isAnnular && <RemainingLifeAdditions value={repairAdditions} onChange={setRepairAdditions} sources={[{ id: "annular", label: "API 653 annular plate", originalThickness: annularInput.originalThicknessMm, minimumThickness: annularResult.minimumThicknessMmUsed, longRate: annularInput.yearsInService > 0 ? annularResult.longTermCorrosionRateMmPerYear : null, shortRate: annularInput.yearsSincePreviousInspection > 0 && annularInput.previousThicknessMm > 0 ? annularResult.shortTermCorrosionRateMmPerYear : null, ready: annularResult.ok }]} />}
   </div>;
 }
 

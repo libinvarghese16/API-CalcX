@@ -1,3 +1,4 @@
+import { DecimalNumberInput } from "../components/DecimalNumberInput.tsx";
 import { useMemo, useState } from "react";
 import {
   calculateApi570PneumaticTest,
@@ -109,7 +110,7 @@ export function Api570PneumaticTestCalculator({ onBack, onNeedProject, notify, p
             </div>
             <div className="form-grid">
               <label className="field"><span>Piping code basis</span><select aria-label="Piping code basis" className="select-control native-select" value={pipingCode} onChange={(event) => { const next = event.target.value as Api570PneumaticTestCode; setPipingCode(next); if (next === "asme-b31.1" && !(numberFrom(testFactor) >= 1.2 && numberFrom(testFactor) <= 1.5)) setTestFactor("1.2"); }}><option value="asme-b31.3">ASME B31.3 · 1.10 × P</option><option value="asme-b31.1">ASME B31.1 · 1.20–1.50 × P</option><option value="manual-controlled">Controlled project factor</option></select><small>The code route controls the permitted pressure factor; component limits and the approved procedure still govern.</small></label>
-              <label className="field automatic-field"><span>Selected test factor<button type="button" title="B31.3 is fixed at 1.10. B31.1 requires a selected factor from 1.20 through 1.50. Manual mode requires a controlled project value." aria-label="Selected test factor help">?</button></span><div className={`number-control is-derived ${pipingCode === "asme-b31.3" ? "" : "is-manual"}`}><input aria-label="Selected test factor" type="number" inputMode="decimal" value={pipingCode === "asme-b31.3" ? "1.1" : testFactor} readOnly={pipingCode === "asme-b31.3"} onChange={(event) => setTestFactor(event.target.value)} /><b>× P</b></div><small>{pipingCode === "asme-b31.3" ? "Automatically fixed at 1.10 for this route." : pipingCode === "asme-b31.1" ? "Enter a value from 1.20 through 1.50; verify component limits." : "Enter the factor from the controlled construction-code basis."}</small></label>
+              <label className="field automatic-field"><span>Selected test factor<button type="button" title="B31.3 is fixed at 1.10. B31.1 requires a selected factor from 1.20 through 1.50. Manual mode requires a controlled project value." aria-label="Selected test factor help">?</button></span><div className={`number-control is-derived ${pipingCode === "asme-b31.3" ? "" : "is-manual"}`}><DecimalNumberInput aria-label="Selected test factor" type="number" inputMode="decimal" value={pipingCode === "asme-b31.3" ? "1.1" : testFactor} readOnly={pipingCode === "asme-b31.3"} onChange={(event) => setTestFactor(event.target.value)} /><b>× P</b></div><small>{pipingCode === "asme-b31.3" ? "Automatically fixed at 1.10 for this route." : pipingCode === "asme-b31.1" ? "Enter a value from 1.20 through 1.50; verify component limits." : "Enter the factor from the controlled construction-code basis."}</small></label>
               <label className="field">
                 <span>Unit system</span>
                 <select aria-label="Unit system" className="select-control native-select" value={unitSystem} onChange={(event) => changeUnitSystem(event.target.value as UnitSystem)}>
@@ -134,7 +135,7 @@ export function Api570PneumaticTestCalculator({ onBack, onNeedProject, notify, p
               <label className="field">
                 <span>Design pressure P<button type="button" title="Positive design pressure multiplied by the selected code-routed factor." aria-label="Design pressure P help">?</button></span>
                 <div className="number-control">
-                  <input aria-label="Design pressure P" type="number" inputMode="decimal" value={designPressure} onChange={(event) => setDesignPressure(event.target.value)} />
+                  <DecimalNumberInput aria-label="Design pressure P" type="number" inputMode="decimal" value={designPressure} onChange={(event) => setDesignPressure(event.target.value)} />
                   <select className="unit-picker" aria-label="Design pressure P unit" value={designPressureUnit} onChange={(event) => changePressureUnit(event.target.value as EngineeringUnit)}>
                     {pressureUnits.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                   </select>

@@ -1,3 +1,4 @@
+import { DecimalNumberInput } from "../components/DecimalNumberInput.tsx";
 import {
   convertSIToUnit,
   listApi570PipingMaterialGrades,
@@ -88,7 +89,7 @@ export function Api570MaterialStressFields({
     <label className="field">
       <span>{temperatureLabel}<button type="button" title="Temperature is converted to °C before the master-table lookup." aria-label={`${temperatureLabel} help`}>?</button></span>
       <div className="number-control">
-        <input aria-label={temperatureLabel} type="number" inputMode="decimal" value={temperatureField.value} onChange={(event) => onTemperatureValueChange(event.target.value)} />
+        <DecimalNumberInput aria-label={temperatureLabel} type="number" inputMode="decimal" value={temperatureField.value} onChange={(event) => onTemperatureValueChange(event.target.value)} />
         <select className="unit-picker" aria-label={`${temperatureLabel} unit`} value={temperatureField.unit} onChange={(event) => onTemperatureUnitChange(event.target.value as EngineeringUnit)}>
           {temperatureUnits.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
@@ -99,7 +100,7 @@ export function Api570MaterialStressFields({
     <label className="field automatic-field api570-stress-field">
       <span>{stressLabel}<button type="button" title="Automatic mode uses material, grade and temperature. Manual mode keeps the verified override highlighted." aria-label={`${stressLabel} help`}>?</button><button type="button" className={`field-mode-toggle ${stressMode}`} onClick={() => onStressModeChange(stressMode === "auto" ? "manual" : "auto")} aria-label={`Switch ${stressLabel} to ${stressMode === "auto" ? "manual" : "auto"} mode`}>{stressMode}</button></span>
       <div className={`number-control is-derived ${stressMode === "manual" ? "is-manual" : ""}`}>
-        <input aria-label={stressLabel} type="number" inputMode="decimal" value={displayedStress} readOnly={stressMode === "auto"} onChange={(event) => onStressValueChange(event.target.value)} />
+        <DecimalNumberInput aria-label={stressLabel} type="number" inputMode="decimal" value={displayedStress} readOnly={stressMode === "auto"} onChange={(event) => onStressValueChange(event.target.value)} />
         <select className="unit-picker" aria-label={`${stressLabel} unit`} value={stressField.unit} onChange={(event) => onStressUnitChange(event.target.value as EngineeringUnit)}>
           {pressureUnits.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>

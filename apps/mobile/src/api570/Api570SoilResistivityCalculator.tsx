@@ -1,3 +1,4 @@
+import { DecimalNumberInput } from "../components/DecimalNumberInput.tsx";
 import { useMemo, useState } from "react";
 import {
   calculateApi570SoilResistivity,
@@ -50,7 +51,7 @@ function UnitInput({ label, field, options, help, onValueChange, onUnitChange }:
     <label className="field">
       <span>{label}<button type="button" title={help} aria-label={`${label} help`}>?</button></span>
       <div className="number-control">
-        <input aria-label={label} type="number" inputMode="decimal" value={field.value} onChange={(event) => onValueChange(event.target.value)} />
+        <DecimalNumberInput aria-label={label} type="number" inputMode="decimal" value={field.value} onChange={(event) => onValueChange(event.target.value)} />
         <select className="unit-picker" aria-label={`${label} unit`} value={field.unit} onChange={(event) => onUnitChange(event.target.value as EngineeringUnit)}>
           {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
