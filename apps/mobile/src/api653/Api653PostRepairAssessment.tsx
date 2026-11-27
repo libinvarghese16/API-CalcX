@@ -50,7 +50,7 @@ export function Api653PostRepairAssessment({ value, onChange, originalThickness,
   const legacyThickness = Number(value.rtbc) > 0 && Number(value.rtip) > 0 ? Math.min(Number(value.rtbc), Number(value.rtip)) : "";
   const manualThickness = value.remainingThicknessAfterRepair ?? legacyThickness;
   const mfl = convertApi653MflLoss(originalThickness, value.mflLossPercent);
-  const thickness = value.useMflThickness ? mfl.remainingMm ?? "" : manualThickness;
+  const thickness = manualThickness;
   const result = calculateApi653PostRepairLife({
     remainingThickness: thickness, minimumThickness,
     longRate: basisReady ? longRate : NaN, shortRate, topRate,
@@ -71,6 +71,21 @@ export function Api653PostRepairAssessment({ value, onChange, originalThickness,
       <div className="input-column">
         <section className="form-card">
           <div className="form-card-heading"><div><span>01</span><div><h2>Lowest thickness after repair</h2><p>Rates and minimum thickness come from the calculation above.</p></div></div></div>
+          <div className="form-grid">
+            <label className="field"><span>Lowest remaining thickness after repair (mm)</span><div className="number-control"><input aria-label="Lowest remaining thickness after repair (mm)" type="number" inputMode="decimal" min="0" step="any" value={thickness} onChange={event => onChange({ ...value, remainingThicknessAfterRepair: event.target.value })} /><b>mm</b></div><small>Use the lowest measured thickness of the original floor left in service. Do not add patch thickness to this value.</small></label>
+            <label className="field"><span>Minimum required thickness (mm)</span><div className="number-control"><input aria-label="Post-repair minimum thickness" readOnly value={display(minimumThickness)} /><b>mm</b></div><small>Uses the minimum selected above.</small></label>
+          </div>
+          <p className="post-repair-help"><strong>Use the higher corrosion rate, even after patch repair.</strong> Keep the inspection readings above unchanged; enter the after-repair thickness only here.</p>
+          <p className="post-repair-help">Remaining life = (lowest after-repair thickness − minimum required thickness) ÷ (higher soil-side rate + product-side rate).</p>
+        </section>
+      </div>
+      <aside className="result-column"><Results result={result} /><div className="post-repair-actions"><button type="button" className="secondary-button" onClick={download}>Download post-repair report</button></div></aside>
+    </div>
+    <h2 className="post-repair-heading">Additional checks</h2>
+    <div className="calculator-workspace post-repair-additions">
+      <div className="input-column">
+        <section className="form-card">
+          <div className="form-card-heading"><div><span>02</span><div><h2>MFL percentage to mm</h2><p>Separate converter. Your thickness above stays unchanged unless you apply the result.</p></div></div></div>
           <label className="post-repair-check"><input type="checkbox" checked={Boolean(value.useMflThickness)} onChange={event => onChange({ ...value, useMflThickness: event.target.checked })} />Use MFL inspection metal loss (%)</label>
           {value.useMflThickness && <>
             <div className="form-grid">
@@ -78,21 +93,16 @@ export function Api653PostRepairAssessment({ value, onChange, originalThickness,
               <label className="field"><span>MFL metal loss (%)</span><div className="number-control"><input aria-label="MFL metal loss (%)" type="number" inputMode="decimal" min="0" max="100" step="any" value={value.mflLossPercent ?? ""} onChange={event => onChange({ ...value, mflLossPercent: event.target.value })} /><b>%</b></div><small>Percentage lost, not percentage remaining. Use the highest reported loss in the retained floor, not a repair cutoff.</small></label>
             </div>
             <MflResult result={mfl} />
+            <button type="button" className="secondary-button" disabled={mfl.remainingMm === null} onClick={() => onChange({ ...value, remainingThicknessAfterRepair: mfl.remainingMm ?? "" })}>Use converted thickness above</button>
           </>}
-          <div className="form-grid">
-            <label className="field"><span>Lowest remaining thickness after repair (mm)</span><div className="number-control"><input aria-label="Lowest remaining thickness after repair (mm)" type="number" inputMode="decimal" min="0" step="any" readOnly={Boolean(value.useMflThickness)} value={thickness} onChange={event => onChange({ ...value, remainingThicknessAfterRepair: event.target.value })} /><b>mm</b></div><small>{value.useMflThickness ? "Converted automatically from MFL metal loss." : "Use the lowest measured thickness of the original floor left in service. Do not add patch thickness to this value."}</small></label>
-            <label className="field"><span>Minimum required thickness (mm)</span><div className="number-control"><input aria-label="Post-repair minimum thickness" readOnly value={display(minimumThickness)} /><b>mm</b></div><small>Uses the minimum selected above.</small></label>
-          </div>
-          <p className="post-repair-help"><strong>Use the higher corrosion rate, even after patch repair.</strong> Keep the inspection readings above unchanged; enter the after-repair thickness only here.</p>
-          <p className="post-repair-help">Remaining life = (lowest after-repair thickness − minimum required thickness) ÷ (higher soil-side rate + product-side rate).</p>
         </section>
         <section className="form-card">
-          <div className="form-card-heading"><div><span>02</span><div><h2>Check an operating interval</h2><p>Calculate how much thickness you need now for X years.</p></div></div></div>
+          <div className="form-card-heading"><div><span>03</span><div><h2>Check an operating interval</h2><p>Calculate how much thickness you need now for X years.</p></div></div></div>
           <div className="form-grid"><label className="field"><span>Operating interval (years)</span><div className="number-control"><input aria-label="Post-repair operating interval (years)" type="number" inputMode="decimal" min="0" step="any" value={value.intervalYears ?? ""} onChange={event => onChange({ ...value, intervalYears: event.target.value })} /><b>yr</b></div></label></div>
           <p className="post-repair-help">Required thickness now = minimum thickness + (years × governing total corrosion rate).</p>
         </section>
       </div>
-      <aside className="result-column"><Results result={result} /><IntervalResults result={interval} /><div className="post-repair-actions"><button type="button" className="secondary-button" onClick={download}>Download post-repair report</button></div></aside>
+      <aside className="result-column"><IntervalResults result={interval} /></aside>
     </div>
   </section>;
 }

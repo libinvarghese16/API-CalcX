@@ -15,7 +15,7 @@ Browser comparison uses the actual existing bottom calculator: original 6, previ
 ## MFL and interval extension
 
 - MFL is explicitly percentage metal loss: lost mm = original mm × loss% / 100; remaining mm = original mm − lost mm. The original thickness is read from the existing calculator in SI. A repair cutoff is not treated as a measurement.
-- With MFL enabled, converted remaining thickness feeds the same life calculation without changing history rates. Turning it off restores the previous manual thickness. Percent values outside 0–100 or missing inputs are blocked; 100% loss produces zero remaining life.
+- MFL is a separate addition below the unchanged after-repair card. Enabling it or editing its percentage does not change the manual thickness or remaining life. Only the explicit Use converted thickness above button copies the conversion into the original field. Percent values outside 0–100 or missing inputs are blocked; 100% loss produces zero remaining life.
 - Required current thickness = minimum + years × (max(long-term, short-term) + product-side rate). This can be calculated even before a current thickness is entered.
 - Golden case (tolerance 1e-10): original 6 mm, 38% loss → 2.28 mm lost / 3.72 mm remaining. At ST 1.1/2.68, top 0, minimum 2.54, six years requires 5.002686567164179 mm; 3.72 mm projects to 1.257313432835821 mm.
 - An inverse check against the existing bottom engine returns projected MRT 2.54 mm when starting at the calculated required thickness, including a nonzero top-side rate.
