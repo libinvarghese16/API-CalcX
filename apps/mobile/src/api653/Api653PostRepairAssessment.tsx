@@ -56,9 +56,9 @@ function IntervalResults({ result }: { result: Api653BottomIntervalResult }) {
   </section>;
 }
 
-export function Api653PostRepairAssessment({ value, onChange, originalThickness, minimumThickness, longRate, shortRate, topRate, basisReady, wall = false, assessmentLabel = "Bottom plate" }: {
+export function Api653PostRepairAssessment({ value, onChange, originalThickness, minimumThickness, longRate, shortRate, topRate, basisReady, wall = false, showMfl = true, assessmentLabel = "Bottom plate" }: {
   value: Api653PostRepairInput; onChange: (value: Api653PostRepairInput) => void;
-  originalThickness: number; minimumThickness: number; longRate: number | null; shortRate: number | null; topRate: number; basisReady: boolean; wall?: boolean; assessmentLabel?: string;
+  originalThickness: number; minimumThickness: number; longRate: number | null; shortRate: number | null; topRate: number; basisReady: boolean; wall?: boolean; showMfl?: boolean; assessmentLabel?: string;
 }) {
   // Keep old saved assessment data intact; carry forward only its measured retained minimum.
   const legacyThickness = Number(value.rtbc) > 0 && Number(value.rtip) > 0 ? Math.min(Number(value.rtbc), Number(value.rtip)) : "";
@@ -75,7 +75,7 @@ export function Api653PostRepairAssessment({ value, onChange, originalThickness,
     years: value.intervalYears ?? "", currentThickness: thickness,
   });
   const download = () => {
-    const markup = renderToStaticMarkup(<html><head><meta charSet="utf-8" /><title>Remaining life after repair</title><style>{"body{font:14px Arial;margin:32px;line-height:1.6}.result-comparison{display:grid;gap:12px}.result-comparison span{display:block}.result-comparison strong{margin-left:12px}"}</style></head><body><h1>{assessmentLabel} — remaining life after repair</h1><p>Lowest remaining thickness: {thickness === "" ? "—" : display(Number(thickness))} mm. Minimum required: {display(minimumThickness)} mm.</p><p>Use the higher long-term or short-term corrosion rate from the inspection history. Repair does not reset the history rates.</p>{value.useMflThickness && <MflResult result={mfl} />}<Results result={result} wall={wall} /><IntervalResults result={interval} /></body></html>);
+    const markup = renderToStaticMarkup(<html><head><meta charSet="utf-8" /><title>Remaining life after repair</title><style>{"body{font:14px Arial;margin:32px;line-height:1.6}.result-comparison{display:grid;gap:12px}.result-comparison span{display:block}.result-comparison strong{margin-left:12px}"}</style></head><body><h1>{assessmentLabel} — remaining life after repair</h1><p>Lowest remaining thickness: {thickness === "" ? "—" : display(Number(thickness))} mm. Minimum required: {display(minimumThickness)} mm.</p><p>Use the higher long-term or short-term corrosion rate from the inspection history. Repair does not reset the history rates.</p>{showMfl && value.useMflThickness && <MflResult result={mfl} />}<Results result={result} wall={wall} /><IntervalResults result={interval} /></body></html>);
     const url = URL.createObjectURL(new Blob(["<!doctype html>" + markup], { type: "text/html" }));
     const anchor = document.createElement("a"); anchor.href = url; anchor.download = "remaining-life-after-repair.html"; anchor.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -94,7 +94,7 @@ export function Api653PostRepairAssessment({ value, onChange, originalThickness,
           <p className="post-repair-help">Remaining life = (lowest after-repair thickness − minimum required thickness) ÷ {wall ? "governing corrosion rate." : "(higher soil-side rate + product-side rate)."}</p>
         </section>
         <h2 className="post-repair-additions-heading">Additional checks</h2>
-        <section className="form-card post-repair-mfl">
+        {showMfl && <section className="form-card post-repair-mfl">
           <div className="form-card-heading"><div><span>02</span><div><h2>MFL percentage to mm</h2><p>Separate converter. Your thickness above stays unchanged unless you apply the result.</p></div></div></div>
           <label className="post-repair-check"><input type="checkbox" checked={Boolean(value.useMflThickness)} onChange={event => onChange({ ...value, useMflThickness: event.target.checked })} />Use MFL inspection metal loss (%)</label>
           {value.useMflThickness && <>
@@ -105,9 +105,9 @@ export function Api653PostRepairAssessment({ value, onChange, originalThickness,
             <MflResult result={mfl} />
             <button type="button" className="secondary-button" disabled={mfl.remainingMm === null} onClick={() => onChange({ ...value, remainingThicknessAfterRepair: mfl.remainingMm ?? "" })}>Use converted thickness above</button>
           </>}
-        </section>
+        </section>}
         <section className="form-card">
-          <div className="form-card-heading"><div><span>03</span><div><h2>Check an operating interval</h2><p>Calculate how much thickness you need now for X years.</p></div></div></div>
+          <div className="form-card-heading"><div><span>{showMfl ? "03" : "02"}</span><div><h2>Check an operating interval</h2><p>Calculate how much thickness you need now for X years.</p></div></div></div>
           <div className="form-grid"><label className="field"><span>Operating interval (years)</span><div className="number-control"><DecimalNumberInput aria-label="Post-repair operating interval (years)" type="number" inputMode="decimal" min="0" step="any" value={value.intervalYears ?? ""} onChange={event => onChange({ ...value, intervalYears: event.target.value })} /><b>yr</b></div></label></div>
           <p className="post-repair-help">Required thickness now = minimum thickness + (years × governing total corrosion rate).</p>
         </section>

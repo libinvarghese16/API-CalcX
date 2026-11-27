@@ -1696,7 +1696,7 @@ function CalculatorPreview({ onBack, onNeedProject, notify, projects, initialCal
           <div className="sticky-actions"><button className="secondary-button" onClick={openReview}><ShieldCheck size={17} /> Review</button><button className="primary-button report-preview-button" onClick={openReportPreview}><FileText size={17} /> Report</button></div>
         </aside>
       </div>
-      <RemainingLifeAdditions value={repairAdditions} onChange={setRepairAdditions} sources={[{ id: component, label: componentLabel, originalThickness: originalThicknessMm, minimumThickness: result.minimumThicknessUsedMm, longRate: selectedServiceYears.value > 0 ? result.longTermCorrosionRateMmPerYear : null, shortRate: selectedInspectionYears.value > 0 && previousThicknessMm > 0 ? result.shortTermCorrosionRateMmPerYear : null, ready: result.ok }]} />
+      <RemainingLifeAdditions showMfl={false} value={repairAdditions} onChange={setRepairAdditions} sources={[{ id: component, label: componentLabel, originalThickness: originalThicknessMm, minimumThickness: result.minimumThicknessUsedMm, longRate: selectedServiceYears.value > 0 ? result.longTermCorrosionRateMmPerYear : null, shortRate: selectedInspectionYears.value > 0 && previousThicknessMm > 0 ? result.shortTermCorrosionRateMmPerYear : null, ready: result.ok }]} />
       {saveDialogOpen ? (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSaveDialogOpen(false); }}>
           <section className="modal-card save-calculation-modal" role="dialog" aria-modal="true" aria-labelledby="save-calculation-title">

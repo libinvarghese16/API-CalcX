@@ -7,6 +7,9 @@ import "@fontsource/inter/latin-700.css";
 import "@fontsource/ibm-plex-mono/latin-500.css";
 import "./styles.css";
 import App from "./App";
+import { installTypingOnlyNumberInputs } from "./components/typing-only-number-inputs";
+
+installTypingOnlyNumberInputs(document);
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
