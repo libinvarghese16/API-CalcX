@@ -171,6 +171,7 @@ export type {
   FlatCircularHeadResultSI,
 } from "./contracts.ts";
 
-export { calculateApi653PostRepair, calculateApi653PostRepairLife, postRepairYearsBetween } from "./api653/post-repair-bottom.ts";
+export { calculateApi653PostRepair, calculateApi653PostRepairLife, calculateApi653BottomInterval, convertApi653MflLoss, postRepairYearsBetween } from "./api653/post-repair-bottom.ts";
+export type { Api653BottomIntervalResult, Api653MflLossResult } from "./api653/post-repair-bottom.ts";
 export type { Api653PostRepairLifeInput, Api653PostRepairLifeResult } from "./api653/post-repair-bottom.ts";
 export type { Api653PostRepairInput, Api653PostRepairPatch, Api653PostRepairAreaResult, Api653PostRepairResult } from "./api653/post-repair-bottom.ts";

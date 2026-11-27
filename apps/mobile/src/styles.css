@@ -1079,7 +1079,16 @@ body, .app-shell, .main-area { min-height: 100dvh; }
 .number-control.service-date-control select { width: 100%; min-width: 0; border: 0; border-left: 1px solid var(--line); border-radius: 0; padding: 0 10px; color: var(--text); background: var(--surface-soft); font: inherit; }
 /* Post-repair uses the existing calculator workspace, cards and field spacing. */
 .post-repair-assessment { min-width: 0; }
-.post-repair-assessment > summary { cursor: pointer; width: min(1390px,100%); box-sizing: border-box; margin: 0 auto; padding: 22px clamp(22px,4vw,58px); font-size: 18px; font-weight: 700; border-top: 1px solid var(--line); }
+.api653-bottom-page > .calculator-workspace { padding-bottom: 16px; align-items: start; }
+.post-repair-heading { width: min(1390px,100%); box-sizing: border-box; margin: 0 auto; padding: 0 clamp(22px,4vw,58px); font-size: 18px; font-weight: 700; }
+.post-repair-assessment > .calculator-workspace { padding-top: 16px; }
+.post-repair-check { display: flex; align-items: center; gap: 10px; margin: 0 0 18px; color: var(--text-soft); font-size: 12px; line-height: 1.5; }
+.post-repair-check input { flex-shrink: 0; width: 18px; height: 18px; accent-color: var(--primary); }
+.post-repair-interval p { color: var(--text-soft); font-size: 12px; line-height: 1.6; }
+.post-repair-interval p strong { color: var(--text); font: inherit; font-weight: 650; }
+.post-repair-interval .post-repair-required { font-size: 24px; }
+input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .post-repair-assessment .input-column, .post-repair-assessment .result-column { min-width: 0; align-content: start; }
 .post-repair-help { color: var(--text-soft); font-size: 12px; line-height: 1.65; overflow-wrap: anywhere; }
 .post-repair-results.result-card { position: static; min-width: 0; }
@@ -1089,4 +1098,4 @@ body, .app-shell, .main-area { min-height: 100dvh; }
 .post-repair-results .result-comparison strong { overflow-wrap: anywhere; }
 .post-repair-actions { display: flex; flex-wrap: wrap; gap: 12px; }
 @media (max-width: 1100px) { .post-repair-assessment .result-column { display: flex; flex-direction: column; } }
-@media (max-width: 600px) { .post-repair-assessment > summary { padding: 18px 16px; } }
+@media (max-width: 600px) { .post-repair-heading { padding: 0 16px; } }

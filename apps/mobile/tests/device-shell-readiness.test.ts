@@ -29,7 +29,7 @@ test("registers an offline shell only in production builds", () => {
   assert.match(mainSource, /import\.meta\.env\.PROD/);
   assert.match(mainSource, /navigator\.serviceWorker\.register\("\/sw\.js"\)/);
   assert.match(serviceWorker, /importScripts\("\/precache-manifest\.js"\)/);
-  assert.match(serviceWorker, /api-calc-pro-mobile-v6-simple-repair-life/);
+  assert.match(serviceWorker, /api-calc-pro-mobile-v7-mfl-interval/);
   assert.match(serviceWorker, /request\.mode === "navigate"/);
   assert.match(serviceWorker, /contentType\.includes\("text\/html"\)/);
   assert.match(serviceWorker, /caches\.match\("\/"\)/);

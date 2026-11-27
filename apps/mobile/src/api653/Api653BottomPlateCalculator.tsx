@@ -450,6 +450,7 @@ export function Api653PlateRemainingLifeCalculator({ onBack, variant, projects, 
       </section>
     </aside></div>
     {!isAnnular && <Api653PostRepairAssessment value={postRepair} onChange={setPostRepair}
+      originalThickness={bottomResult.originalThicknessMmUsed}
       minimumThickness={bottomResult.minimumThicknessMmUsed}
       longRate={bottomInput.yearsInService > 0 ? bottomResult.undersideLongTermCorrosionRateMmPerYear : null}
       shortRate={bottomInput.yearsSincePreviousInspection > 0 && bottomInput.previousThicknessMm > 0 ? bottomResult.undersideShortTermCorrosionRateMmPerYear : null}

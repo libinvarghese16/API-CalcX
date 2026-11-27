@@ -3,6 +3,9 @@ export interface Api653PostRepairPatch {
 }
 export interface Api653PostRepairInput {
  remainingThicknessAfterRepair?: string | number;
+ useMflThickness?: boolean;
+ mflLossPercent?: string | number;
+ intervalYears?: string | number;
  buildDate?: string; previousDate?: string; assessmentDate?: string;
  originalThickness?: string | number; rtbc?: string | number; rtip?: string | number; minimumThickness?: string | number; proposedYears?: string | number;
  minimumBasis?: string; retainedVerified?: boolean; thicknessEvidence?: string; repairsComplete?: boolean; criticalReviewed?: boolean; annularReviewed?: boolean; reviewReference?: string;
@@ -114,7 +117,7 @@ export interface Api653PostRepairLifeInput {
 /** Retained-floor life only: repairs change the thickness basis, never the history rates. */
 export function calculateApi653PostRepairLife(input: Api653PostRepairLifeInput) {
     const errors: string[] = [];
-    if (!positive(input.remainingThickness)) errors.push('Enter the lowest remaining thickness after repair.');
+    if (!nonnegative(input.remainingThickness)) errors.push('Enter the lowest remaining thickness after repair (zero or greater).');
     if (!positive(input.minimumThickness)) errors.push('Complete the minimum thickness basis above.');
     const validRate = (rate: number | null) => rate !== null && Number.isFinite(rate) && rate >= 0;
     if (input.longRate !== null && !validRate(input.longRate)) errors.push('Correct the long-term corrosion rate basis above.');
@@ -132,3 +135,31 @@ export function calculateApi653PostRepairLife(input: Api653PostRepairLifeInput) 
 }
 
 export type Api653PostRepairLifeResult = ReturnType<typeof calculateApi653PostRepairLife>;
+
+/** MFL input is percentage metal loss, not percentage remaining. */
+export function convertApi653MflLoss(originalThickness: Numeric, lossPercent: Numeric) {
+    const errors: string[] = [];
+    if (!positive(originalThickness)) errors.push('Enter an original plate thickness greater than zero above.');
+    if (!nonnegative(lossPercent) || Number(lossPercent) > 100) errors.push('Enter MFL metal loss from 0 to 100%.');
+    const lossMm = errors.length ? null : Number(originalThickness) * Number(lossPercent) / 100;
+    const remainingMm = lossMm === null ? null : Number(originalThickness) - lossMm;
+    return { originalThickness: Number(originalThickness), lossPercent: Number(lossPercent), lossMm, remainingMm, errors };
+}
+
+export function calculateApi653BottomInterval(input: Omit<Api653PostRepairLifeInput, 'remainingThickness'> & {
+    years: Numeric; currentThickness?: Numeric;
+}) {
+    // Reuse the exact same maximum-rate selection and minimum/rate validation as remaining life.
+    const basis = calculateApi653PostRepairLife({ ...input, remainingThickness: input.minimumThickness });
+    const errors = [...basis.errors];
+    if (!nonnegative(input.years)) errors.push('Enter an interval of zero years or greater.');
+    const years = Number(input.years);
+    const requiredThickness = errors.length ? null : input.minimumThickness + years * basis.totalRate;
+    const currentThickness = nonnegative(input.currentThickness) ? Number(input.currentThickness) : null;
+    const projectedThickness = requiredThickness !== null && currentThickness !== null ? currentThickness - years * basis.totalRate : null;
+    const adequate = requiredThickness !== null && currentThickness !== null ? currentThickness >= requiredThickness : null;
+    return { years, minimumThickness: input.minimumThickness, totalRate: basis.totalRate, requiredThickness, currentThickness, projectedThickness, adequate, errors };
+}
+
+export type Api653BottomIntervalResult = ReturnType<typeof calculateApi653BottomInterval>;
+export type Api653MflLossResult = ReturnType<typeof convertApi653MflLoss>;
