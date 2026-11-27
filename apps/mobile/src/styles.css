@@ -1085,6 +1085,9 @@ body, .app-shell, .main-area { min-height: 100dvh; }
 .post-repair-assessment > .calculator-workspace:not(:last-child) { padding-bottom: 16px; }
 .post-repair-check { display: flex; align-items: center; gap: 10px; margin: 0 0 18px; color: var(--text-soft); font-size: 12px; line-height: 1.5; }
 .post-repair-check input { flex-shrink: 0; width: 18px; height: 18px; accent-color: var(--primary); }
+.post-repair-additions { align-items: start; }
+.post-repair-mfl .post-repair-help { margin: 16px 0; }
+.post-repair-mfl .post-repair-help p { margin: 0; }
 .post-repair-interval p { color: var(--text-soft); font-size: 12px; line-height: 1.6; }
 .post-repair-interval p strong { color: var(--text); font: inherit; font-weight: 650; }
 .post-repair-interval .post-repair-required { font-size: 24px; }

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { calculateApi653PostRepairLife, calculateApi653BottomInterval, convertApi653MflLoss } from "@api-calc-pro/calc-engine";
 import type { Api653PostRepairInput, Api653PostRepairLifeResult, Api653BottomIntervalResult, Api653MflLossResult } from "@api-calc-pro/calc-engine";
@@ -25,8 +26,19 @@ function Results({ result }: { result: Api653PostRepairLifeResult }) {
   </section>;
 }
 
+const mflDisplay = (value: number | null) => value === null || !Number.isFinite(value) ? "—" : value.toFixed(2);
+
+function MflNumberField({ label, ariaLabel, value, unit, help, onChange, max }: {
+  label: string; ariaLabel: string; value: string | number; unit: string; help: string; onChange: (value: string) => void; max?: number;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(String(value));
+  const shown = editing ? draft : value === "" || !Number.isFinite(Number(value)) ? value : Number(value).toFixed(2);
+  return <label className="field"><span>{label}</span><div className="number-control"><input aria-label={ariaLabel} type="number" inputMode="decimal" min="0" max={max} step="any" value={shown} onFocus={event => { setDraft(event.currentTarget.value); setEditing(true); }} onBlur={() => setEditing(false)} onChange={event => { setDraft(event.target.value); onChange(event.target.value); }} /><b>{unit}</b></div><small>{help}</small></label>;
+}
+
 function MflResult({ result }: { result: Api653MflLossResult }) {
-  return <div className="post-repair-help" aria-live="polite">{result.errors.length ? result.errors.map(error => <p key={error}>{error}</p>) : <p><strong>{display(result.lossPercent)}% loss of {display(result.originalThickness)} mm = {display(result.lossMm)} mm lost; {display(result.remainingMm)} mm remaining.</strong></p>}</div>;
+  return <div className="post-repair-help" aria-live="polite">{result.errors.length ? result.errors.map(error => <p key={error}>{error}</p>) : <p><strong>{mflDisplay(result.lossPercent)}% loss of {mflDisplay(result.originalThickness)} mm = {mflDisplay(result.lossMm)} mm lost; {mflDisplay(result.remainingMm)} mm remaining.</strong></p>}</div>;
 }
 
 function IntervalResults({ result }: { result: Api653BottomIntervalResult }) {
@@ -49,7 +61,8 @@ export function Api653PostRepairAssessment({ value, onChange, originalThickness,
   // Keep old saved assessment data intact; carry forward only its measured retained minimum.
   const legacyThickness = Number(value.rtbc) > 0 && Number(value.rtip) > 0 ? Math.min(Number(value.rtbc), Number(value.rtip)) : "";
   const manualThickness = value.remainingThicknessAfterRepair ?? legacyThickness;
-  const mfl = convertApi653MflLoss(originalThickness, value.mflLossPercent);
+  const mflOriginalThickness = value.mflOriginalThickness ?? originalThickness;
+  const mfl = convertApi653MflLoss(mflOriginalThickness, value.mflLossPercent);
   const thickness = manualThickness;
   const result = calculateApi653PostRepairLife({
     remainingThickness: thickness, minimumThickness,
@@ -84,13 +97,13 @@ export function Api653PostRepairAssessment({ value, onChange, originalThickness,
     <h2 className="post-repair-heading">Additional checks</h2>
     <div className="calculator-workspace post-repair-additions">
       <div className="input-column">
-        <section className="form-card">
+        <section className="form-card post-repair-mfl">
           <div className="form-card-heading"><div><span>02</span><div><h2>MFL percentage to mm</h2><p>Separate converter. Your thickness above stays unchanged unless you apply the result.</p></div></div></div>
           <label className="post-repair-check"><input type="checkbox" checked={Boolean(value.useMflThickness)} onChange={event => onChange({ ...value, useMflThickness: event.target.checked })} />Use MFL inspection metal loss (%)</label>
           {value.useMflThickness && <>
             <div className="form-grid">
-              <label className="field"><span>Original plate thickness (mm)</span><div className="number-control"><input aria-label="MFL original plate thickness (mm)" readOnly value={display(originalThickness)} /><b>mm</b></div><small>Uses the original thickness entered above.</small></label>
-              <label className="field"><span>MFL metal loss (%)</span><div className="number-control"><input aria-label="MFL metal loss (%)" type="number" inputMode="decimal" min="0" max="100" step="any" value={value.mflLossPercent ?? ""} onChange={event => onChange({ ...value, mflLossPercent: event.target.value })} /><b>%</b></div><small>Percentage lost, not percentage remaining. Use the highest reported loss in the retained floor, not a repair cutoff.</small></label>
+              <MflNumberField label="Original plate thickness (mm)" ariaLabel="MFL original plate thickness (mm)" value={mflOriginalThickness} unit="mm" help="Starts with the original thickness above. You can edit it for this converter." onChange={next => onChange({ ...value, mflOriginalThickness: next })} />
+              <MflNumberField label="MFL metal loss (%)" ariaLabel="MFL metal loss (%)" value={value.mflLossPercent ?? ""} unit="%" max={100} help="Percentage lost, not percentage remaining. Use the highest reported loss in the retained floor, not a repair cutoff." onChange={next => onChange({ ...value, mflLossPercent: next })} />
             </div>
             <MflResult result={mfl} />
             <button type="button" className="secondary-button" disabled={mfl.remainingMm === null} onClick={() => onChange({ ...value, remainingThicknessAfterRepair: mfl.remainingMm ?? "" })}>Use converted thickness above</button>

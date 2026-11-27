@@ -5,6 +5,7 @@ export interface Api653PostRepairInput {
  remainingThicknessAfterRepair?: string | number;
  useMflThickness?: boolean;
  mflLossPercent?: string | number;
+ mflOriginalThickness?: string | number;
  intervalYears?: string | number;
  buildDate?: string; previousDate?: string; assessmentDate?: string;
  originalThickness?: string | number; rtbc?: string | number; rtip?: string | number; minimumThickness?: string | number; proposedYears?: string | number;
