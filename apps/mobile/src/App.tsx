@@ -1,3 +1,5 @@
+import { AccountSecurityGate, useAccountAccess } from "./account/AccountSecurityGate.tsx";
+import { AccountManagement } from "./account/AccountManagement.tsx";
 import { DecimalNumberInput } from "./components/DecimalNumberInput.tsx";
 import { RemainingLifeAdditions } from "./components/RemainingLifeAdditions.tsx";
 import type { RemainingLifeAdditionsState } from "./components/RemainingLifeAdditions.tsx";
@@ -516,7 +518,7 @@ function App() {
   } : defaultTitle;
 
   return (
-    <div className="app-shell" onClickCapture={openFieldHelp}>
+    <AccountSecurityGate key={authentication.user?.uid ?? "signed-out"} authentication={authentication}><div className="app-shell" onClickCapture={openFieldHelp}>
       <aside className={mobileMenu ? "side-nav mobile-open" : "side-nav"} aria-label="Primary navigation">
         <div className="brand-block">
           <img src="/brand/api-calc-mark.png" alt="API Calc Pro" className="brand-mark" />
@@ -755,7 +757,7 @@ function App() {
       )}
       {fieldHelp ? <FieldHelpDialog content={fieldHelp} onClose={() => setFieldHelp(null)} /> : null}
       {accessGateVisible ? <AccessGate authentication={authentication} onContinueAsGuest={() => { setGuestAccess(true); setPage("calculators"); setMobileMenu(false); }} /> : null}
-    </div>
+    </div></AccountSecurityGate>
   );
 }
 
@@ -1044,6 +1046,7 @@ function ReportsPage({ projects, notify, onOpenCalculation, onOpenApi570Calculat
 }
 
 function AccountPage({ projects, theme, preferredUnitSystem, authentication, notify, onThemeChange, onPreferredUnitSystemChange, onExportWorkspace, onPreviewBackup, onImportBackup }: { projects: LocalProject[]; theme: Theme; preferredUnitSystem: UnitSystem; authentication: AuthenticationSession; notify: (message: string) => void; onThemeChange: (theme: Theme) => void; onPreferredUnitSystemChange: (unitSystem: UnitSystem) => void; onExportWorkspace: () => void; onPreviewBackup: (raw: string) => WorkspaceBackupPreview; onImportBackup: (raw: string) => WorkspaceImportResult }) {
+  const accountAccess = useAccountAccess();
   const [backupOpen, setBackupOpen] = useState(false);
   const [accountDialog, setAccountDialog] = useState<AccountDialog | null>(null);
   const openBackup = () => {
@@ -1073,9 +1076,10 @@ function AccountPage({ projects, theme, preferredUnitSystem, authentication, not
             <p>Permanent access to Version 1 calculators, projects, reports, and purchase restoration.</p>
             <ul><li><Check size={16} /> API 510, 570 and 653</li><li><Check size={16} /> API 571 reference guidance</li><li><Check size={16} /> Offline calculations and reports</li></ul>
           </div>
-          <div className="lifetime-price"><small>Access status</small><strong>Not active</strong><button onClick={() => setAccountDialog("restore-purchase")}><RotateCcw size={17} /> Restore purchase</button></div>
+          <div className="lifetime-price"><small>Access status</small><strong>{accountAccess?.owner ? "Owner access" : accountAccess?.paidAccess === true ? "Granted" : accountAccess?.paidAccess === false ? "Revoked" : "Not verified"}</strong><button onClick={() => setAccountDialog("restore-purchase")}><RotateCcw size={17} /> Restore purchase</button></div>
         </article>
 
+        <AccountManagement key={authentication.user?.uid} user={authentication.user} />
         <section className="settings-card">
           <div className="section-heading"><div><p className="eyebrow">Preferences</p><h2>Account settings</h2></div></div>
           {[

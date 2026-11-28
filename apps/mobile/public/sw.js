@@ -1,6 +1,6 @@
 importScripts("/precache-manifest.js");
 
-const CACHE_NAME = "api-calc-pro-mobile-v11-typing-only";
+const CACHE_NAME = "api-calc-pro-mobile-v12-owner-security";
 const APP_SHELL = self.__API_CALC_PRECACHE ?? ["/", "/manifest.webmanifest", "/brand/api-calc-mark.png"];
 
 self.addEventListener("install", (event) => {
@@ -19,7 +19,7 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
   const url = new URL(request.url);
-  if (url.origin !== self.location.origin) return;
+  if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
 
   if (request.mode === "navigate") {
     event.respondWith(

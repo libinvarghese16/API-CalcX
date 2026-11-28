@@ -76,6 +76,8 @@ export function useAuthenticationSession(): AuthenticationSession {
     setError(null);
     try {
       const { signOutAuthenticatedUser } = await import("./auth-service.ts");
+      const { lockOwnerPinSessions } = await import("./admin-api.ts");
+      await lockOwnerPinSessions();
       await signOutAuthenticatedUser();
       setUser(null);
     } catch (signOutError: unknown) {

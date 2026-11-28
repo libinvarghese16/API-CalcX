@@ -9,14 +9,18 @@
   "scripts": {
     "dev": "npm run dev --workspace @api-calc-pro/mobile",
     "build": "npm run build --workspace @api-calc-pro/mobile && node tools/prepare-vercel-output.mjs",
-    "test": "npm run test --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present && npm run test:admin",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "refresh:materials": "node tools/build-pv-material-catalog.mjs",
     "verify:materials": "node tools/build-pv-material-catalog.mjs --check",
     "verify:baseline": "node tools/verify-source-baseline.mjs",
-    "check": "npm run verify:baseline && npm run verify:materials && npm run test && npm run typecheck && npm run build"
+    "check": "npm run verify:baseline && npm run verify:materials && npm run test && npm run typecheck && npm run build",
+    "test:admin": "node --test server/tests/*.test.mjs"
   },
   "engines": {
     "node": ">=22"
+  },
+  "dependencies": {
+    "firebase-admin": "^14.5.1"
   }
 }
