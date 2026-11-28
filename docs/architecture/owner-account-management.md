@@ -33,6 +33,8 @@ The implementation is inactive until the server is configured. No credentials ar
 
 ## Verification
 
+Firebase Admin is pinned to 14.5.1. The npm override pins its only `jwks-rsa` dependency to 3.2.2 because Vercel's runtime rejects the CommonJS `require('jose')` used by jwks-rsa 4 with ESM-only jose 6. The runtime regression test loads the actual endpoint with CommonJS-to-ESM require disabled and resolves a generated RSA signing key through the installed JWKS client. Recheck this test and production startup before removing the override.
+
 `npm test` includes existing calculator suites and server security regression tests. `tools/test-account-management-browser.cjs` checks owner visibility, PIN flows, confirmations, expiry behavior, and responsive UI using local mocked backend responses. These tests do not substitute for the production activation checks above.
 
 Sources: [Firebase token verification](https://firebase.google.com/docs/auth/admin/verify-id-tokens), [Firebase session revocation](https://firebase.google.com/docs/auth/admin/manage-sessions), [custom claims](https://firebase.google.com/docs/auth/admin/custom-claims), [Firestore server access and rules](https://firebase.google.com/docs/firestore/security/rules-conditions).
