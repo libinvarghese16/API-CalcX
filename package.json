@@ -22,5 +22,6 @@
   },
   "dependencies": {
     "firebase-admin": "^14.5.1"
-  }
+  },
+  "packageManager": "npm@11.11.0"
 }
